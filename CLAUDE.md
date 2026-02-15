@@ -93,10 +93,18 @@ No build system, test runner, or linter is configured yet. Update this section a
 - **Required**: Export a decklist to a **plain text file**.
 - **Optional**: Export a decklist to a **CSV file**.
 
+### Validation
+
+- The MVP does **not** enforce semantic validation on slots. For example, placing a sorcery card in a "Lands" slot or an invalid commander in the commander slot will **not** raise an error.
+- When Scryfall integration is enabled, the app **should warn** if:
+  - A card is not found in the Scryfall database.
+  - A card is found but is not legal in the Commander format.
+
 ### Scryfall Integration
 
 - The app **may** pull card information from the [Scryfall API](https://scryfall.com/docs/api) as an enrichment layer (art, oracle text, legality, etc.).
 - Scryfall data is **not required** to add or remove cards from a decklist. The core decklist operations must work offline / without API access.
+- When enabled, Scryfall integration provides **warnings** (not errors) for unrecognized or format-illegal cards. These warnings do not block the user from building their deck.
 
 ### Decklist Structure
 
