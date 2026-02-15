@@ -77,7 +77,47 @@ No build system, test runner, or linter is configured yet. Update this section a
 ## Key Domain Concepts
 
 - **EDH / Commander**: A multiplayer Magic: The Gathering format using 100-card singleton decks led by a legendary creature (the "commander").
-- **Slots**: A deckbuilding abstraction where functional roles (e.g., "ramp," "removal," "card draw") are allocated a number of slots, and individual cards fill those slots.
+- **Slot**: A single position in a decklist that expects to have a card associated with it. A slot is instantiated *before* any card is assigned to it (i.e., an empty slot is valid).
+- **Category**: A named grouping of one or more slots (e.g., "Ramp," "Removal," "Draw"). Categories are configured by the user with 1–99 slots each.
+- **Fixed slot**: A slot with a special structural role in the deck. The commander slot (with its own category) is mandatory. Partner, background, and companion are optional pre-configured fixed slots.
+- **Exclusivity**: By default, categories and slots are *exclusive* — a card occupies exactly one slot in one category. When exclusivity is toggled off, a card may appear in multiple slots/categories, but must have a designated **primary** category slot. The app distinguishes primary vs. non-primary appearances. Non-exclusive mode allows the total slot count to exceed 100.
+
+## Product Requirements
+
+### Deployment
+
+- This is a local-only application. It will **not** be deployed to a remote server or exposed to the Internet.
+
+### Decklist Export
+
+- **Required**: Export a decklist to a **plain text file**.
+- **Optional**: Export a decklist to a **CSV file**.
+
+### Scryfall Integration
+
+- The app **may** pull card information from the [Scryfall API](https://scryfall.com/docs/api) as an enrichment layer (art, oracle text, legality, etc.).
+- Scryfall data is **not required** to add or remove cards from a decklist. The core decklist operations must work offline / without API access.
+
+### Decklist Structure
+
+- Every decklist has a **mandatory fixed slot** (with its own category) for the **commander**.
+- Optional pre-configured fixed slots: **partner**, **background**, **companion**.
+- User-configured categories may have **1–99 slots** each.
+- **Exclusive mode (default)**: Each card appears in exactly one slot in one category. Total slots = 100.
+- **Non-exclusive mode**: A card may appear in multiple category slots but must have one **primary** slot. The app visually distinguishes primary vs. secondary appearances. Total slots may exceed 100.
+
+### Pre-configured Categories
+
+The app may ship with optional starter categories such as:
+
+- Lands
+- Ramp
+- Removal
+- Draw
+- Enablers
+- Payoffs
+
+These are suggestions the user can adopt, modify, or ignore.
 
 ## Notes for AI Assistants
 
