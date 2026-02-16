@@ -36,3 +36,8 @@ class TestCategory:
         """A category must have at least 1 slot."""
         with pytest.raises(ValueError):
             Category(name="Bad", total_slots=0)
+
+    def test_category_rejects_100_slots(self):
+        """A category must have at most 99 slots."""
+        with pytest.raises(ValueError):
+            Category(name="Bad", total_slots=100)

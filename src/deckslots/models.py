@@ -8,7 +8,7 @@ class Category:
     cards: set[str] = field(default_factory=set)
 
     def __post_init__(self):
-        if self.total_slots < 1:
+        if self.total_slots < 1 or self.total_slots > 99:
             raise ValueError("total_slots must be between 1 and 99")
 
     @property
