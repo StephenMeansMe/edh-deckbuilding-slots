@@ -1,3 +1,5 @@
+import pytest
+
 from deckslots.models import Category
 
 
@@ -29,3 +31,8 @@ class TestCategory:
         """is_full returns False when no cards are assigned."""
         cat = Category(name="Ramp", total_slots=10)
         assert cat.is_full is False
+
+    def test_category_rejects_zero_slots(self):
+        """A category must have at least 1 slot."""
+        with pytest.raises(ValueError):
+            Category(name="Bad", total_slots=0)

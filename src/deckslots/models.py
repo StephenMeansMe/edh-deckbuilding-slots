@@ -7,6 +7,10 @@ class Category:
     total_slots: int
     cards: set[str] = field(default_factory=set)
 
+    def __post_init__(self):
+        if self.total_slots < 1:
+            raise ValueError("total_slots must be between 1 and 99")
+
     @property
     def filled(self) -> int:
         return len(self.cards)
