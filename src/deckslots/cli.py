@@ -11,7 +11,10 @@ class ParsedCommand:
 
 def parse_command(line: str) -> ParsedCommand:
     """Parse user input and check the command word against known commands."""
-    name = line.split()[0]
+    parts = line.split()
+    if not parts:
+        return ParsedCommand(name="", known=False)
+    name = parts[0]
     return ParsedCommand(name=name, known=name in KNOWN_COMMANDS)
 
 
