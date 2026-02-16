@@ -5,6 +5,7 @@ from deckslots.commands import (
     handle_category_list,
     handle_decklist_create,
     handle_decklist_show,
+    handle_help,
 )
 
 
@@ -204,3 +205,17 @@ class TestCategoryListHandler:
         )
         result = handle_category_list(session, cmd)
         assert "no active decklist" in result.lower()
+
+
+class TestHelpHandler:
+    """handle_help returns a list of available commands."""
+
+    def test_help_returns_command_list(self):
+        """The help output lists the available commands."""
+        result = handle_help()
+        assert "decklist create" in result
+        assert "decklist show" in result
+        assert "category create" in result
+        assert "category list" in result
+        assert "help" in result
+        assert "quit" in result
