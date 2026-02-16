@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 class Category:
     name: str
     total_slots: int
+    fixed: bool = False
     cards: set[str] = field(default_factory=set)
 
     def __post_init__(self):

@@ -41,3 +41,19 @@ class TestCategory:
         """A category must have at most 99 slots."""
         with pytest.raises(ValueError):
             Category(name="Bad", total_slots=100)
+
+    def test_category_fixed_defaults_to_false(self):
+        """Categories are not fixed by default."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.fixed is False
+
+    def test_fixed_category_has_correct_attributes(self):
+        """A fixed category preserves all fields correctly."""
+        cat = Category(name="Commander", total_slots=1, fixed=True)
+        assert cat.name == "Commander"
+        assert cat.total_slots == 1
+        assert cat.fixed is True
+        assert cat.cards == set()
+        assert cat.filled == 0
+        assert cat.available == 1
+        assert cat.is_full is False
