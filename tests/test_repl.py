@@ -58,3 +58,12 @@ class TestReplStartsAndRejectsInput:
 
         output = capsys.readouterr().out
         assert "goodbye" in output.lower()
+
+
+class TestReplQuitExit:
+    """The REPL exits cleanly when the user types 'quit' or 'exit'."""
+
+    def test_repl_exits_on_quit_command(self, capsys):
+        """Typing 'quit' exits the REPL without error."""
+        with patch("builtins.input", side_effect=["quit"]):
+            run_repl()
