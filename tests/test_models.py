@@ -1,6 +1,6 @@
 import pytest
 
-from deckslots.models import Category
+from deckslots.models import Category, Decklist
 
 
 class TestCategory:
@@ -57,3 +57,12 @@ class TestCategory:
         assert cat.filled == 0
         assert cat.available == 1
         assert cat.is_full is False
+
+
+class TestDecklistCreate:
+    """Decklist.create builds a new decklist with required structure."""
+
+    def test_create_returns_decklist_with_name(self):
+        """Decklist.create returns a decklist with the given name."""
+        deck = Decklist.create("Test Deck")
+        assert deck.name == "Test Deck"

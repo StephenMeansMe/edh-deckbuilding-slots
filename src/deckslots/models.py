@@ -23,3 +23,13 @@ class Category:
     @property
     def is_full(self) -> bool:
         return self.available == 0
+
+
+@dataclass
+class Decklist:
+    name: str
+    categories: dict[str, Category] = field(default_factory=dict)
+
+    @classmethod
+    def create(cls, name: str) -> "Decklist":
+        return cls(name=name)
