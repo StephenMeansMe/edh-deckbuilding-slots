@@ -83,3 +83,21 @@ class TestDecklistCreate:
         """A new decklist has 1 total slot (the commander)."""
         deck = Decklist.create("Test Deck")
         assert deck.total_slots == 1
+
+
+class TestDecklistAddCategory:
+    """Decklist.add_category adds user-defined categories."""
+
+    def test_add_category_creates_category_with_slots(self):
+        """add_category stores a new category accessible by lowercase key."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        assert "ramp" in deck.categories
+        assert deck.categories["ramp"].name == "Ramp"
+        assert deck.categories["ramp"].total_slots == 10
+
+    def test_add_category_increases_total_slots(self):
+        """Adding a category increases the decklist's total slot count."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        assert deck.total_slots == 11

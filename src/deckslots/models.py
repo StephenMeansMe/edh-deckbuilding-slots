@@ -34,6 +34,10 @@ class Decklist:
     def total_slots(self) -> int:
         return sum(c.total_slots for c in self.categories.values())
 
+    def add_category(self, name: str, slots: int) -> None:
+        key = name.lower()
+        self.categories[key] = Category(name=name, total_slots=slots)
+
     @classmethod
     def create(cls, name: str) -> "Decklist":
         commander = Category(name="Commander", total_slots=1, fixed=True)
