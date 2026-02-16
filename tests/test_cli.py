@@ -2,26 +2,27 @@ from deckslots.cli import parse_command
 
 
 class TestParseCommand:
-    """parse_command parses user input and checks it against known commands."""
+    """parse_command parses user input into a structured ParsedCommand."""
+
+    def test_quit_parses_as_builtin(self):
+        """'quit' is parsed as a builtin command."""
+        result = parse_command("quit")
+        assert result.kind == "builtin"
+        assert result.builtin == "quit"
 
     def test_unrecognized_input_is_unknown_command(self):
         """Input that doesn't match any known command is identified as unknown."""
         result = parse_command("hello")
-        assert result.name == "hello"
-        assert not result.known
+        assert result.kind == "unknown"
+        assert result.raw == "hello"
 
-    def test_empty_input_does_not_raise(self):
-        """Empty input should not raise an IndexError."""
+    def test_empty_input_parses_as_empty(self):
+        """Empty input is parsed as kind 'empty'."""
         result = parse_command("")
-        assert result.name == ""
-        assert not result.known
+        assert result.kind == "empty"
 
-    def test_quit_is_recognized_as_known_command(self):
-        """The 'quit' command is recognized as a known command."""
-        result = parse_command("quit")
-        assert result.known is True
-
-    def test_exit_is_recognized_as_known_command(self):
-        """The 'exit' command is recognized as a known command."""
+    def test_exit_parses_as_builtin(self):
+        """The 'exit' command is parsed as a builtin."""
         result = parse_command("exit")
-        assert result.known is True
+        assert result.kind == "builtin"
+        assert result.builtin == "exit"

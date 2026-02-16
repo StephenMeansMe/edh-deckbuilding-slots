@@ -1,24 +1,28 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-KNOWN_COMMANDS: dict[str, object] = {
-    "quit": None,
-    "exit": None,
-}
+BUILTINS: set[str] = {"quit", "exit"}
 
 
 @dataclass
 class ParsedCommand:
-    name: str
-    known: bool
+    kind: str
+    raw: str
+    builtin: str | None = None
+    obj: str | None = None
+    verb: str | None = None
+    args: list[str] = field(default_factory=list)
 
 
 def parse_command(line: str) -> ParsedCommand:
-    """Parse user input and check the command word against known commands."""
-    parts = line.split()
-    if not parts:
-        return ParsedCommand(name="", known=False)
-    name = parts[0]
-    return ParsedCommand(name=name, known=name in KNOWN_COMMANDS)
+    """Parse user input into a structured command."""
+    stripped = line.strip()
+    if not stripped:
+        return ParsedCommand(kind="empty", raw=stripped)
+    parts = stripped.split()
+    word = parts[0].lower()
+    if word in BUILTINS:
+        return ParsedCommand(kind="builtin", raw=stripped, builtin=word)
+    return ParsedCommand(kind="unknown", raw=stripped)
 
 
 def main():

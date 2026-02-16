@@ -8,10 +8,12 @@ def run_repl():
         while True:
             line = input("deckslots> ")
             parsed = parse_command(line)
-            if parsed.name in ("quit", "exit"):
+            if parsed.kind == "builtin" and parsed.builtin in ("quit", "exit"):
                 break
-            if not parsed.known:
-                print(f"Unknown command: {line}")
+            if parsed.kind == "empty":
+                continue
+            if parsed.kind == "unknown":
+                print(f"Unknown command: {parsed.raw}")
     except (EOFError, KeyboardInterrupt):
         pass
     print("Goodbye.")
