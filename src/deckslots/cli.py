@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-BUILTINS: set[str] = {"quit", "exit"}
+BUILTINS: set[str] = {"quit", "exit", "help"}
 
 
 @dataclass

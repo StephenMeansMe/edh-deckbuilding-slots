@@ -26,3 +26,9 @@ class TestParseCommand:
         result = parse_command("exit")
         assert result.kind == "builtin"
         assert result.builtin == "exit"
+
+    def test_help_parses_as_builtin(self):
+        """The 'help' command is parsed as a builtin."""
+        result = parse_command("help")
+        assert result.kind == "builtin"
+        assert result.builtin == "help"
