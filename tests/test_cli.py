@@ -9,3 +9,9 @@ class TestParseCommand:
         result = parse_command("hello")
         assert result.name == "hello"
         assert not result.known
+
+    def test_empty_input_does_not_raise(self):
+        """Empty input should not raise an IndexError."""
+        result = parse_command("")
+        assert result.name == ""
+        assert not result.known
