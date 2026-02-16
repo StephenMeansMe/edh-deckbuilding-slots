@@ -36,6 +36,8 @@ class Decklist:
 
     def add_category(self, name: str, slots: int) -> None:
         key = name.lower()
+        if key in self.categories:
+            raise ValueError(f"Category '{name}' already exists")
         self.categories[key] = Category(name=name, total_slots=slots)
 
     @classmethod

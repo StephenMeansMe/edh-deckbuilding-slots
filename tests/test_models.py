@@ -101,3 +101,16 @@ class TestDecklistAddCategory:
         deck = Decklist.create("Test Deck")
         deck.add_category("Ramp", 10)
         assert deck.total_slots == 11
+
+    def test_add_category_rejects_duplicate_name(self):
+        """Adding a category with the same name (case-insensitive) raises ValueError."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        with pytest.raises(ValueError):
+            deck.add_category("ramp", 5)
+
+    def test_add_category_rejects_commander_name(self):
+        """Cannot add a category named Commander (reserved)."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError):
+            deck.add_category("Commander", 1)
