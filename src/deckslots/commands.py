@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from deckslots.cli import ParsedCommand
@@ -67,3 +68,25 @@ def handle_decklist_show(session: Session, cmd: ParsedCommand) -> str:
     for cat in deck.categories.values():
         lines.append(f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled")
     return "\n".join(lines)
+
+
+def register_all_handlers(
+    session: Session,
+) -> dict[tuple[str, str], Callable[[ParsedCommand], str]]:
+    return {
+        ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
+        ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
+        ("category", "create"): lambda cmd: handle_category_create(session, cmd),
+        ("category", "list"): lambda cmd: handle_category_list(session, cmd),
+    }
+
+
+def dispatch(
+    cmd: ParsedCommand,
+    registry: dict[tuple[str, str], Callable[[ParsedCommand], str]],
+) -> str:
+    key = (cmd.obj, cmd.verb)
+    handler = registry.get(key)
+    if handler is None:
+        return f"Unknown command: {cmd.raw}"
+    return handler(cmd)

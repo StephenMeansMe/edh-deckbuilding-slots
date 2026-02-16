@@ -1,11 +1,13 @@
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    dispatch,
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
     handle_decklist_show,
     handle_help,
+    register_all_handlers,
 )
 
 
@@ -219,3 +221,37 @@ class TestHelpHandler:
         assert "category list" in result
         assert "help" in result
         assert "quit" in result
+
+
+class TestDispatch:
+    """dispatch routes parsed commands to the correct handler."""
+
+    def test_dispatch_decklist_create(self):
+        """Full pipeline: register, dispatch, verify session state."""
+        session = Session()
+        registry = register_all_handlers(session)
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist create TestDeck",
+            obj="decklist",
+            verb="create",
+            args=["TestDeck"],
+        )
+        result = dispatch(cmd, registry)
+        assert session.decklist is not None
+        assert session.decklist.name == "TestDeck"
+        assert "TestDeck" in result
+
+    def test_dispatch_unknown_verb_returns_error(self):
+        """Dispatching an unregistered object-verb returns an error."""
+        session = Session()
+        registry = register_all_handlers(session)
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist nope",
+            obj="decklist",
+            verb="nope",
+            args=[],
+        )
+        result = dispatch(cmd, registry)
+        assert "unknown command" in result.lower()
