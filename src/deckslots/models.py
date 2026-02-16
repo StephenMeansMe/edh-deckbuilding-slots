@@ -6,3 +6,7 @@ class Category:
     name: str
     total_slots: int
     cards: set[str] = field(default_factory=set)
+
+    @property
+    def filled(self) -> int:
+        return len(self.cards)

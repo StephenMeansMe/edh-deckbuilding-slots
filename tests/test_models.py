@@ -14,3 +14,8 @@ class TestCategory:
         """A new category starts with no cards assigned."""
         cat = Category(name="Ramp", total_slots=10)
         assert cat.cards == set()
+
+    def test_filled_returns_zero_for_empty_category(self):
+        """filled returns 0 when no cards are assigned."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.filled == 0
