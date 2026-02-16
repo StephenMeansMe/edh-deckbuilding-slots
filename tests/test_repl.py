@@ -67,3 +67,8 @@ class TestReplQuitExit:
         """Typing 'quit' exits the REPL without error."""
         with patch("builtins.input", side_effect=["quit"]):
             run_repl()
+
+    def test_repl_exits_on_exit_command(self, capsys):
+        """Typing 'exit' exits the REPL without error."""
+        with patch("builtins.input", side_effect=["exit"]):
+            run_repl()
