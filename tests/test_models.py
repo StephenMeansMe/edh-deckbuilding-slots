@@ -9,3 +9,8 @@ class TestCategory:
         cat = Category(name="Ramp", total_slots=10)
         assert cat.name == "Ramp"
         assert cat.total_slots == 10
+
+    def test_new_category_has_empty_cards(self):
+        """A new category starts with no cards assigned."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.cards == set()
