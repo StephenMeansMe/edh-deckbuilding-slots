@@ -47,15 +47,17 @@ def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
 
 
 def handle_help() -> str:
-    return "\n".join([
-        "Available commands:",
-        "  decklist create <name>    Create a new decklist",
-        "  decklist show             Show the active decklist",
-        "  category create <n> <s>   Add a category with <s> slots",
-        "  category list             List all categories",
-        "  help                      Show this help message",
-        "  quit / exit               Exit the program",
-    ])
+    return "\n".join(
+        [
+            "Available commands:",
+            "  decklist create <name>    Create a new decklist",
+            "  decklist show             Show the active decklist",
+            "  category create <n> <s>   Add a category with <s> slots",
+            "  category list             List all categories",
+            "  help                      Show this help message",
+            "  quit / exit               Exit the program",
+        ]
+    )
 
 
 def handle_decklist_show(session: Session, cmd: ParsedCommand) -> str:
