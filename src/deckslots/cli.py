@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 BUILTINS: set[str] = {"quit", "exit", "help"}
+KNOWN_OBJECTS: set[str] = {"decklist", "category"}
 
 
 @dataclass
@@ -22,6 +23,12 @@ def parse_command(line: str) -> ParsedCommand:
     word = parts[0].lower()
     if word in BUILTINS:
         return ParsedCommand(kind="builtin", raw=stripped, builtin=word)
+    if word in KNOWN_OBJECTS and len(parts) >= 2:
+        verb = parts[1].lower()
+        args = parts[2:]
+        return ParsedCommand(
+            kind="object_verb", raw=stripped, obj=word, verb=verb, args=args
+        )
     return ParsedCommand(kind="unknown", raw=stripped)
 
 

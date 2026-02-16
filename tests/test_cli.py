@@ -32,3 +32,31 @@ class TestParseCommand:
         result = parse_command("help")
         assert result.kind == "builtin"
         assert result.builtin == "help"
+
+    def test_decklist_create_parses_as_object_verb(self):
+        """'decklist create MyDeck' parses as an object-verb command."""
+        result = parse_command("decklist create MyDeck")
+        assert result.kind == "object_verb"
+        assert result.obj == "decklist"
+        assert result.verb == "create"
+        assert result.args == ["MyDeck"]
+
+    def test_category_create_parses_with_two_args(self):
+        """'category create Ramp 10' captures both args."""
+        result = parse_command("category create Ramp 10")
+        assert result.kind == "object_verb"
+        assert result.obj == "category"
+        assert result.verb == "create"
+        assert result.args == ["Ramp", "10"]
+
+    def test_object_verb_case_insensitive(self):
+        """Object and verb are lowercased; args preserve original casing."""
+        result = parse_command("Decklist Create MyDeck")
+        assert result.obj == "decklist"
+        assert result.verb == "create"
+        assert result.args == ["MyDeck"]
+
+    def test_object_alone_is_unknown(self):
+        """A known object without a verb is parsed as unknown."""
+        result = parse_command("decklist")
+        assert result.kind == "unknown"
