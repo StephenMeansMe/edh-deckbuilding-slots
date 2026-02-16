@@ -36,6 +36,15 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
     return f"Created category '{name}' with {slots} slots."
 
 
+def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    lines = ["Categories:"]
+    for cat in session.decklist.categories.values():
+        lines.append(f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled")
+    return "\n".join(lines)
+
+
 def handle_decklist_show(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return "No active decklist. Use 'decklist create <name>' first."

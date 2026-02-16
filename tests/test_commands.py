@@ -2,6 +2,7 @@ from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
     handle_category_create,
+    handle_category_list,
     handle_decklist_create,
     handle_decklist_show,
 )
@@ -159,4 +160,47 @@ class TestDecklistShowHandler:
             args=[],
         )
         result = handle_decklist_show(session, cmd)
+        assert "no active decklist" in result.lower()
+
+
+class TestCategoryListHandler:
+    """handle_category_list returns all categories in the active decklist."""
+
+    def test_category_list_returns_all_categories(self):
+        """The handler lists all categories with slot info."""
+        session = Session()
+        create_cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist create TestDeck",
+            obj="decklist",
+            verb="create",
+            args=["TestDeck"],
+        )
+        handle_decklist_create(session, create_cmd)
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Removal", 5)
+
+        list_cmd = ParsedCommand(
+            kind="object_verb",
+            raw="category list",
+            obj="category",
+            verb="list",
+            args=[],
+        )
+        result = handle_category_list(session, list_cmd)
+        assert "Commander" in result
+        assert "Ramp" in result
+        assert "Removal" in result
+
+    def test_category_list_requires_decklist(self):
+        """The handler returns an error when no decklist is active."""
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="category list",
+            obj="category",
+            verb="list",
+            args=[],
+        )
+        result = handle_category_list(session, cmd)
         assert "no active decklist" in result.lower()
