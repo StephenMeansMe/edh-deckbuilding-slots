@@ -114,3 +114,20 @@ class TestDecklistAddCategory:
         deck = Decklist.create("Test Deck")
         with pytest.raises(ValueError):
             deck.add_category("Commander", 1)
+
+    def test_add_category_rejects_zero_slots(self):
+        """add_category rejects 0 slots (delegates to Category validation)."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError):
+            deck.add_category("Bad", 0)
+
+    def test_add_category_rejects_100_slots(self):
+        """add_category rejects 100 slots (delegates to Category validation)."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError):
+            deck.add_category("Bad", 100)
+
+    def test_total_filled_for_new_decklist_is_zero(self):
+        """A new decklist has 0 filled slots."""
+        deck = Decklist.create("Test Deck")
+        assert deck.total_filled == 0

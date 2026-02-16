@@ -34,6 +34,10 @@ class Decklist:
     def total_slots(self) -> int:
         return sum(c.total_slots for c in self.categories.values())
 
+    @property
+    def total_filled(self) -> int:
+        return sum(c.filled for c in self.categories.values())
+
     def add_category(self, name: str, slots: int) -> None:
         key = name.lower()
         if key in self.categories:
