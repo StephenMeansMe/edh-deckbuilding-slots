@@ -32,4 +32,5 @@ class Decklist:
 
     @classmethod
     def create(cls, name: str) -> "Decklist":
-        return cls(name=name)
+        commander = Category(name="Commander", total_slots=1, fixed=True)
+        return cls(name=name, categories={"commander": commander})

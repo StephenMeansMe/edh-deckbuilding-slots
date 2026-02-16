@@ -66,3 +66,15 @@ class TestDecklistCreate:
         """Decklist.create returns a decklist with the given name."""
         deck = Decklist.create("Test Deck")
         assert deck.name == "Test Deck"
+
+    def test_create_includes_commander_category(self):
+        """A new decklist has a Commander category."""
+        deck = Decklist.create("Test Deck")
+        assert "commander" in deck.categories
+
+    def test_commander_category_has_one_fixed_slot(self):
+        """The Commander category has exactly 1 fixed slot."""
+        deck = Decklist.create("Test Deck")
+        commander = deck.categories["commander"]
+        assert commander.total_slots == 1
+        assert commander.fixed is True
