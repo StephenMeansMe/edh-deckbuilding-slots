@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
-KNOWN_COMMANDS: dict[str, object] = {}
+KNOWN_COMMANDS: dict[str, object] = {
+    "quit": None,
+    "exit": None,
+}
 
 
 @dataclass

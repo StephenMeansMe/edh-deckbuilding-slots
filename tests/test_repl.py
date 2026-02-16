@@ -58,3 +58,41 @@ class TestReplStartsAndRejectsInput:
 
         output = capsys.readouterr().out
         assert "goodbye" in output.lower()
+
+
+class TestReplQuitExit:
+    """The REPL exits cleanly when the user types 'quit' or 'exit'."""
+
+    def test_repl_exits_on_quit_command(self, capsys):
+        """Typing 'quit' exits the REPL without error."""
+        with patch("builtins.input", side_effect=["quit"]):
+            run_repl()
+
+    def test_repl_exits_on_exit_command(self, capsys):
+        """Typing 'exit' exits the REPL without error."""
+        with patch("builtins.input", side_effect=["exit"]):
+            run_repl()
+
+    def test_repl_prints_goodbye_on_quit(self, capsys):
+        """The REPL prints 'Goodbye.' when the user quits."""
+        with patch("builtins.input", side_effect=["quit"]):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "goodbye" in output.lower()
+
+    def test_repl_prints_goodbye_on_exit(self, capsys):
+        """The REPL prints 'Goodbye.' when the user types exit."""
+        with patch("builtins.input", side_effect=["exit"]):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "goodbye" in output.lower()
+
+    def test_quit_does_not_print_unknown_command(self, capsys):
+        """Typing 'quit' should not trigger the unknown command message."""
+        with patch("builtins.input", side_effect=["quit"]):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "unknown command" not in output.lower()
