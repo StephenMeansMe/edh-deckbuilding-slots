@@ -19,3 +19,8 @@ class TestCategory:
         """filled returns 0 when no cards are assigned."""
         cat = Category(name="Ramp", total_slots=10)
         assert cat.filled == 0
+
+    def test_available_returns_total_slots_for_empty_category(self):
+        """available returns total_slots when no cards are assigned."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.available == 10
