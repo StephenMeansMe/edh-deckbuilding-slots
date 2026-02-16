@@ -12,6 +12,8 @@ class Session:
 
 
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
+    if not cmd.args:
+        return "Usage: decklist create <name>"
     name = cmd.args[0]
     session.decklist = Decklist.create(name)
     return f"Created decklist '{name}'."

@@ -28,3 +28,17 @@ class TestDecklistCreateHandler:
         assert session.decklist is not None
         assert session.decklist.name == "TestDeck"
         assert "TestDeck" in result
+
+    def test_decklist_create_requires_name(self):
+        """The handler returns a usage message when no name is provided."""
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist create",
+            obj="decklist",
+            verb="create",
+            args=[],
+        )
+        result = handle_decklist_create(session, cmd)
+        assert session.decklist is None
+        assert "usage" in result.lower()
