@@ -20,3 +20,8 @@ class TestParseCommand:
         """The 'quit' command is recognized as a known command."""
         result = parse_command("quit")
         assert result.known is True
+
+    def test_exit_is_recognized_as_known_command(self):
+        """The 'exit' command is recognized as a known command."""
+        result = parse_command("exit")
+        assert result.known is True
