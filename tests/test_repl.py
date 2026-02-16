@@ -96,3 +96,18 @@ class TestReplQuitExit:
 
         output = capsys.readouterr().out
         assert "unknown command" not in output.lower()
+
+
+class TestReplDecklistCommands:
+    """The REPL dispatches decklist commands and prints handler output."""
+
+    def test_repl_decklist_create_prints_confirmation(self, capsys):
+        """'decklist create TestDeck' prints a creation confirmation."""
+        with patch(
+            "builtins.input", side_effect=["decklist create TestDeck", "quit"]
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "created" in output.lower()
+        assert "TestDeck" in output
