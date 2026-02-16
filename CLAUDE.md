@@ -2,26 +2,37 @@
 
 ## Project Overview
 
-**edh-deckbuilding-slots** is a Python project for managing Magic: The Gathering EDH (Commander) deckbuilding through a "slots" system. The project is in its initial scaffolding phase.
+**edh-deckbuilding-slots** is a Python project for managing Magic: The Gathering EDH (Commander) deckbuilding through a "slots" system.
 
 ## Repository Structure
 
 ```
 edh-deckbuilding-slots/
-├── .gitignore          # Python-focused gitignore
-└── CLAUDE.md           # This file
+├── bin/
+│   └── deckslots           # Standalone CLI entrypoint
+├── src/
+│   └── deckslots/
+│       ├── __init__.py
+│       ├── cli.py           # Console script entrypoint (pyproject.toml)
+│       └── repl.py          # Interactive REPL loop
+├── tests/
+│   ├── __init__.py
+│   └── test_repl.py         # REPL behavior tests
+├── .gitignore
+├── CLAUDE.md
+├── pyproject.toml           # Project metadata, deps, tool config
+└── uv.lock                  # Locked dependencies
 ```
-
-The project has no source code yet. Structure will be updated as modules are added.
 
 ## Tech Stack
 
-- **Language**: Python
-- **Package management**: TBD (`.gitignore` supports pipenv, Poetry, PDM, UV, pixi)
-- **Testing**: TBD (`.gitignore` supports pytest, tox, nox, nose, hypothesis)
-- **Type checking**: TBD (`.gitignore` supports mypy, Pyre, pytype)
-- **Linting**: TBD (`.gitignore` supports Ruff)
-- **Documentation**: TBD (`.gitignore` supports Sphinx, mkdocs)
+- **Language**: Python 3.12+
+- **Package management**: [uv](https://docs.astral.sh/uv/)
+- **Build backend**: [Hatchling](https://hatch.pypa.io/) (src/ layout)
+- **Testing**: [pytest](https://docs.pytest.org/)
+- **Linting/Formatting**: [Ruff](https://docs.astral.sh/ruff/)
+- **Type checking**: TBD
+- **Documentation**: TBD
 
 ## Development Methodology: Test-Driven Design (TDD)
 
@@ -52,25 +63,30 @@ Each step should be its own commit so the TDD history is visible in the git log.
 
 ## Development Workflow
 
-No build system, test runner, or linter is configured yet. Update this section as tooling is added.
+### Setup
+
+```bash
+uv sync                      # Install all dependencies (creates .venv)
+```
 
 ### Common Commands
 
 ```bash
-# (placeholder — update once pyproject.toml or equivalent is added)
-# python -m pytest           # Run tests
-# python -m pytest -x        # Stop on first failure (useful during Red phase)
-# python -m pytest --tb=short # Concise tracebacks
-# ruff check .               # Lint
-# ruff format .              # Format
-# mypy .                     # Type check
+uv run pytest                # Run all tests
+uv run pytest -x             # Stop on first failure (useful during Red phase)
+uv run pytest -v             # Verbose output
+uv run pytest --tb=short     # Concise tracebacks
+uv run ruff check .          # Lint
+uv run ruff format .         # Format
+uv run deckslots             # Run the app (console script)
+./bin/deckslots              # Run the app (standalone script)
 ```
 
 ## Conventions
 
 - **Branch naming**: Feature branches use `claude/` prefix for AI-assisted work.
 - **Commits**: Use clear, descriptive commit messages. Prefix with `test:`, `feat:`, `fix:`, or `refactor:` to reflect the TDD phase.
-- **Python style**: Follow PEP 8. Specific formatter/linter TBD.
+- **Python style**: Follow PEP 8, enforced by Ruff (E, F, I, W rule sets).
 - **Test organization**: Mirror the source tree under a `tests/` directory (e.g., `src/slots/deck.py` → `tests/test_deck.py`). Test files are prefixed with `test_`, test functions with `test_`.
 - **Test naming**: Use descriptive names that state the expected behavior, e.g., `test_deck_rejects_duplicate_cards`, not `test_deck_1`.
 
@@ -162,6 +178,8 @@ These are suggestions the user can adopt, modify, or ignore.
 - This is a greenfield project. When adding new files, follow Python packaging best practices (e.g., `src/` layout or flat layout with `pyproject.toml`).
 - Prefer modern Python tooling (pyproject.toml over setup.py, Ruff over flake8/black, etc.).
 - No CI/CD pipeline is configured yet. Propose one if/when tests or publishing are needed.
+- Use `uv run` to execute commands within the project's virtual environment.
+- Use `uv add` / `uv add --dev` to manage dependencies.
 - When asked to add a feature, the first response should be a test, not an implementation.
 - Keep commits granular: one commit per TDD step (red, green, refactor).
 - Keep this file updated as the project evolves.
