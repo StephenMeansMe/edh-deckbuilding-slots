@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-from deckslots.repl import run_repl
-
 KNOWN_COMMANDS: dict[str, object] = {}
 
 
@@ -19,6 +17,8 @@ def parse_command(line: str) -> ParsedCommand:
 
 def main():
     """CLI entrypoint for deckslots."""
+    from deckslots.repl import run_repl
+
     run_repl()
 
 
