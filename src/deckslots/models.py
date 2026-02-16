@@ -14,3 +14,7 @@ class Category:
     @property
     def available(self) -> int:
         return self.total_slots - self.filled
+
+    @property
+    def is_full(self) -> bool:
+        return self.available == 0
