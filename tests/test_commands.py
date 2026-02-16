@@ -3,6 +3,7 @@ from deckslots.commands import (
     Session,
     handle_category_create,
     handle_decklist_create,
+    handle_decklist_show,
 )
 
 
@@ -117,3 +118,45 @@ class TestCategoryCreateHandler:
         result = handle_category_create(session, cmd)
         assert "ramp" not in session.decklist.categories
         assert "1 and 99" in result
+
+
+class TestDecklistShowHandler:
+    """handle_decklist_show returns a summary of the active decklist."""
+
+    def test_decklist_show_returns_summary(self):
+        """The handler returns the decklist name, categories, and slot counts."""
+        session = Session()
+        create_cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist create TestDeck",
+            obj="decklist",
+            verb="create",
+            args=["TestDeck"],
+        )
+        handle_decklist_create(session, create_cmd)
+        session.decklist.add_category("Ramp", 10)
+
+        show_cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist show",
+            obj="decklist",
+            verb="show",
+            args=[],
+        )
+        result = handle_decklist_show(session, show_cmd)
+        assert "TestDeck" in result
+        assert "Commander" in result
+        assert "Ramp" in result
+
+    def test_decklist_show_requires_decklist(self):
+        """The handler returns an error when no decklist is active."""
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist show",
+            obj="decklist",
+            verb="show",
+            args=[],
+        )
+        result = handle_decklist_show(session, cmd)
+        assert "no active decklist" in result.lower()
