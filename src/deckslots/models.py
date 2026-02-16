@@ -30,6 +30,10 @@ class Decklist:
     name: str
     categories: dict[str, Category] = field(default_factory=dict)
 
+    @property
+    def total_slots(self) -> int:
+        return sum(c.total_slots for c in self.categories.values())
+
     @classmethod
     def create(cls, name: str) -> "Decklist":
         commander = Category(name="Commander", total_slots=1, fixed=True)

@@ -78,3 +78,8 @@ class TestDecklistCreate:
         commander = deck.categories["commander"]
         assert commander.total_slots == 1
         assert commander.fixed is True
+
+    def test_total_slots_for_new_decklist_is_one(self):
+        """A new decklist has 1 total slot (the commander)."""
+        deck = Decklist.create("Test Deck")
+        assert deck.total_slots == 1
