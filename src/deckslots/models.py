@@ -24,6 +24,7 @@ class Category:
     total_slots: int
     fixed: bool = False
     capped: bool = True
+    allowed_cards: frozenset[str] | None = None
     cards: list[str] = field(default_factory=list)
 
     def __post_init__(self):
