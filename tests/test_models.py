@@ -59,6 +59,30 @@ class TestCategory:
         assert cat.is_full is False
 
 
+class TestCategoryCapped:
+    """Category.capped controls slot validation behavior."""
+
+    def test_uncapped_category_accepts_zero_slots(self):
+        """An uncapped category allows total_slots=0."""
+        cat = Category(name="Basic Lands", total_slots=0, capped=False)
+        assert cat.total_slots == 0
+
+    def test_uncapped_category_accepts_slots_above_99(self):
+        """An uncapped category allows total_slots above 99."""
+        cat = Category(name="Basic Lands", total_slots=200, capped=False)
+        assert cat.total_slots == 200
+
+    def test_uncapped_category_rejects_negative_slots(self):
+        """An uncapped category still rejects negative total_slots."""
+        with pytest.raises(ValueError):
+            Category(name="Basic Lands", total_slots=-1, capped=False)
+
+    def test_capped_defaults_to_true(self):
+        """Categories are capped by default."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.capped is True
+
+
 class TestDecklistCreate:
     """Decklist.create builds a new decklist with required structure."""
 
