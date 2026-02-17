@@ -1,5 +1,22 @@
 from dataclasses import dataclass, field
 
+BASIC_LAND_NAMES: frozenset[str] = frozenset(
+    {
+        "Plains",
+        "Island",
+        "Swamp",
+        "Mountain",
+        "Forest",
+        "Wastes",
+        "Snow-Covered Plains",
+        "Snow-Covered Island",
+        "Snow-Covered Swamp",
+        "Snow-Covered Mountain",
+        "Snow-Covered Forest",
+        "Snow-Covered Wastes",
+    }
+)
+
 
 @dataclass
 class Category:
