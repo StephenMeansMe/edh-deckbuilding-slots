@@ -70,4 +70,14 @@ class Decklist:
     @classmethod
     def create(cls, name: str) -> "Decklist":
         commander = Category(name="Commander", total_slots=1, fixed=True)
-        return cls(name=name, categories={"commander": commander})
+        basic_lands = Category(
+            name="Basic Lands",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            allowed_cards=BASIC_LAND_NAMES,
+        )
+        return cls(
+            name=name,
+            categories={"commander": commander, "basic lands": basic_lands},
+        )
