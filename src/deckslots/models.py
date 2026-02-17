@@ -6,11 +6,16 @@ class Category:
     name: str
     total_slots: int
     fixed: bool = False
+    capped: bool = True
     cards: set[str] = field(default_factory=set)
 
     def __post_init__(self):
-        if self.total_slots < 1 or self.total_slots > 99:
-            raise ValueError("total_slots must be between 1 and 99")
+        if self.capped:
+            if self.total_slots < 1 or self.total_slots > 99:
+                raise ValueError("total_slots must be between 1 and 99")
+        else:
+            if self.total_slots < 0:
+                raise ValueError("total_slots must not be negative")
 
     @property
     def filled(self) -> int:
