@@ -7,7 +7,7 @@ class Category:
     total_slots: int
     fixed: bool = False
     capped: bool = True
-    cards: set[str] = field(default_factory=set)
+    cards: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if self.capped:
