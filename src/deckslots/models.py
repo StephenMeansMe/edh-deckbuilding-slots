@@ -1,27 +1,55 @@
 from dataclasses import dataclass, field
 
+BASIC_LAND_NAMES: frozenset[str] = frozenset(
+    {
+        "Plains",
+        "Island",
+        "Swamp",
+        "Mountain",
+        "Forest",
+        "Wastes",
+        "Snow-Covered Plains",
+        "Snow-Covered Island",
+        "Snow-Covered Swamp",
+        "Snow-Covered Mountain",
+        "Snow-Covered Forest",
+        "Snow-Covered Wastes",
+    }
+)
+
 
 @dataclass
 class Category:
     name: str
     total_slots: int
     fixed: bool = False
-    cards: set[str] = field(default_factory=set)
+    capped: bool = True
+    # Whitelist; enforced by future add_card method.
+    allowed_cards: frozenset[str] | None = None
+    cards: list[str] = field(default_factory=list)
 
     def __post_init__(self):
-        if self.total_slots < 1 or self.total_slots > 99:
-            raise ValueError("total_slots must be between 1 and 99")
+        if self.capped:
+            if self.total_slots < 1 or self.total_slots > 99:
+                raise ValueError("total_slots must be between 1 and 99")
+        else:
+            if self.total_slots < 0:
+                raise ValueError("total_slots must not be negative")
 
     @property
     def filled(self) -> int:
         return len(self.cards)
 
     @property
-    def available(self) -> int:
+    def available(self) -> int | None:
+        if not self.capped:
+            return None
         return self.total_slots - self.filled
 
     @property
     def is_full(self) -> bool:
+        if not self.capped:
+            return False
         return self.available == 0
 
 
@@ -47,4 +75,14 @@ class Decklist:
     @classmethod
     def create(cls, name: str) -> "Decklist":
         commander = Category(name="Commander", total_slots=1, fixed=True)
-        return cls(name=name, categories={"commander": commander})
+        basic_lands = Category(
+            name="Basic Lands",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            allowed_cards=BASIC_LAND_NAMES,
+        )
+        return cls(
+            name=name,
+            categories={"commander": commander, "basic lands": basic_lands},
+        )
