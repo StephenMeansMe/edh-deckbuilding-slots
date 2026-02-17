@@ -92,6 +92,23 @@ class TestCategoryCapped:
         assert cat.capped is True
 
 
+class TestCategoryAllowedCards:
+    """Category.allowed_cards restricts which cards can be added."""
+
+    def test_category_allowed_cards_defaults_to_none(self):
+        """By default, a category has no card restrictions."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.allowed_cards is None
+
+    def test_category_stores_allowed_cards(self):
+        """A category can be constructed with an allowed_cards whitelist."""
+        allowed = frozenset({"Plains", "Island"})
+        cat = Category(
+            name="Basics", total_slots=5, allowed_cards=allowed, capped=False
+        )
+        assert cat.allowed_cards == allowed
+
+
 class TestBasicLandNames:
     """BASIC_LAND_NAMES is a frozenset of all 12 valid basic land names."""
 
