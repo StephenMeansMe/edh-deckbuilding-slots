@@ -209,6 +209,48 @@ class TestCategoryListHandler:
         assert "no active decklist" in result.lower()
 
 
+class TestBasicLandsInOutput:
+    """Basic Lands category appears in listing and show output."""
+
+    def _make_session_with_deck(self):
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist create TestDeck",
+            obj="decklist",
+            verb="create",
+            args=["TestDeck"],
+        )
+        handle_decklist_create(session, cmd)
+        return session
+
+    def test_category_list_includes_basic_lands(self):
+        """category list output includes Basic Lands."""
+        session = self._make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="category list",
+            obj="category",
+            verb="list",
+            args=[],
+        )
+        result = handle_category_list(session, cmd)
+        assert "Basic Lands" in result
+
+    def test_decklist_show_includes_basic_lands(self):
+        """decklist show output includes Basic Lands."""
+        session = self._make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist show",
+            obj="decklist",
+            verb="show",
+            args=[],
+        )
+        result = handle_decklist_show(session, cmd)
+        assert "Basic Lands" in result
+
+
 class TestHelpHandler:
     """handle_help returns a list of available commands."""
 

@@ -227,6 +227,12 @@ class TestDecklistAddCategory:
         with pytest.raises(ValueError):
             deck.add_category("Commander", 1)
 
+    def test_add_category_rejects_basic_lands_name(self):
+        """Cannot add a category named Basic Lands (reserved)."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError):
+            deck.add_category("Basic Lands", 5)
+
     def test_add_category_rejects_zero_slots(self):
         """add_category rejects 0 slots (delegates to Category validation)."""
         deck = Decklist.create("Test Deck")
