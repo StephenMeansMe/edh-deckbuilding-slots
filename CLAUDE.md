@@ -9,19 +9,28 @@
 ```
 edh-deckbuilding-slots/
 ├── bin/
-│   └── deckslots           # Standalone CLI entrypoint
+│   └── deckslots              # Standalone CLI entrypoint
+├── docs/
+│   ├── ROADMAP.md             # MVP scope, product requirements, roadmap
+│   └── user-stories/
+│       └── 001-create-decklist-with-categorized-slots.md
 ├── src/
 │   └── deckslots/
 │       ├── __init__.py
-│       ├── cli.py           # Console script entrypoint (pyproject.toml)
-│       └── repl.py          # Interactive REPL loop
+│       ├── cli.py             # Command parser (ParsedCommand, parse_command)
+│       ├── commands.py        # Session state, command handlers, dispatch registry
+│       ├── models.py          # Domain models (Category, Decklist)
+│       └── repl.py            # Interactive REPL loop
 ├── tests/
 │   ├── __init__.py
-│   └── test_repl.py         # REPL behavior tests
+│   ├── test_cli.py            # Parser behavior tests
+│   ├── test_commands.py       # Handler and dispatch tests
+│   ├── test_models.py         # Domain model tests
+│   └── test_repl.py           # REPL end-to-end tests
 ├── .gitignore
 ├── CLAUDE.md
-├── pyproject.toml           # Project metadata, deps, tool config
-└── uv.lock                  # Locked dependencies
+├── pyproject.toml             # Project metadata, deps, tool config
+└── uv.lock                    # Locked dependencies
 ```
 
 ## Tech Stack
@@ -33,6 +42,15 @@ edh-deckbuilding-slots/
 - **Linting/Formatting**: [Ruff](https://docs.astral.sh/ruff/)
 - **Type checking**: TBD
 - **Documentation**: TBD
+
+## Architecture
+
+The app uses an **object-verb command pattern** with a dispatch registry:
+
+- **`cli.py`** — `parse_command(line)` returns a `ParsedCommand` with `kind` (`builtin`, `object_verb`, `unknown`, `empty`), `obj`, `verb`, and `args`. Known objects: `decklist`, `category`. Builtins: `quit`, `exit`, `help`.
+- **`models.py`** — Domain models. `Category` (name, total_slots, fixed, cards) and `Decklist` (name, categories dict). `Decklist.create()` auto-adds a mandatory Commander category.
+- **`commands.py`** — `Session` holds REPL state (`decklist: Decklist | None`). Handler functions (e.g., `handle_decklist_create`) return strings. `register_all_handlers(session)` builds a `dict[tuple[str, str], Callable]` dispatch registry. `dispatch(cmd, registry)` routes commands.
+- **`repl.py`** — `run_repl()` creates a Session and registry, loops on `input()`, delegates to dispatch for object-verb commands and `handle_help` for the help builtin.
 
 ## Development Methodology: Test-Driven Design (TDD)
 
@@ -100,77 +118,13 @@ uv run deckslots             # Run the app (console script)
 
 ## MVP Scope
 
-The minimum viable product is deliberately narrow. Items **not** in the MVP are deferred to the roadmap.
-
-### MVP includes
-
 - **One commander slot** — exactly 1 mandatory fixed slot in its own category.
 - **Exclusive categories only** — each card occupies exactly one slot in one category; total slots = 100.
-- **CLI on Linux** — the interface is a command-line application targeting Linux.
-- **Flat text file I/O** — decklists are read from and written to plain text files (no database).
-- **Minimal export format** — `$QUANTITY $CARDNAME` (e.g., `1 Sol Ring`), one entry per line.
-- **No semantic validation** — placing a sorcery in a "Lands" slot or an invalid commander in the commander slot will **not** raise an error.
+- **CLI on Linux** — local-only, no remote deployment.
+- **Flat text file I/O** — `$QUANTITY $CARDNAME` format (e.g., `1 Sol Ring`).
+- **No semantic validation** — the app does not validate card types against category names.
 
-### MVP does *not* include (roadmap)
-
-- Partner, background, or companion fixed slots.
-- Non-exclusive categories (cards appearing in multiple categories with primary/secondary distinction).
-- GUI or non-Linux distribution targets.
-- Database storage.
-- Export formats compatible with other deckbuilding tools (Archidekt, Moxfield, etc.).
-- CSV export.
-- Scryfall integration and legality warnings.
-
-## Product Requirements
-
-### Deployment
-
-- This is a local-only application. It will **not** be deployed to a remote server or exposed to the Internet.
-- The MVP targets **Linux CLI** only.
-
-### Decklist Export
-
-- **MVP**: Export a decklist to a **plain text file** in `$QUANTITY $CARDNAME` format (one entry per line).
-- **Roadmap**: Export to CSV; export in formats compatible with Archidekt, Moxfield, and other tools.
-
-### Validation
-
-- The MVP does **not** enforce semantic validation on slots. For example, placing a sorcery card in a "Lands" slot or an invalid commander in the commander slot will **not** raise an error.
-- **Roadmap**: When Scryfall integration is enabled, the app **should warn** if:
-  - A card is not found in the Scryfall database.
-  - A card is found but is not legal in the Commander format.
-
-### Scryfall Integration *(roadmap)*
-
-- The app **may** pull card information from the [Scryfall API](https://scryfall.com/docs/api) as an enrichment layer (art, oracle text, legality, etc.).
-- Scryfall data is **not required** to add or remove cards from a decklist. The core decklist operations must work offline / without API access.
-- When enabled, Scryfall integration provides **warnings** (not errors) for unrecognized or format-illegal cards. These warnings do not block the user from building their deck.
-
-### Decklist Structure
-
-- Every decklist has a **mandatory fixed slot** (with its own category) for the **commander**.
-- **Roadmap**: Optional pre-configured fixed slots: **partner**, **background**, **companion**.
-- User-configured categories may have **1–99 slots** each.
-- **MVP**: Exclusive mode only — each card appears in exactly one slot in one category. Total slots = 100.
-- **Roadmap**: Non-exclusive mode — a card may appear in multiple category slots but must have one **primary** slot. The app visually distinguishes primary vs. secondary appearances. Total slots may exceed 100.
-
-### Storage
-
-- **MVP**: Read and write decklists as **flat text files**.
-- **Roadmap**: Database-backed persistence.
-
-### Pre-configured Categories
-
-The app may ship with optional starter categories such as:
-
-- Lands
-- Ramp
-- Removal
-- Draw
-- Enablers
-- Payoffs
-
-These are suggestions the user can adopt, modify, or ignore.
+For detailed product requirements, roadmap, and user stories, see `docs/`.
 
 ## Notes for AI Assistants
 
