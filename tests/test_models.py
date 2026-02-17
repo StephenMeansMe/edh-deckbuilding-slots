@@ -86,6 +86,16 @@ class TestCategoryCapped:
         with pytest.raises(ValueError):
             Category(name="Basic Lands", total_slots=-1, capped=False)
 
+    def test_uncapped_category_is_never_full(self):
+        """An uncapped category with 0 slots and no cards is not full."""
+        cat = Category(name="Basic Lands", total_slots=0, capped=False)
+        assert cat.is_full is False
+
+    def test_uncapped_category_available_is_none(self):
+        """An uncapped category reports available as None (unbounded)."""
+        cat = Category(name="Basic Lands", total_slots=0, capped=False)
+        assert cat.available is None
+
     def test_capped_defaults_to_true(self):
         """Categories are capped by default."""
         cat = Category(name="Ramp", total_slots=10)
