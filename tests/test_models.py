@@ -59,6 +59,15 @@ class TestCategory:
         assert cat.is_full is False
 
 
+class TestCategoryCards:
+    """Category.cards is a list to support duplicate card names."""
+
+    def test_new_category_cards_is_list(self):
+        """A new category's cards field is a list, not a set."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert isinstance(cat.cards, list)
+
+
 class TestCategoryCapped:
     """Category.capped controls slot validation behavior."""
 
