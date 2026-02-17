@@ -1,6 +1,6 @@
 import pytest
 
-from deckslots.models import Category, Decklist
+from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
 
 
 class TestCategory:
@@ -90,6 +90,39 @@ class TestCategoryCapped:
         """Categories are capped by default."""
         cat = Category(name="Ramp", total_slots=10)
         assert cat.capped is True
+
+
+class TestBasicLandNames:
+    """BASIC_LAND_NAMES is a frozenset of all 12 valid basic land names."""
+
+    def test_basic_land_names_is_frozenset(self):
+        """The constant is a frozenset (immutable)."""
+        assert isinstance(BASIC_LAND_NAMES, frozenset)
+
+    def test_basic_land_names_has_12_entries(self):
+        """There are exactly 12 basic land names in MTG."""
+        assert len(BASIC_LAND_NAMES) == 12
+
+    def test_basic_land_names_contains_core_five(self):
+        """The five classic basic lands are included."""
+        for name in ("Plains", "Island", "Swamp", "Mountain", "Forest"):
+            assert name in BASIC_LAND_NAMES
+
+    def test_basic_land_names_contains_wastes(self):
+        """Wastes (colorless basic land) is included."""
+        assert "Wastes" in BASIC_LAND_NAMES
+
+    def test_basic_land_names_contains_snow_covered(self):
+        """All six snow-covered basic lands are included."""
+        for name in (
+            "Snow-Covered Plains",
+            "Snow-Covered Island",
+            "Snow-Covered Swamp",
+            "Snow-Covered Mountain",
+            "Snow-Covered Forest",
+            "Snow-Covered Wastes",
+        ):
+            assert name in BASIC_LAND_NAMES
 
 
 class TestDecklistCreate:
