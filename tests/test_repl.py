@@ -96,3 +96,89 @@ class TestReplQuitExit:
 
         output = capsys.readouterr().out
         assert "unknown command" not in output.lower()
+
+
+class TestReplDecklistCommands:
+    """The REPL dispatches decklist commands and prints handler output."""
+
+    def test_repl_decklist_create_prints_confirmation(self, capsys):
+        """'decklist create TestDeck' prints a creation confirmation."""
+        with patch("builtins.input", side_effect=["decklist create TestDeck", "quit"]):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "created" in output.lower()
+        assert "TestDeck" in output
+
+    def test_repl_decklist_show_displays_summary(self, capsys):
+        """'decklist show' prints the decklist summary."""
+        with patch(
+            "builtins.input",
+            side_effect=["decklist create TestDeck", "decklist show", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "TestDeck" in output
+        assert "Commander" in output
+
+
+class TestReplCategoryCommands:
+    """The REPL dispatches category commands and prints handler output."""
+
+    def test_repl_category_create_prints_confirmation(self, capsys):
+        """'category create Ramp 10' prints a creation confirmation."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Ramp" in output
+
+    def test_repl_category_create_without_decklist_shows_error(self, capsys):
+        """'category create' without a decklist shows an error."""
+        with patch(
+            "builtins.input",
+            side_effect=["category create Ramp 10", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "no active decklist" in output.lower()
+
+    def test_repl_category_list_displays_categories(self, capsys):
+        """'category list' prints all categories."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "category list",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Commander" in output
+        assert "Ramp" in output
+
+
+class TestReplHelp:
+    """The REPL displays help when the user types 'help'."""
+
+    def test_repl_help_shows_commands(self, capsys):
+        """'help' prints available commands."""
+        with patch("builtins.input", side_effect=["help", "quit"]):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "decklist create" in output
+        assert "category create" in output
+        assert "help" in output
