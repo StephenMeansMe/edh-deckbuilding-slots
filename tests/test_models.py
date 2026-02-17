@@ -168,6 +168,35 @@ class TestDecklistCreate:
         assert deck.total_slots == 1
 
 
+class TestDecklistCreateBasicLands:
+    """Decklist.create includes a mandatory Basic Lands category."""
+
+    def test_create_includes_basic_lands_category(self):
+        """A new decklist has a Basic Lands category."""
+        deck = Decklist.create("Test Deck")
+        assert "basic lands" in deck.categories
+
+    def test_basic_lands_is_fixed(self):
+        """The Basic Lands category is fixed (cannot be removed by user)."""
+        deck = Decklist.create("Test Deck")
+        assert deck.categories["basic lands"].fixed is True
+
+    def test_basic_lands_starts_with_zero_slots(self):
+        """The Basic Lands category starts with 0 slots."""
+        deck = Decklist.create("Test Deck")
+        assert deck.categories["basic lands"].total_slots == 0
+
+    def test_basic_lands_is_uncapped(self):
+        """The Basic Lands category is uncapped (no upper limit)."""
+        deck = Decklist.create("Test Deck")
+        assert deck.categories["basic lands"].capped is False
+
+    def test_basic_lands_has_allowed_cards(self):
+        """The Basic Lands category restricts cards to BASIC_LAND_NAMES."""
+        deck = Decklist.create("Test Deck")
+        assert deck.categories["basic lands"].allowed_cards == BASIC_LAND_NAMES
+
+
 class TestDecklistAddCategory:
     """Decklist.add_category adds user-defined categories."""
 
