@@ -15,7 +15,7 @@ class TestCategory:
     def test_new_category_has_empty_cards(self):
         """A new category starts with no cards assigned."""
         cat = Category(name="Ramp", total_slots=10)
-        assert cat.cards == set()
+        assert cat.cards == []
 
     def test_filled_returns_zero_for_empty_category(self):
         """filled returns 0 when no cards are assigned."""
@@ -53,7 +53,7 @@ class TestCategory:
         assert cat.name == "Commander"
         assert cat.total_slots == 1
         assert cat.fixed is True
-        assert cat.cards == set()
+        assert cat.cards == []
         assert cat.filled == 0
         assert cat.available == 1
         assert cat.is_full is False
