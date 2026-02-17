@@ -40,11 +40,15 @@ class Category:
         return len(self.cards)
 
     @property
-    def available(self) -> int:
+    def available(self) -> int | None:
+        if not self.capped:
+            return None
         return self.total_slots - self.filled
 
     @property
     def is_full(self) -> bool:
+        if not self.capped:
+            return False
         return self.available == 0
 
 
