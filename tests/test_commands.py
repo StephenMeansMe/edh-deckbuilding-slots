@@ -11,6 +11,20 @@ from deckslots.commands import (
 )
 
 
+def _make_session_with_deck():
+    """Create a session with an active decklist for testing."""
+    session = Session()
+    cmd = ParsedCommand(
+        kind="object_verb",
+        raw="decklist create TestDeck",
+        obj="decklist",
+        verb="create",
+        args=["TestDeck"],
+    )
+    handle_decklist_create(session, cmd)
+    return session
+
+
 class TestSession:
     """Session holds the active state for a REPL session."""
 
@@ -56,21 +70,9 @@ class TestDecklistCreateHandler:
 class TestCategoryCreateHandler:
     """handle_category_create adds a category to the active decklist."""
 
-    def _make_session_with_deck(self):
-        session = Session()
-        cmd = ParsedCommand(
-            kind="object_verb",
-            raw="decklist create TestDeck",
-            obj="decklist",
-            verb="create",
-            args=["TestDeck"],
-        )
-        handle_decklist_create(session, cmd)
-        return session
-
     def test_category_create_handler_adds_category(self):
         """The handler adds a category to the active decklist."""
-        session = self._make_session_with_deck()
+        session = _make_session_with_deck()
         cmd = ParsedCommand(
             kind="object_verb",
             raw="category create Ramp 10",
@@ -98,7 +100,7 @@ class TestCategoryCreateHandler:
 
     def test_category_create_rejects_non_numeric_slots(self):
         """The handler returns an error for non-numeric slot count."""
-        session = self._make_session_with_deck()
+        session = _make_session_with_deck()
         cmd = ParsedCommand(
             kind="object_verb",
             raw="category create Ramp abc",
@@ -111,7 +113,7 @@ class TestCategoryCreateHandler:
 
     def test_category_create_rejects_zero_slots_via_handler(self):
         """The handler surfaces the model validation error for 0 slots."""
-        session = self._make_session_with_deck()
+        session = _make_session_with_deck()
         cmd = ParsedCommand(
             kind="object_verb",
             raw="category create Ramp 0",
@@ -212,21 +214,9 @@ class TestCategoryListHandler:
 class TestBasicLandsInOutput:
     """Basic Lands category appears in listing and show output."""
 
-    def _make_session_with_deck(self):
-        session = Session()
-        cmd = ParsedCommand(
-            kind="object_verb",
-            raw="decklist create TestDeck",
-            obj="decklist",
-            verb="create",
-            args=["TestDeck"],
-        )
-        handle_decklist_create(session, cmd)
-        return session
-
     def test_category_list_includes_basic_lands(self):
         """category list output includes Basic Lands."""
-        session = self._make_session_with_deck()
+        session = _make_session_with_deck()
         cmd = ParsedCommand(
             kind="object_verb",
             raw="category list",
@@ -239,7 +229,7 @@ class TestBasicLandsInOutput:
 
     def test_decklist_show_includes_basic_lands(self):
         """decklist show output includes Basic Lands."""
-        session = self._make_session_with_deck()
+        session = _make_session_with_deck()
         cmd = ParsedCommand(
             kind="object_verb",
             raw="decklist show",
