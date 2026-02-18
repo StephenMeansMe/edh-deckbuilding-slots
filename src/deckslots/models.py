@@ -72,6 +72,13 @@ class Decklist:
             raise ValueError(f"Category '{name}' already exists")
         self.categories[key] = Category(name=name, total_slots=slots)
 
+    def add_card(self, card: str, category_name: str) -> None:
+        key = category_name.lower()
+        if key not in self.categories:
+            raise ValueError(f"Category '{category_name}' not found.")
+        cat = self.categories[key]
+        cat.cards.append(card)
+
     @classmethod
     def create(cls, name: str) -> "Decklist":
         commander = Category(name="Commander", total_slots=1, fixed=True)
