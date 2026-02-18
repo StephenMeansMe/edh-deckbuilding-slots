@@ -13,7 +13,8 @@ edh-deckbuilding-slots/
 ├── docs/
 │   ├── ROADMAP.md             # MVP scope, product requirements, roadmap
 │   └── user-stories/
-│       └── 001-create-decklist-with-categorized-slots.md
+│       ├── 001-create-decklist-with-categorized-slots.md
+│       └── 002-import-decklist-from-file.md
 ├── src/
 │   └── deckslots/
 │       ├── __init__.py
@@ -47,9 +48,9 @@ edh-deckbuilding-slots/
 
 The app uses an **object-verb command pattern** with a dispatch registry:
 
-- **`cli.py`** — `parse_command(line)` returns a `ParsedCommand` with `kind` (`builtin`, `object_verb`, `unknown`, `empty`), `obj`, `verb`, and `args`. Known objects: `decklist`, `category`. Builtins: `quit`, `exit`, `help`.
-- **`models.py`** — Domain models. `Category` (name, total_slots, fixed, capped, allowed_cards, cards) and `Decklist` (name, categories dict). `Decklist.create()` auto-adds mandatory Commander and Basic Lands categories. `BASIC_LAND_NAMES` is a module-level `frozenset[str]` of all 12 valid basic land names. `Category.cards` is `list[str]` (allows duplicates for basic lands). Capped categories validate `1 <= total_slots <= 99`; uncapped categories validate `total_slots >= 0` with no upper limit. Uncapped categories return `None` for `available` and `False` for `is_full`.
-- **`commands.py`** — `Session` holds REPL state (`decklist: Decklist | None`). Handler functions (e.g., `handle_decklist_create`) return strings. `register_all_handlers(session)` builds a `dict[tuple[str, str], Callable]` dispatch registry. `dispatch(cmd, registry)` routes commands.
+- **`cli.py`** — `parse_command(line)` returns a `ParsedCommand` with `kind` (`builtin`, `object_verb`, `unknown`, `empty`), `obj`, `verb`, and `args`. Known objects: `decklist`, `category`, `card`. Builtins: `quit`, `exit`, `help`.
+- **`models.py`** — Domain models. `Category` (name, total_slots, fixed, capped, allowed_cards, cards) and `Decklist` (name, categories dict). `Decklist.create()` auto-adds mandatory Commander and Basic Lands categories. `BASIC_LAND_NAMES` is a module-level `frozenset[str]` of all 12 valid basic land names. `Category.cards` is `list[str]` (allows duplicates for basic lands). `Decklist.add_card(card, category_name)` enforces: category existence, `allowed_cards` whitelist, fullness, and singleton exclusivity across capped categories (uncapped categories skip the exclusivity check). Capped categories validate `1 <= total_slots <= 99`; uncapped categories validate `total_slots >= 0` with no upper limit. Uncapped categories return `None` for `available` and `False` for `is_full`.
+- **`commands.py`** — `Session` holds REPL state (`decklist: Decklist | None`). Handler functions (e.g., `handle_decklist_create`) return strings. `_resolve_category_and_card(args, categories)` uses greedy longest-match to resolve multi-word category names (e.g., "Basic Lands") from command args. `register_all_handlers(session)` builds a `dict[tuple[str, str], Callable]` dispatch registry. `dispatch(cmd, registry)` routes commands.
 - **`repl.py`** — `run_repl()` creates a Session and registry, loops on `input()`, delegates to dispatch for object-verb commands and `handle_help` for the help builtin.
 
 ## Development Methodology: Test-Driven Design (TDD)
@@ -104,7 +105,10 @@ uv run deckslots             # Run the app (console script)
 
 - **Branch naming**: Feature branches use `claude/` prefix for AI-assisted work.
 - **Commits**: Use clear, descriptive commit messages. Prefix with `test:`, `feat:`, `fix:`, or `refactor:` to reflect the TDD phase.
+- **Merging PRs**: Use squash merge (`gh pr merge <n> --squash --delete-branch`). After merging, reset local `main` to the pre-session commit (`git reset --hard <sha>`) so feature work lives only on the squash commit.
+- **Creating PRs**: Must be on the feature branch when running `gh pr create` — running it from `main` errors with "head branch is the same as base branch."
 - **Python style**: Follow PEP 8, enforced by Ruff (E, F, I, W rule sets).
+- **Line length**: Ruff enforces 88 characters. Long f-string error messages and multi-argument test helper calls are common offenders — wrap early to avoid a separate refactor commit.
 - **Test organization**: Mirror the source tree under a `tests/` directory (e.g., `src/slots/deck.py` → `tests/test_deck.py`). Test files are prefixed with `test_`, test functions with `test_`.
 - **Test naming**: Use descriptive names that state the expected behavior, e.g., `test_deck_rejects_duplicate_cards`, not `test_deck_1`.
 
@@ -114,7 +118,7 @@ uv run deckslots             # Run the app (console script)
 - **Slot**: A single position in a decklist that expects to have a card associated with it. A slot is instantiated *before* any card is assigned to it (i.e., an empty slot is valid).
 - **Category**: A named grouping of slots (e.g., "Ramp," "Removal," "Draw"). User-created categories are *capped* (1–99 slots). Categories can also be *uncapped* (0+ slots, no upper limit), used for Basic Lands.
 - **Fixed category**: A category with a special structural role in the deck, created automatically by `Decklist.create()`. The Commander category (1 fixed slot) and the Basic Lands category (0 starting slots, uncapped) are both mandatory.  *(Roadmap: partner, background, and companion are optional pre-configured fixed slots.)*
-- **Basic Lands**: A fixed, uncapped category restricted to the 12 valid basic land names (5 classics, Wastes, 6 snow-covered) via `allowed_cards`. Unlike normal categories, Basic Lands allows duplicate card names and has no upper slot limit. Enforcement of the `allowed_cards` whitelist is deferred to a future `add_card` method.
+- **Basic Lands**: A fixed, uncapped category restricted to the 12 valid basic land names (5 classics, Wastes, 6 snow-covered) via `allowed_cards`. Unlike normal categories, Basic Lands allows duplicate card names and has no upper slot limit. The `allowed_cards` whitelist is enforced by `Decklist.add_card()`.
 - **Exclusivity**: In the MVP, categories and slots are *exclusive* — a card occupies exactly one slot in one category. *(Roadmap: when exclusivity is toggled off, a card may appear in multiple slots/categories, but must have a designated **primary** category slot. The app distinguishes primary vs. non-primary appearances. Non-exclusive mode allows the total slot count to exceed 100.)*
 
 ## MVP Scope
@@ -131,6 +135,7 @@ For detailed product requirements, roadmap, and user stories, see `docs/`.
 ## Notes for AI Assistants
 
 - **TDD is mandatory.** Do not skip the Red phase. Always start by writing or showing the failing test before implementing production code.
+- **Test file imports**: Only import names that already exist in production code. A top-level `ImportError` fails the *entire* test file, not just the new test class. Add new imports to test files at the same TDD step you add the production function.
 - This is a greenfield project. When adding new files, follow Python packaging best practices (e.g., `src/` layout or flat layout with `pyproject.toml`).
 - Prefer modern Python tooling (pyproject.toml over setup.py, Ruff over flake8/black, etc.).
 - No CI/CD pipeline is configured yet. Propose one if/when tests or publishing are needed.
