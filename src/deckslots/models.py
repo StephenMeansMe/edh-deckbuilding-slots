@@ -77,6 +77,8 @@ class Decklist:
         if key not in self.categories:
             raise ValueError(f"Category '{category_name}' not found.")
         cat = self.categories[key]
+        if cat.is_full:
+            raise ValueError(f"Category '{category_name}' is full (no available slots).")
         cat.cards.append(card)
 
     @classmethod
