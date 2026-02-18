@@ -18,7 +18,7 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 ### Interface and I/O
 
 - **Linux CLI** — The only supported interface is a command-line application running on Linux.
-- **Flat text file storage** — Decklists are read from and written to plain text files (no database).
+- **Decklist import** — `decklist import <file>` reads a plain text file in `$QUANTITY $CARDNAME` format with `Commander` and `Maindeck` section headings. The commander is routed to the Commander slot, basic lands to the Basic Lands category, and all other cards to a temporary **Uncategorized** category. The app persistently warns until Uncategorized is empty. *(User Story 002)*
 - **Plain text export** — Export format is `$QUANTITY $CARDNAME` (e.g., `1 Sol Ring`), one entry per line.
 
 ### Intentional omissions
