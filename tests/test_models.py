@@ -296,3 +296,19 @@ class TestDecklistAddCard:
         deck = Decklist.create("Test Deck")
         deck.add_card("Forest", "Basic Lands")
         assert "Forest" in deck.categories["basic lands"].cards
+
+    def test_add_card_raises_for_duplicate_in_exclusive_decklist(self):
+        """add_card raises ValueError when the card is already in a capped category."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_category("Draw", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        with pytest.raises(ValueError, match="already in the decklist"):
+            deck.add_card("Sol Ring", "Draw")
+
+    def test_add_card_allows_duplicates_in_uncapped_category(self):
+        """add_card allows the same card name multiple times in an uncapped category."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Forest", "Basic Lands")
+        deck.add_card("Forest", "Basic Lands")
+        assert deck.categories["basic lands"].cards.count("Forest") == 2
