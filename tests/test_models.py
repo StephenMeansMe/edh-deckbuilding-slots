@@ -284,3 +284,15 @@ class TestDecklistAddCard:
         deck.add_card("Sol Ring", "Tiny")
         with pytest.raises(ValueError, match="full"):
             deck.add_card("Mana Crypt", "Tiny")
+
+    def test_add_card_raises_when_card_not_in_allowed_cards(self):
+        """add_card raises ValueError when the card is not in the whitelist."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError, match="not allowed"):
+            deck.add_card("Sol Ring", "Basic Lands")
+
+    def test_add_card_accepts_valid_basic_land(self):
+        """add_card succeeds when the card is in the allowed_cards whitelist."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Forest", "Basic Lands")
+        assert "Forest" in deck.categories["basic lands"].cards
