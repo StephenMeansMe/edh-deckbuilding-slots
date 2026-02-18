@@ -81,6 +81,7 @@ def handle_help() -> str:
             "  decklist show             Show the active decklist",
             "  category create <n> <s>   Add a category with <s> slots",
             "  category list             List all categories",
+            "  card add <cat> <name>     Add a card to a category",
             "  help                      Show this help message",
             "  quit / exit               Exit the program",
         ]
