@@ -3,6 +3,7 @@ from deckslots.commands import (
     Session,
     _resolve_category_and_card,
     dispatch,
+    handle_card_add,
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
@@ -320,3 +321,82 @@ class TestDispatch:
         )
         result = dispatch(cmd, registry)
         assert "unknown command" in result.lower()
+
+
+def _make_cmd(raw, obj, verb, args):
+    return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
+
+
+class TestCardAddHandler:
+    """handle_card_add adds a card to a category in the active decklist."""
+
+    def test_card_add_requires_decklist(self):
+        """handle_card_add returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"])
+        result = handle_card_add(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_card_add_missing_args_returns_usage(self):
+        """handle_card_add returns usage when fewer than 2 args are given."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd("card add", "card", "add", [])
+        result = handle_card_add(session, cmd)
+        assert "usage" in result.lower()
+
+    def test_card_add_adds_card_to_category(self):
+        """handle_card_add places the card in the named category."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        cmd = _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"])
+        result = handle_card_add(session, cmd)
+        assert "Sol Ring" in result
+        assert "Ramp" in result
+        assert "Sol Ring" in session.decklist.categories["ramp"].cards
+
+    def test_card_add_returns_error_for_missing_category(self):
+        """handle_card_add returns an error when the category is not found."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd("card add Draw Sol Ring", "card", "add", ["Draw", "Sol", "Ring"])
+        result = handle_card_add(session, cmd)
+        assert "not found" in result.lower()
+
+    def test_card_add_returns_error_for_disallowed_card(self):
+        """handle_card_add returns an error when the card is not in allowed_cards."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd(
+            "card add Basic Lands Sol Ring",
+            "card", "add", ["Basic", "Lands", "Sol", "Ring"]
+        )
+        result = handle_card_add(session, cmd)
+        assert "not allowed" in result.lower()
+
+    def test_card_add_returns_error_when_category_full(self):
+        """handle_card_add returns an error when the category is full."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Tiny", 1)
+        session.decklist.add_card("Sol Ring", "Tiny")
+        cmd = _make_cmd("card add Tiny Mana Crypt", "card", "add", ["Tiny", "Mana", "Crypt"])
+        result = handle_card_add(session, cmd)
+        assert "full" in result.lower()
+
+    def test_card_add_returns_error_for_duplicate_card(self):
+        """handle_card_add returns an error when the card is already in the decklist."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Draw", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        cmd = _make_cmd("card add Draw Sol Ring", "card", "add", ["Draw", "Sol", "Ring"])
+        result = handle_card_add(session, cmd)
+        assert "already in the decklist" in result.lower()
+
+    def test_card_add_basic_land_succeeds(self):
+        """handle_card_add adds a valid basic land to the Basic Lands category."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd(
+            "card add Basic Lands Forest",
+            "card", "add", ["Basic", "Lands", "Forest"]
+        )
+        result = handle_card_add(session, cmd)
+        assert "Forest" in result
+        assert "Basic Lands" in result
