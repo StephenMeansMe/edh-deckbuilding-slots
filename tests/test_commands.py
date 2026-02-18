@@ -363,7 +363,9 @@ class TestCardAddHandler:
     def test_card_add_requires_decklist(self):
         """handle_card_add returns an error when no decklist is active."""
         session = Session()
-        cmd = _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"])
+        cmd = _make_cmd(
+            "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
+        )
         result = handle_card_add(session, cmd)
         assert "no active decklist" in result.lower()
 
@@ -378,7 +380,9 @@ class TestCardAddHandler:
         """handle_card_add places the card in the named category."""
         session = _make_session_with_deck()
         session.decklist.add_category("Ramp", 10)
-        cmd = _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"])
+        cmd = _make_cmd(
+            "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
+        )
         result = handle_card_add(session, cmd)
         assert "Sol Ring" in result
         assert "Ramp" in result
@@ -387,7 +391,9 @@ class TestCardAddHandler:
     def test_card_add_returns_error_for_missing_category(self):
         """handle_card_add returns an error when the category is not found."""
         session = _make_session_with_deck()
-        cmd = _make_cmd("card add Draw Sol Ring", "card", "add", ["Draw", "Sol", "Ring"])
+        cmd = _make_cmd(
+            "card add Draw Sol Ring", "card", "add", ["Draw", "Sol", "Ring"]
+        )
         result = handle_card_add(session, cmd)
         assert "not found" in result.lower()
 
@@ -406,7 +412,9 @@ class TestCardAddHandler:
         session = _make_session_with_deck()
         session.decklist.add_category("Tiny", 1)
         session.decklist.add_card("Sol Ring", "Tiny")
-        cmd = _make_cmd("card add Tiny Mana Crypt", "card", "add", ["Tiny", "Mana", "Crypt"])
+        cmd = _make_cmd(
+            "card add Tiny Mana Crypt", "card", "add", ["Tiny", "Mana", "Crypt"]
+        )
         result = handle_card_add(session, cmd)
         assert "full" in result.lower()
 
@@ -416,7 +424,9 @@ class TestCardAddHandler:
         session.decklist.add_category("Ramp", 10)
         session.decklist.add_category("Draw", 10)
         session.decklist.add_card("Sol Ring", "Ramp")
-        cmd = _make_cmd("card add Draw Sol Ring", "card", "add", ["Draw", "Sol", "Ring"])
+        cmd = _make_cmd(
+            "card add Draw Sol Ring", "card", "add", ["Draw", "Sol", "Ring"]
+        )
         result = handle_card_add(session, cmd)
         assert "already in the decklist" in result.lower()
 

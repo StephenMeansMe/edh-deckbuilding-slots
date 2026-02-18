@@ -80,7 +80,9 @@ class Decklist:
         if cat.allowed_cards is not None and card not in cat.allowed_cards:
             raise ValueError(f"'{card}' is not allowed in '{category_name}'.")
         if cat.is_full:
-            raise ValueError(f"Category '{category_name}' is full (no available slots).")
+            raise ValueError(
+                f"Category '{category_name}' is full (no available slots)."
+            )
         if cat.capped:
             for other in self.categories.values():
                 if other.capped and card in other.cards:
