@@ -322,6 +322,31 @@ class TestDispatch:
         result = dispatch(cmd, registry)
         assert "unknown command" in result.lower()
 
+    def test_dispatch_card_add(self):
+        """Full pipeline: register, dispatch card add, verify card in decklist."""
+        session = Session()
+        registry = register_all_handlers(session)
+        # Create decklist
+        dispatch(
+            ParsedCommand(kind="object_verb", raw="decklist create TestDeck",
+                          obj="decklist", verb="create", args=["TestDeck"]),
+            registry,
+        )
+        # Create category
+        dispatch(
+            ParsedCommand(kind="object_verb", raw="category create Ramp 10",
+                          obj="category", verb="create", args=["Ramp", "10"]),
+            registry,
+        )
+        # Add card
+        cmd = ParsedCommand(
+            kind="object_verb", raw="card add Ramp Sol Ring",
+            obj="card", verb="add", args=["Ramp", "Sol", "Ring"]
+        )
+        result = dispatch(cmd, registry)
+        assert "Sol Ring" in result
+        assert "Sol Ring" in session.decklist.categories["ramp"].cards
+
 
 def _make_cmd(raw, obj, verb, args):
     return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
