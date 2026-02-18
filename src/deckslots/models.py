@@ -81,6 +81,10 @@ class Decklist:
             raise ValueError(f"'{card}' is not allowed in '{category_name}'.")
         if cat.is_full:
             raise ValueError(f"Category '{category_name}' is full (no available slots).")
+        if cat.capped:
+            for other in self.categories.values():
+                if other.capped and card in other.cards:
+                    raise ValueError(f"'{card}' is already in the decklist.")
         cat.cards.append(card)
 
     @classmethod
