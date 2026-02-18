@@ -12,12 +12,39 @@ class Session:
     decklist: Decklist | None = None
 
 
+def _resolve_category_and_card(
+    args: list[str], categories: dict
+) -> tuple[str, str] | None:
+    for i in range(len(args) - 1, 0, -1):
+        candidate = " ".join(args[:i]).lower()
+        if candidate in categories:
+            return (candidate, " ".join(args[i:]))
+    return None
+
+
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: decklist create <name>"
     name = cmd.args[0]
     session.decklist = Decklist.create(name)
     return f"Created decklist '{name}'."
+
+
+def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if len(cmd.args) < 2:
+        return "Usage: card add <category> <card-name>"
+    resolved = _resolve_category_and_card(cmd.args, session.decklist.categories)
+    if resolved is None:
+        return "Category not found. Usage: card add <category> <card-name>"
+    category_key, card = resolved
+    category_name = session.decklist.categories[category_key].name
+    try:
+        session.decklist.add_card(card, category_name)
+    except ValueError as e:
+        return str(e)
+    return f"Added '{card}' to '{category_name}'."
 
 
 def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
@@ -54,6 +81,7 @@ def handle_help() -> str:
             "  decklist show             Show the active decklist",
             "  category create <n> <s>   Add a category with <s> slots",
             "  category list             List all categories",
+            "  card add <cat> <name>     Add a card to a category",
             "  help                      Show this help message",
             "  quit / exit               Exit the program",
         ]
@@ -80,6 +108,7 @@ def register_all_handlers(
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
+        ("card", "add"): lambda cmd: handle_card_add(session, cmd),
     }
 
 

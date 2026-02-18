@@ -60,3 +60,21 @@ class TestParseCommand:
         """A known object without a verb is parsed as unknown."""
         result = parse_command("decklist")
         assert result.kind == "unknown"
+
+    def test_card_add_parses_as_object_verb(self):
+        """'card add Ramp Sol Ring' parses as an object-verb command."""
+        result = parse_command("card add Ramp Sol Ring")
+        assert result.kind == "object_verb"
+        assert result.obj == "card"
+        assert result.verb == "add"
+        assert result.args == ["Ramp", "Sol", "Ring"]
+
+    def test_card_add_args_contain_all_tokens(self):
+        """'card add' preserves all tokens after the verb as args."""
+        result = parse_command("card add Basic Lands Forest")
+        assert result.args == ["Basic", "Lands", "Forest"]
+
+    def test_card_alone_is_unknown(self):
+        """A 'card' without a verb is parsed as unknown."""
+        result = parse_command("card")
+        assert result.kind == "unknown"

@@ -259,3 +259,70 @@ class TestDecklistAddCategory:
         """A new decklist has 0 filled slots."""
         deck = Decklist.create("Test Deck")
         assert deck.total_filled == 0
+
+
+class TestDecklistAddCard:
+    """Decklist.add_card places a card into a category slot."""
+
+    def test_add_card_appends_card_to_category(self):
+        """add_card places the card into the named category's cards list."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        assert "Sol Ring" in deck.categories["ramp"].cards
+
+    def test_add_card_raises_for_nonexistent_category(self):
+        """add_card raises ValueError when the category does not exist."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError, match="not found"):
+            deck.add_card("Sol Ring", "Nonexistent")
+
+    def test_add_card_raises_when_category_is_full(self):
+        """add_card raises ValueError when the category has no available slots."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Tiny", 1)
+        deck.add_card("Sol Ring", "Tiny")
+        with pytest.raises(ValueError, match="full"):
+            deck.add_card("Mana Crypt", "Tiny")
+
+    def test_add_card_raises_when_card_not_in_allowed_cards(self):
+        """add_card raises ValueError when the card is not in the whitelist."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError, match="not allowed"):
+            deck.add_card("Sol Ring", "Basic Lands")
+
+    def test_add_card_accepts_valid_basic_land(self):
+        """add_card succeeds when the card is in the allowed_cards whitelist."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Forest", "Basic Lands")
+        assert "Forest" in deck.categories["basic lands"].cards
+
+    def test_add_card_raises_for_duplicate_in_exclusive_decklist(self):
+        """add_card raises ValueError when the card is already in a capped category."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_category("Draw", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        with pytest.raises(ValueError, match="already in the decklist"):
+            deck.add_card("Sol Ring", "Draw")
+
+    def test_add_card_allows_duplicates_in_uncapped_category(self):
+        """add_card allows the same card name multiple times in an uncapped category."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Forest", "Basic Lands")
+        deck.add_card("Forest", "Basic Lands")
+        assert deck.categories["basic lands"].cards.count("Forest") == 2
+
+    def test_add_card_increments_total_filled(self):
+        """add_card increases the decklist's total_filled count."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        assert deck.total_filled == 0
+        deck.add_card("Sol Ring", "Ramp")
+        assert deck.total_filled == 1
+
+    def test_add_card_to_commander_category(self):
+        """add_card can place a card in the Commander fixed category."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards

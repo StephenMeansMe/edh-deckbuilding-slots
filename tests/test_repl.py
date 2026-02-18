@@ -182,3 +182,51 @@ class TestReplHelp:
         assert "decklist create" in output
         assert "category create" in output
         assert "help" in output
+
+
+class TestReplCardAddCommands:
+    """The REPL dispatches card add commands and prints handler output."""
+
+    def test_repl_card_add_prints_confirmation(self, capsys):
+        """'card add Ramp Sol Ring' prints a confirmation with card and category."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "card add Ramp Sol Ring",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Sol Ring" in output
+        assert "Ramp" in output
+
+    def test_repl_card_add_basic_land(self, capsys):
+        """'card add Basic Lands Forest' prints a confirmation for Basic Lands."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "card add Basic Lands Forest",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Forest" in output
+        assert "Basic Lands" in output
+
+    def test_repl_card_add_without_decklist_shows_error(self, capsys):
+        """'card add' without an active decklist prints an error."""
+        with patch(
+            "builtins.input",
+            side_effect=["card add Ramp Sol Ring", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "no active decklist" in output.lower()
