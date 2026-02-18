@@ -3,7 +3,6 @@ from deckslots.commands import (
     Session,
     _resolve_category_and_card,
     dispatch,
-    handle_card_add,
     handle_category_create,
     handle_category_list,
     handle_decklist_create,

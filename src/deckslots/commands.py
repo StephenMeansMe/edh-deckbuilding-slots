@@ -12,6 +12,16 @@ class Session:
     decklist: Decklist | None = None
 
 
+def _resolve_category_and_card(
+    args: list[str], categories: dict
+) -> tuple[str, str] | None:
+    for i in range(len(args) - 1, 0, -1):
+        candidate = " ".join(args[:i]).lower()
+        if candidate in categories:
+            return (candidate, " ".join(args[i:]))
+    return None
+
+
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: decklist create <name>"
