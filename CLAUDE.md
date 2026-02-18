@@ -41,8 +41,8 @@ edh-deckbuilding-slots/
 - **Build backend**: [Hatchling](https://hatch.pypa.io/) (src/ layout)
 - **Testing**: [pytest](https://docs.pytest.org/)
 - **Linting/Formatting**: [Ruff](https://docs.astral.sh/ruff/)
-- **Type checking**: TBD
-- **Documentation**: TBD
+- **Type checking**: [ty](https://github.com/astral-sh/ty)
+- **Documentation**: GitHub repo wiki
 
 ## Architecture
 
@@ -97,6 +97,7 @@ uv run pytest -v             # Verbose output
 uv run pytest --tb=short     # Concise tracebacks
 uv run ruff check .          # Lint
 uv run ruff format .         # Format
+uv run ty check              # Type check
 uv run deckslots             # Run the app (console script)
 ./bin/deckslots              # Run the app (standalone script)
 ```
@@ -144,3 +145,4 @@ For detailed product requirements, roadmap, and user stories, see `docs/`.
 - When asked to add a feature, the first response should be a test, not an implementation.
 - Keep commits granular: one commit per TDD step (red, green, refactor).
 - Keep this file updated as the project evolves.
+- **Documentation** lives in the GitHub repo wiki. Do not create local markdown docs for user-facing content; open or edit wiki pages instead.
