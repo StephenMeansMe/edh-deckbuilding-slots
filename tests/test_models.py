@@ -312,3 +312,17 @@ class TestDecklistAddCard:
         deck.add_card("Forest", "Basic Lands")
         deck.add_card("Forest", "Basic Lands")
         assert deck.categories["basic lands"].cards.count("Forest") == 2
+
+    def test_add_card_increments_total_filled(self):
+        """add_card increases the decklist's total_filled count."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        assert deck.total_filled == 0
+        deck.add_card("Sol Ring", "Ramp")
+        assert deck.total_filled == 1
+
+    def test_add_card_to_commander_category(self):
+        """add_card can place a card in the Commander fixed category."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
