@@ -107,6 +107,7 @@ def register_all_handlers(
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
+        ("card", "add"): lambda cmd: handle_card_add(session, cmd),
     }
 
 
