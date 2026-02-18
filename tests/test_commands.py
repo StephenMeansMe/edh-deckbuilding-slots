@@ -1,7 +1,9 @@
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    _resolve_category_and_card,
     dispatch,
+    handle_card_add,
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
@@ -23,6 +25,38 @@ def _make_session_with_deck():
     )
     handle_decklist_create(session, cmd)
     return session
+
+
+class TestResolveCategoryAndCard:
+    """_resolve_category_and_card matches longest category prefix from args."""
+
+    def _categories(self, *names):
+        """Build a minimal categories dict keyed by lowercase name."""
+        return {name.lower(): object() for name in names}
+
+    def test_resolves_single_word_category(self):
+        """Single-word category name is matched by first token."""
+        cats = self._categories("Ramp")
+        result = _resolve_category_and_card(["Ramp", "Sol", "Ring"], cats)
+        assert result == ("ramp", "Sol Ring")
+
+    def test_resolves_two_word_category(self):
+        """Two-word category name is matched by first two tokens."""
+        cats = self._categories("Basic Lands")
+        result = _resolve_category_and_card(["Basic", "Lands", "Forest"], cats)
+        assert result == ("basic lands", "Forest")
+
+    def test_returns_none_when_no_match(self):
+        """Returns None when no prefix of args matches a category key."""
+        cats = self._categories("Ramp")
+        result = _resolve_category_and_card(["Draw", "Sol", "Ring"], cats)
+        assert result is None
+
+    def test_prefers_longer_match_when_prefix_ambiguity(self):
+        """Prefers 'Basic Lands' over 'Basic' when both exist as categories."""
+        cats = self._categories("Basic", "Basic Lands")
+        result = _resolve_category_and_card(["Basic", "Lands", "Forest"], cats)
+        assert result == ("basic lands", "Forest")
 
 
 class TestSession:
