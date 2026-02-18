@@ -288,6 +288,11 @@ class TestHelpHandler:
         assert "help" in result
         assert "quit" in result
 
+    def test_help_includes_card_add(self):
+        """The help output includes the card add command."""
+        result = handle_help()
+        assert "card add" in result
+
 
 class TestDispatch:
     """dispatch routes parsed commands to the correct handler."""
