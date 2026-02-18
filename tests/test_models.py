@@ -270,3 +270,17 @@ class TestDecklistAddCard:
         deck.add_category("Ramp", 10)
         deck.add_card("Sol Ring", "Ramp")
         assert "Sol Ring" in deck.categories["ramp"].cards
+
+    def test_add_card_raises_for_nonexistent_category(self):
+        """add_card raises ValueError when the category does not exist."""
+        deck = Decklist.create("Test Deck")
+        with pytest.raises(ValueError, match="not found"):
+            deck.add_card("Sol Ring", "Nonexistent")
+
+    def test_add_card_raises_when_category_is_full(self):
+        """add_card raises ValueError when the category has no available slots."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Tiny", 1)
+        deck.add_card("Sol Ring", "Tiny")
+        with pytest.raises(ValueError, match="full"):
+            deck.add_card("Mana Crypt", "Tiny")
