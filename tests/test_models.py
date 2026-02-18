@@ -259,3 +259,14 @@ class TestDecklistAddCategory:
         """A new decklist has 0 filled slots."""
         deck = Decklist.create("Test Deck")
         assert deck.total_filled == 0
+
+
+class TestDecklistAddCard:
+    """Decklist.add_card places a card into a category slot."""
+
+    def test_add_card_appends_card_to_category(self):
+        """add_card places the card into the named category's cards list."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        assert "Sol Ring" in deck.categories["ramp"].cards
