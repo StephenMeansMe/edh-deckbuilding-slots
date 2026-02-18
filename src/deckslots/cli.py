@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 BUILTINS: set[str] = {"quit", "exit", "help"}
-KNOWN_OBJECTS: set[str] = {"decklist", "category"}
+KNOWN_OBJECTS: set[str] = {"decklist", "category", "card"}
 
 
 @dataclass
