@@ -30,6 +30,23 @@ def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
     return f"Created decklist '{name}'."
 
 
+def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if len(cmd.args) < 2:
+        return "Usage: card add <category> <card-name>"
+    resolved = _resolve_category_and_card(cmd.args, session.decklist.categories)
+    if resolved is None:
+        return "Category not found. Usage: card add <category> <card-name>"
+    category_key, card = resolved
+    category_name = session.decklist.categories[category_key].name
+    try:
+        session.decklist.add_card(card, category_name)
+    except ValueError as e:
+        return str(e)
+    return f"Added '{card}' to '{category_name}'."
+
+
 def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return "No active decklist. Use 'decklist create <name>' first."
