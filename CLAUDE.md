@@ -12,6 +12,7 @@ edh-deckbuilding-slots/
 │   └── deckslots              # Standalone CLI entrypoint
 ├── docs/
 │   ├── ROADMAP.md             # MVP scope, product requirements, roadmap
+│   ├── plan.md                # Implementation plan and design decisions
 │   └── user-stories/
 │       ├── 001-create-decklist-with-categorized-slots.md
 │       └── 002-import-decklist-from-file.md
@@ -41,8 +42,8 @@ edh-deckbuilding-slots/
 - **Build backend**: [Hatchling](https://hatch.pypa.io/) (src/ layout)
 - **Testing**: [pytest](https://docs.pytest.org/)
 - **Linting/Formatting**: [Ruff](https://docs.astral.sh/ruff/)
-- **Type checking**: TBD
-- **Documentation**: TBD
+- **Type checking**: [ty](https://github.com/astral-sh/ty)
+- **Documentation**: GitHub repo wiki (end-user docs); Markdown files in repo (developer and AI assistant docs)
 
 ## Architecture
 
@@ -97,6 +98,7 @@ uv run pytest -v             # Verbose output
 uv run pytest --tb=short     # Concise tracebacks
 uv run ruff check .          # Lint
 uv run ruff format .         # Format
+uv run ty check              # Type check
 uv run deckslots             # Run the app (console script)
 ./bin/deckslots              # Run the app (standalone script)
 ```
@@ -144,3 +146,4 @@ For detailed product requirements, roadmap, and user stories, see `docs/`.
 - When asked to add a feature, the first response should be a test, not an implementation.
 - Keep commits granular: one commit per TDD step (red, green, refactor).
 - Keep this file updated as the project evolves.
+- **Documentation**: end-user documentation lives in the GitHub repo wiki — do not create local Markdown files for user-facing content. Developer and AI assistant documentation (architecture, plans, conventions) lives as Markdown files in the repo (`CLAUDE.md`, `docs/`).
