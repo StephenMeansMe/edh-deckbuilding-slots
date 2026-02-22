@@ -290,6 +290,38 @@ class TestBasicLandsInOutput:
         assert "Basic Lands" in result
 
 
+class TestUncappedCategoryDisplay:
+    """Uncapped categories render with '(uncapped)' suffix instead of '/0'."""
+
+    def test_category_list_uncapped_uses_special_format(self):
+        """Uncapped categories show 'N slots filled (uncapped)' in category list."""
+        session = _make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="category list",
+            obj="category",
+            verb="list",
+            args=[],
+        )
+        result = handle_category_list(session, cmd)
+        assert "Basic Lands: 0 slots filled (uncapped)" in result
+        assert "0/0" not in result
+
+    def test_decklist_show_uncapped_uses_special_format(self):
+        """Uncapped categories show 'N slots filled (uncapped)' in decklist show."""
+        session = _make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist show",
+            obj="decklist",
+            verb="show",
+            args=[],
+        )
+        result = handle_decklist_show(session, cmd)
+        assert "Basic Lands: 0 slots filled (uncapped)" in result
+        assert "0/0" not in result
+
+
 class TestHelpHandler:
     """handle_help returns a list of available commands."""
 
