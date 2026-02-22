@@ -52,11 +52,12 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
         return "No active decklist. Use 'decklist create <name>' first."
     if len(cmd.args) < 2:
         return "Usage: category create <name> <slots>"
-    name = cmd.args[0]
+    *name_parts, slots_str = cmd.args
+    name = " ".join(name_parts)
     try:
-        slots = int(cmd.args[1])
+        slots = int(slots_str)
     except ValueError:
-        return f"Invalid slot count: '{cmd.args[1]}'. Must be a number."
+        return f"Invalid slot count: '{slots_str}'. Must be a number."
     try:
         session.decklist.add_category(name, slots)
     except ValueError as e:
