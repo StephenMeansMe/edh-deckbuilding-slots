@@ -159,6 +159,21 @@ class TestCategoryCreateHandler:
         assert "ramp" not in session.decklist.categories
         assert "1 and 99" in result
 
+    def test_category_create_multi_word_name(self):
+        """The handler accepts multi-word names; the last arg is the slot count."""
+        session = _make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="category create Test Category 5",
+            obj="category",
+            verb="create",
+            args=["Test", "Category", "5"],
+        )
+        result = handle_category_create(session, cmd)
+        assert "test category" in session.decklist.categories
+        assert session.decklist.categories["test category"].total_slots == 5
+        assert "Test Category" in result
+
 
 class TestDecklistShowHandler:
     """handle_decklist_show returns a summary of the active decklist."""
