@@ -159,6 +159,21 @@ class TestCategoryCreateHandler:
         assert "ramp" not in session.decklist.categories
         assert "1 and 99" in result
 
+    def test_category_create_multi_word_name(self):
+        """The handler accepts multi-word names; the last arg is the slot count."""
+        session = _make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="category create Test Category 5",
+            obj="category",
+            verb="create",
+            args=["Test", "Category", "5"],
+        )
+        result = handle_category_create(session, cmd)
+        assert "test category" in session.decklist.categories
+        assert session.decklist.categories["test category"].total_slots == 5
+        assert "Test Category" in result
+
 
 class TestDecklistShowHandler:
     """handle_decklist_show returns a summary of the active decklist."""
@@ -273,6 +288,38 @@ class TestBasicLandsInOutput:
         )
         result = handle_decklist_show(session, cmd)
         assert "Basic Lands" in result
+
+
+class TestUncappedCategoryDisplay:
+    """Uncapped categories render with '(uncapped)' suffix instead of '/0'."""
+
+    def test_category_list_uncapped_uses_special_format(self):
+        """Uncapped categories show 'N slots filled (uncapped)' in category list."""
+        session = _make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="category list",
+            obj="category",
+            verb="list",
+            args=[],
+        )
+        result = handle_category_list(session, cmd)
+        assert "Basic Lands: 0 slots filled (uncapped)" in result
+        assert "0/0" not in result
+
+    def test_decklist_show_uncapped_uses_special_format(self):
+        """Uncapped categories show 'N slots filled (uncapped)' in decklist show."""
+        session = _make_session_with_deck()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist show",
+            obj="decklist",
+            verb="show",
+            args=[],
+        )
+        result = handle_decklist_show(session, cmd)
+        assert "Basic Lands: 0 slots filled (uncapped)" in result
+        assert "0/0" not in result
 
 
 class TestHelpHandler:

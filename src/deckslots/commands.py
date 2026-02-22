@@ -52,11 +52,12 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
         return "No active decklist. Use 'decklist create <name>' first."
     if len(cmd.args) < 2:
         return "Usage: category create <name> <slots>"
-    name = cmd.args[0]
+    *name_parts, slots_str = cmd.args
+    name = " ".join(name_parts)
     try:
-        slots = int(cmd.args[1])
+        slots = int(slots_str)
     except ValueError:
-        return f"Invalid slot count: '{cmd.args[1]}'. Must be a number."
+        return f"Invalid slot count: '{slots_str}'. Must be a number."
     try:
         session.decklist.add_category(name, slots)
     except ValueError as e:
@@ -64,12 +65,18 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
     return f"Created category '{name}' with {slots} slots."
 
 
+def _format_category_line(cat) -> str:
+    if not cat.capped:
+        return f"  {cat.name}: {cat.filled} slots filled (uncapped)"
+    return f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled"
+
+
 def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return "No active decklist. Use 'decklist create <name>' first."
     lines = ["Categories:"]
     for cat in session.decklist.categories.values():
-        lines.append(f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled")
+        lines.append(_format_category_line(cat))
     return "\n".join(lines)
 
 
@@ -96,7 +103,7 @@ def handle_decklist_show(session: Session, cmd: ParsedCommand) -> str:
     lines.append(f"Total slots: {deck.total_slots} ({deck.total_filled} filled)")
     lines.append("Categories:")
     for cat in deck.categories.values():
-        lines.append(f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled")
+        lines.append(_format_category_line(cat))
     return "\n".join(lines)
 
 
