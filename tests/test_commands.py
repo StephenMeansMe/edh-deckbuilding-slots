@@ -10,6 +10,7 @@ from deckslots.commands import (
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
+    handle_decklist_import,
     handle_decklist_show,
     handle_help,
     register_all_handlers,
@@ -400,8 +401,6 @@ class TestDecklistImportHandler:
         """Decklist name is the filename stem (no extension)."""
         f = tmp_path / "MyDeck.txt"
         f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -420,8 +419,6 @@ class TestDecklistImportHandler:
         f.write_text(
             "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
         )
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -439,8 +436,6 @@ class TestDecklistImportHandler:
         """Basic land names are placed in the Basic Lands category."""
         f = tmp_path / "deck.txt"
         f.write_text("Commander\n1 Atraxa\n\nMaindeck\n4 Forest\n2 Island\n")
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -458,8 +453,6 @@ class TestDecklistImportHandler:
         f.write_text(
             "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n"
         )
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -479,8 +472,6 @@ class TestDecklistImportHandler:
         f.write_text(
             "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n"
         )
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -497,8 +488,6 @@ class TestDecklistImportHandler:
 
     def test_import_returns_error_for_missing_file(self, tmp_path):
         """Returns an error string (not exception) when the file doesn't exist."""
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -513,8 +502,6 @@ class TestDecklistImportHandler:
 
     def test_import_requires_filepath_arg(self):
         """Returns a usage message when no filepath is given."""
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -530,8 +517,6 @@ class TestDecklistImportHandler:
         """An existing active decklist is silently replaced on import."""
         f = tmp_path / "NewDeck.txt"
         f.write_text("Maindeck\n1 Sol Ring\n")
-        from deckslots.commands import handle_decklist_import
-
         session = _make_session_with_deck()  # sets session.decklist to "TestDeck"
         cmd = ParsedCommand(
             kind="object_verb",
@@ -547,8 +532,6 @@ class TestDecklistImportHandler:
         """Summary warns when no Commander section was found."""
         f = tmp_path / "deck.txt"
         f.write_text("Maindeck\n1 Sol Ring\n")
-        from deckslots.commands import handle_decklist_import
-
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",

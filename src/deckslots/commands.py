@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from deckslots.cli import ParsedCommand
-from deckslots.models import BASIC_LAND_NAMES, Decklist
+from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
 
 
 @dataclass
@@ -142,12 +143,58 @@ def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
     return "\n".join(lines)
 
 
+def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
+    if not cmd.args:
+        return "Usage: decklist import <filepath>"
+    path = cmd.args[0]
+    try:
+        parsed = _parse_import_file(path)
+    except FileNotFoundError as e:
+        return str(e)
+    except (OSError, ValueError) as e:
+        return str(e)
+
+    name = os.path.splitext(os.path.basename(path))[0]
+    deck = Decklist.create(name)
+
+    if parsed.commander is not None:
+        deck.add_card(parsed.commander, "Commander")
+
+    for card in parsed.basic_lands:
+        deck.add_card(card, "Basic Lands")
+
+    uncategorized_cat = Category(
+        name="Uncategorized",
+        total_slots=0,
+        fixed=True,
+        capped=False,
+        user_addable=False,
+    )
+    deck.categories["uncategorized"] = uncategorized_cat
+
+    for card in parsed.uncategorized:
+        deck.add_card(card, "Uncategorized")
+
+    session.decklist = deck
+
+    commander_count = 1 if parsed.commander is not None else 0
+    summary = (
+        f"Imported '{name}': {commander_count} commander, "
+        f"{len(parsed.basic_lands)} basic lands, "
+        f"{len(parsed.uncategorized)} uncategorized cards."
+    )
+    if parsed.commander is None:
+        summary += "\nWarning: no commander found in file."
+    return summary
+
+
 def handle_help() -> str:
     return "\n".join(
         [
             "Available commands:",
             "  decklist create <name>    Create a new decklist",
             "  decklist show             Show the active decklist",
+            "  decklist import <file>    Import a decklist from a text file",
             "  category create <n> <s>   Add a category with <s> slots",
             "  category list             List all categories",
             "  card add <cat> <name>     Add a card to a category",
@@ -175,6 +222,7 @@ def register_all_handlers(
     return {
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
+        ("decklist", "import"): lambda cmd: handle_decklist_import(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
