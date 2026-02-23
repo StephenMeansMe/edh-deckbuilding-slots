@@ -323,6 +323,93 @@ class TestUncappedCategoryDisplay:
         assert "0/0" not in result
 
 
+class TestParseImportFile:
+    """_parse_import_file parses the $QUANTITY $CARDNAME import format."""
+
+    def test_parse_finds_commander(self, tmp_path):
+        """Commander-section card is returned as commander."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n")
+        from deckslots.commands import _parse_import_file
+
+        result = _parse_import_file(str(f))
+        assert result.commander == "Atraxa, Praetors' Voice"
+
+    def test_parse_routes_basic_lands(self, tmp_path):
+        """Basic land names in Maindeck go to basic_lands, one entry per copy."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n4 Forest\n2 Island\n")
+        from deckslots.commands import _parse_import_file
+
+        result = _parse_import_file(str(f))
+        assert result.basic_lands == ["Forest"] * 4 + ["Island"] * 2
+        assert result.uncategorized == []
+
+    def test_parse_routes_non_land_to_uncategorized(self, tmp_path):
+        """Non-basic-land Maindeck cards go to uncategorized, one entry per copy."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n2 Arcane Signet\n")
+        from deckslots.commands import _parse_import_file
+
+        result = _parse_import_file(str(f))
+        assert result.uncategorized == [
+            "Sol Ring",
+            "Arcane Signet",
+            "Arcane Signet",
+        ]
+        assert result.basic_lands == []
+
+    def test_parse_raises_for_missing_file(self, tmp_path):
+        """FileNotFoundError is raised when the path does not exist."""
+        import pytest
+        from deckslots.commands import _parse_import_file
+
+        with pytest.raises(FileNotFoundError):
+            _parse_import_file(str(tmp_path / "nonexistent.txt"))
+
+    def test_parse_raises_for_no_card_lines(self, tmp_path):
+        """ValueError is raised when the file has no recognisable card lines."""
+        import pytest
+        from deckslots.commands import _parse_import_file
+
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n\nMaindeck\n\n")
+        with pytest.raises(ValueError, match="No recognizable card lines"):
+            _parse_import_file(str(f))
+
+    def test_parse_commander_absent_returns_none(self, tmp_path):
+        """When no Commander section is present, commander is None."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n")
+        from deckslots.commands import _parse_import_file
+
+        result = _parse_import_file(str(f))
+        assert result.commander is None
+
+    def test_parse_section_headings_are_case_insensitive(self, tmp_path):
+        """COMMANDER and MAINDECK headings are recognised regardless of case."""
+        f = tmp_path / "deck.txt"
+        f.write_text("COMMANDER\n1 Atraxa\n\nMAINDECK\n1 Sol Ring\n")
+        from deckslots.commands import _parse_import_file
+
+        result = _parse_import_file(str(f))
+        assert result.commander == "Atraxa"
+        assert result.uncategorized == ["Sol Ring"]
+
+    def test_parse_blank_lines_silently_skipped(self, tmp_path):
+        """Blank lines between card entries do not cause errors."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n\n1 Atraxa\n\nMaindeck\n\n1 Sol Ring\n\n4 Forest\n"
+        )
+        from deckslots.commands import _parse_import_file
+
+        result = _parse_import_file(str(f))
+        assert result.commander == "Atraxa"
+        assert result.uncategorized == ["Sol Ring"]
+        assert result.basic_lands == ["Forest"] * 4
+
+
 class TestHelpHandler:
     """handle_help returns a list of available commands."""
 
