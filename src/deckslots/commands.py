@@ -163,6 +163,9 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     for card in parsed.basic_lands:
         deck.add_card(card, "Basic Lands")
 
+    # Uncapped so imported quantities are taken at face value (including
+    # duplicate non-land cards). Uncapped categories also skip the singleton
+    # exclusivity check, letting cards later move to capped categories freely.
     uncategorized_cat = Category(
         name="Uncategorized",
         total_slots=0,
