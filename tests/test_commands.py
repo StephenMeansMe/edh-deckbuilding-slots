@@ -487,3 +487,24 @@ class TestCardAddHandler:
         result = handle_card_add(session, cmd)
         assert "Forest" in result
         assert "Basic Lands" in result
+
+    def test_card_add_rejects_non_user_addable_category(self):
+        """handle_card_add returns an error for categories with user_addable=False."""
+        from deckslots.models import Category
+
+        session = _make_session_with_deck()
+        session.decklist.categories["uncategorized"] = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+        cmd = _make_cmd(
+            "card add Uncategorized Sol Ring",
+            "card",
+            "add",
+            ["Uncategorized", "Sol", "Ring"],
+        )
+        result = handle_card_add(session, cmd)
+        assert "cannot add" in result.lower()
