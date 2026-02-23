@@ -11,6 +11,7 @@ from deckslots.commands import (
     handle_help,
     register_all_handlers,
 )
+from deckslots.models import Category
 
 
 def _make_session_with_deck():
@@ -490,8 +491,6 @@ class TestCardAddHandler:
 
     def test_card_add_rejects_non_user_addable_category(self):
         """handle_card_add returns an error for categories with user_addable=False."""
-        from deckslots.models import Category
-
         session = _make_session_with_deck()
         session.decklist.categories["uncategorized"] = Category(
             name="Uncategorized",
