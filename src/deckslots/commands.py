@@ -1,15 +1,74 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from deckslots.cli import ParsedCommand
-from deckslots.models import Decklist
+from deckslots.models import BASIC_LAND_NAMES, Decklist
 
 
 @dataclass
 class Session:
     decklist: Decklist | None = None
+
+
+_CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
+
+
+@dataclass
+class ParsedImport:
+    commander: str | None
+    basic_lands: list[str]
+    uncategorized: list[str]
+
+
+def _parse_import_file(path: str) -> ParsedImport:
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: '{path}'")
+    except OSError as e:
+        raise OSError(f"Cannot read file '{path}': {e}")
+
+    section: str | None = None
+    commander: str | None = None
+    basic_lands: list[str] = []
+    uncategorized: list[str] = []
+    any_card_found = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.lower() == "commander":
+            section = "commander"
+            continue
+        if stripped.lower() == "maindeck":
+            section = "maindeck"
+            continue
+        m = _CARD_LINE_RE.match(stripped)
+        if m:
+            qty = int(m.group(1))
+            card = m.group(2).strip()
+            any_card_found = True
+            if section == "commander":
+                commander = card
+            elif section == "maindeck":
+                if card in BASIC_LAND_NAMES:
+                    basic_lands.extend([card] * qty)
+                else:
+                    uncategorized.extend([card] * qty)
+
+    if not any_card_found:
+        raise ValueError(f"No recognizable card lines found in '{path}'.")
+
+    return ParsedImport(
+        commander=commander,
+        basic_lands=basic_lands,
+        uncategorized=uncategorized,
+    )
 
 
 def _resolve_category_and_card(

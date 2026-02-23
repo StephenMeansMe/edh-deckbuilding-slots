@@ -1,6 +1,9 @@
+import pytest
+
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    _parse_import_file,
     _resolve_category_and_card,
     dispatch,
     handle_card_add,
@@ -330,8 +333,6 @@ class TestParseImportFile:
         """Commander-section card is returned as commander."""
         f = tmp_path / "deck.txt"
         f.write_text("Commander\n1 Atraxa, Praetors' Voice\n")
-        from deckslots.commands import _parse_import_file
-
         result = _parse_import_file(str(f))
         assert result.commander == "Atraxa, Praetors' Voice"
 
@@ -339,8 +340,6 @@ class TestParseImportFile:
         """Basic land names in Maindeck go to basic_lands, one entry per copy."""
         f = tmp_path / "deck.txt"
         f.write_text("Maindeck\n4 Forest\n2 Island\n")
-        from deckslots.commands import _parse_import_file
-
         result = _parse_import_file(str(f))
         assert result.basic_lands == ["Forest"] * 4 + ["Island"] * 2
         assert result.uncategorized == []
@@ -349,8 +348,6 @@ class TestParseImportFile:
         """Non-basic-land Maindeck cards go to uncategorized, one entry per copy."""
         f = tmp_path / "deck.txt"
         f.write_text("Maindeck\n1 Sol Ring\n2 Arcane Signet\n")
-        from deckslots.commands import _parse_import_file
-
         result = _parse_import_file(str(f))
         assert result.uncategorized == [
             "Sol Ring",
@@ -361,17 +358,11 @@ class TestParseImportFile:
 
     def test_parse_raises_for_missing_file(self, tmp_path):
         """FileNotFoundError is raised when the path does not exist."""
-        import pytest
-        from deckslots.commands import _parse_import_file
-
         with pytest.raises(FileNotFoundError):
             _parse_import_file(str(tmp_path / "nonexistent.txt"))
 
     def test_parse_raises_for_no_card_lines(self, tmp_path):
         """ValueError is raised when the file has no recognisable card lines."""
-        import pytest
-        from deckslots.commands import _parse_import_file
-
         f = tmp_path / "deck.txt"
         f.write_text("Commander\n\nMaindeck\n\n")
         with pytest.raises(ValueError, match="No recognizable card lines"):
@@ -381,8 +372,6 @@ class TestParseImportFile:
         """When no Commander section is present, commander is None."""
         f = tmp_path / "deck.txt"
         f.write_text("Maindeck\n1 Sol Ring\n")
-        from deckslots.commands import _parse_import_file
-
         result = _parse_import_file(str(f))
         assert result.commander is None
 
@@ -390,8 +379,6 @@ class TestParseImportFile:
         """COMMANDER and MAINDECK headings are recognised regardless of case."""
         f = tmp_path / "deck.txt"
         f.write_text("COMMANDER\n1 Atraxa\n\nMAINDECK\n1 Sol Ring\n")
-        from deckslots.commands import _parse_import_file
-
         result = _parse_import_file(str(f))
         assert result.commander == "Atraxa"
         assert result.uncategorized == ["Sol Ring"]
@@ -399,11 +386,7 @@ class TestParseImportFile:
     def test_parse_blank_lines_silently_skipped(self, tmp_path):
         """Blank lines between card entries do not cause errors."""
         f = tmp_path / "deck.txt"
-        f.write_text(
-            "Commander\n\n1 Atraxa\n\nMaindeck\n\n1 Sol Ring\n\n4 Forest\n"
-        )
-        from deckslots.commands import _parse_import_file
-
+        f.write_text("Commander\n\n1 Atraxa\n\nMaindeck\n\n1 Sol Ring\n\n4 Forest\n")
         result = _parse_import_file(str(f))
         assert result.commander == "Atraxa"
         assert result.uncategorized == ["Sol Ring"]
@@ -468,20 +451,33 @@ class TestDispatch:
         registry = register_all_handlers(session)
         # Create decklist
         dispatch(
-            ParsedCommand(kind="object_verb", raw="decklist create TestDeck",
-                          obj="decklist", verb="create", args=["TestDeck"]),
+            ParsedCommand(
+                kind="object_verb",
+                raw="decklist create TestDeck",
+                obj="decklist",
+                verb="create",
+                args=["TestDeck"],
+            ),
             registry,
         )
         # Create category
         dispatch(
-            ParsedCommand(kind="object_verb", raw="category create Ramp 10",
-                          obj="category", verb="create", args=["Ramp", "10"]),
+            ParsedCommand(
+                kind="object_verb",
+                raw="category create Ramp 10",
+                obj="category",
+                verb="create",
+                args=["Ramp", "10"],
+            ),
             registry,
         )
         # Add card
         cmd = ParsedCommand(
-            kind="object_verb", raw="card add Ramp Sol Ring",
-            obj="card", verb="add", args=["Ramp", "Sol", "Ring"]
+            kind="object_verb",
+            raw="card add Ramp Sol Ring",
+            obj="card",
+            verb="add",
+            args=["Ramp", "Sol", "Ring"],
         )
         result = dispatch(cmd, registry)
         assert "Sol Ring" in result
@@ -537,7 +533,9 @@ class TestCardAddHandler:
         session = _make_session_with_deck()
         cmd = _make_cmd(
             "card add Basic Lands Sol Ring",
-            "card", "add", ["Basic", "Lands", "Sol", "Ring"]
+            "card",
+            "add",
+            ["Basic", "Lands", "Sol", "Ring"],
         )
         result = handle_card_add(session, cmd)
         assert "not allowed" in result.lower()
@@ -569,8 +567,7 @@ class TestCardAddHandler:
         """handle_card_add adds a valid basic land to the Basic Lands category."""
         session = _make_session_with_deck()
         cmd = _make_cmd(
-            "card add Basic Lands Forest",
-            "card", "add", ["Basic", "Lands", "Forest"]
+            "card add Basic Lands Forest", "card", "add", ["Basic", "Lands", "Forest"]
         )
         result = handle_card_add(session, cmd)
         assert "Forest" in result
