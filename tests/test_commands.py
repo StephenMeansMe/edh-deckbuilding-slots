@@ -393,6 +393,175 @@ class TestParseImportFile:
         assert result.basic_lands == ["Forest"] * 4
 
 
+class TestDecklistImportHandler:
+    """handle_decklist_import reads a file and builds a Decklist."""
+
+    def test_import_creates_decklist_named_after_file(self, tmp_path):
+        """Decklist name is the filename stem (no extension)."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist is not None
+        assert session.decklist.name == "MyDeck"
+
+    def test_import_routes_commander(self, tmp_path):
+        """Commander card is placed in the Commander category."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
+        )
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert "Atraxa, Praetors' Voice" in (
+            session.decklist.categories["commander"].cards
+        )
+
+    def test_import_routes_basic_lands(self, tmp_path):
+        """Basic land names are placed in the Basic Lands category."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n4 Forest\n2 Island\n")
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist.categories["basic lands"].filled == 6
+
+    def test_import_creates_uncategorized_category(self, tmp_path):
+        """Non-basic-land Maindeck cards go into an Uncategorized category."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n"
+        )
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        cat = session.decklist.categories["uncategorized"]
+        assert cat.filled == 3
+        assert not cat.user_addable
+
+    def test_import_returns_summary_string(self, tmp_path):
+        """A successful import returns a human-readable summary."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n"
+        )
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "MyDeck" in result
+        assert "1 commander" in result
+        assert "4 basic lands" in result
+        assert "1 uncategorized" in result
+
+    def test_import_returns_error_for_missing_file(self, tmp_path):
+        """Returns an error string (not exception) when the file doesn't exist."""
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist import /no/such/file.txt",
+            obj="decklist",
+            verb="import",
+            args=["/no/such/file.txt"],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "not found" in result.lower()
+        assert session.decklist is None
+
+    def test_import_requires_filepath_arg(self):
+        """Returns a usage message when no filepath is given."""
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist import",
+            obj="decklist",
+            verb="import",
+            args=[],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "usage" in result.lower()
+
+    def test_import_replaces_existing_decklist(self, tmp_path):
+        """An existing active decklist is silently replaced on import."""
+        f = tmp_path / "NewDeck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n")
+        from deckslots.commands import handle_decklist_import
+
+        session = _make_session_with_deck()  # sets session.decklist to "TestDeck"
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist.name == "NewDeck"
+
+    def test_import_notes_missing_commander_in_summary(self, tmp_path):
+        """Summary warns when no Commander section was found."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n")
+        from deckslots.commands import handle_decklist_import
+
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "0 commander" in result
+        assert "no commander" in result.lower()
+
+
 class TestHelpHandler:
     """handle_help returns a list of available commands."""
 
@@ -410,6 +579,11 @@ class TestHelpHandler:
         """The help output includes the card add command."""
         result = handle_help()
         assert "card add" in result
+
+    def test_help_includes_decklist_import(self):
+        """The help output includes the decklist import command."""
+        result = handle_help()
+        assert "decklist import" in result
 
 
 class TestDispatch:
