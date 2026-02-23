@@ -39,7 +39,10 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
     if resolved is None:
         return "Category not found. Usage: card add <category> <card-name>"
     category_key, card = resolved
-    category_name = session.decklist.categories[category_key].name
+    cat = session.decklist.categories[category_key]
+    if not cat.user_addable:
+        return f"Cannot add cards to '{cat.name}' directly."
+    category_name = cat.name
     try:
         session.decklist.add_card(card, category_name)
     except ValueError as e:
