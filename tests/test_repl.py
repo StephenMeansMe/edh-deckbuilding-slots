@@ -248,7 +248,9 @@ class TestReplUncategorizedWarning:
             run_repl()
 
         output = capsys.readouterr().out
-        assert "card(s) in Uncategorized" in output
+        # Two object_verb commands dispatched (import + category list) →
+        # warning must appear twice to confirm it's truly persistent.
+        assert output.count("card(s) in Uncategorized") == 2
         assert "Assign them to categories" in output
 
     def test_warning_not_shown_without_uncategorized_category(self, capsys):
