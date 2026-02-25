@@ -37,8 +37,9 @@ Three objects, each with standard CRUD verbs plus domain-specific operations:
 | Command | Description |
 |---|---|
 | `card add <card-name> <category>` | Add a card to a category (fills one slot); fails if category is full or card already exists in decklist |
-| `card remove <card-name>` | Remove a card from wherever it is (frees one slot) |
-| `card move <card-name> <category>` | Move a card to a different category (fails if target is full) |
+| `card remove <card-name>` | Soft-remove: move card from its current category to the Uncategorized holding area; creates Uncategorized if absent; fails if card is already in Uncategorized |
+| `card move <card-name> <category>` | Move a card from its current category to a different one (fails if target is full, does not exist, or equals Uncategorized) |
+| `card delete <card-name>` | Hard-delete: permanently remove a card from the decklist; does not place it in Uncategorized |
 | `card list [category]` | List all cards, or only cards in the given category |
 
 ### REPL built-in commands
@@ -94,9 +95,17 @@ class Decklist:
 
     # Card operations
     def add_card(self, card_name: str, category_name: str) -> None: ...
-    def remove_card(self, card_name: str) -> None: ...
-    def move_card(self, card_name: str, target_category: str) -> None: ...
     def find_card(self, card_name: str) -> Category | None: ...
+        # Returns the first Category that contains card_name, or None.
+    def remove_card(self, card_name: str) -> str: ...
+        # Find and remove card from its category; return the source category
+        # name. Raises ValueError if not found. Removes only one occurrence
+        # (relevant for uncapped categories with duplicate card names).
+    def move_card(self, card_name: str, target_category: str) -> None: ...
+        # Validate target (exists, allowed_cards, capacity), then atomically
+        # remove from source and append to target. Does not call add_card
+        # internally so the singleton-exclusivity check is not re-applied
+        # against the source category.
 
     # Queries
     @property
@@ -169,17 +178,87 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
 23. **`decklist rename`** handler.
 24. **Error feedback**: all domain errors (`ValueError`, `KeyError`, etc.) are caught and printed as user-friendly messages, never tracebacks.
 
-### Phase 5 — File I/O
+### Phase 5 — Card management (User Story 003)
 
-25. **`decklist export`**: write the decklist to a flat text file in `1 Card Name` format, grouped by category.
-26. **`decklist save`**: serialize decklist structure (categories, slot counts, card assignments) to a text/JSON file.
-27. **`decklist load`**: deserialize and restore a decklist from a saved file.
+#### Model additions (`src/deckslots/models.py`)
 
-### Phase 6 — Integration and polish
+25. **`Decklist.find_card`**: iterate `self.categories.values()`; return the
+    first `Category` whose `cards` list contains the card name, or `None`.
+    Tests: found in capped category, found in uncapped category, not found
+    returns `None`.
 
-28. **Wire dispatcher into `repl.py`**: replace the "Unknown command" catch-all with the real dispatcher; keep "Unknown command" as fallback for unrecognized input.
-29. **Update existing REPL tests**: ensure the existing 7 tests still pass (some may need adjustment since known commands will no longer be rejected).
-30. **End-to-end REPL test**: simulate a full session (create decklist → add categories → add cards → show → export) through mocked input/output.
+26. **`Decklist.remove_card`**: call `find_card`; raise `ValueError` if
+    `None`; call `cat.cards.remove(card)` (removes first occurrence); return
+    `cat.name`.
+    Tests: removes from capped category, removes only one copy from uncapped,
+    raises on missing card.
+
+27. **`Decklist.move_card`**: validate target exists, `allowed_cards`,
+    capacity; raise `ValueError` for each failure before mutating; then call
+    `source.cards.remove(card)` and `target.cards.append(card)`.
+    Do **not** call `add_card` internally (avoids spurious exclusivity failure
+    while card is still in source).
+    Tests: moves capped→capped, moves uncapped→capped (from Uncategorized),
+    raises if target full, raises if target not found, raises if same category,
+    raises if `allowed_cards` violated.
+
+#### Command handlers (`src/deckslots/commands.py`)
+
+28. **`handle_card_delete`**: require active decklist; join all `cmd.args` as
+    the card name; call `session.decklist.remove_card(card)`; return
+    `"Deleted '<card>' from the decklist."` on success or a user-friendly error
+    string on `ValueError`.
+    Tests: deletes from capped category, deletes from Uncategorized, error when
+    not found, error when no decklist, error when no args.
+
+29. **`handle_card_remove`**: require active decklist; join all `cmd.args` as
+    the card name; call `session.decklist.find_card(card)` first — if the card
+    is in Uncategorized, return an error directing the user to `card delete`;
+    call `session.decklist.remove_card(card)` to remove from its current
+    category; create the Uncategorized `Category` if `"uncategorized"` is not
+    already in `session.decklist.categories`; call
+    `session.decklist.add_card(card, "Uncategorized")`; return
+    `"Removed '<card>' from '<from-cat>'. Card is now in Uncategorized."`.
+    Tests: moves card to Uncategorized, creates Uncategorized if absent,
+    reuses existing Uncategorized, error if already in Uncategorized, error if
+    card not found, error if no decklist.
+
+30. **`_resolve_card_and_category`**: new helper — greedy longest-suffix match
+    for category. Iterate `i` from 1 to `len(args)-1`; join `args[i:]` and
+    check against `categories`; return `(" ".join(args[:i]), matched_key)` on
+    first (longest-suffix) match, or `None` if no match.
+    Tests: single-word category, multi-word category, no match returns `None`,
+    prefers longer category match over shorter.
+
+31. **`handle_card_move`**: require active decklist and at least 2 args; call
+    `_resolve_card_and_category`; return usage error if unresolved; check that
+    `target_cat.user_addable` is `True`, else return an error; call
+    `session.decklist.move_card(card, target_cat.name)`; return
+    `"Moved '<card>' from '<from-cat>' to '<to-cat>'."`.
+    Tests: basic move, move from Uncategorized to capped category, error if
+    card not found, error if target not found, error if target full, error if
+    targeting Uncategorized, error if already in target category, error if no
+    decklist.
+
+#### Registration and help
+
+32. **Register new handlers**: add `("card", "move")`, `("card", "remove")`,
+    and `("card", "delete")` to `register_all_handlers`.
+
+33. **Update `handle_help`**: add `card move`, `card remove`, and `card delete`
+    entries.
+
+### Phase 6 — File I/O
+
+34. **`decklist export`**: write the decklist to a flat text file in `1 Card Name` format, grouped by category.
+35. **`decklist save`**: serialize decklist structure (categories, slot counts, card assignments) to a text/JSON file.
+36. **`decklist load`**: deserialize and restore a decklist from a saved file.
+
+### Phase 7 — Integration and polish
+
+37. **Wire dispatcher into `repl.py`**: replace the "Unknown command" catch-all with the real dispatcher; keep "Unknown command" as fallback for unrecognized input.
+38. **Update existing REPL tests**: ensure the existing 7 tests still pass (some may need adjustment since known commands will no longer be rejected).
+39. **End-to-end REPL test**: simulate a full session (create decklist → add categories → add cards → move → remove → delete → show) through mocked input/output.
 
 ---
 
@@ -189,5 +268,7 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
 2. **Case-insensitive command matching** for object and verb (`Category Create` works the same as `category create`). Card names preserve their original casing.
 3. **Category names may contain spaces** if we quote them or use a delimiter. For MVP simplicity: **single-word category names only** (e.g., `Ramp`, `Removal`, `Card-Draw`). Spaces in card names are handled by treating everything after the category argument as the card name, or vice versa.
 4. **Argument order for `card add`**: `card add <category> <card-name...>` — category first (single token), then card name (may contain spaces, consumes rest of line). This avoids the need for quoting card names.
-5. **Session state**: the REPL holds at most one `Decklist` at a time. `decklist create` replaces any existing decklist (with a confirmation prompt if one already exists). `decklist load` similarly replaces.
-6. **Save format**: JSON (simple, human-readable, stdlib `json` module). Export format remains `1 Card Name` per the MVP spec.
+5. **Argument order for `card move`**: `card move <card-name> <to-category>` — natural English order (move THING to PLACE). Because both card name and category can contain spaces, argument parsing uses `_resolve_card_and_category`, a greedy longest-suffix match helper that is the mirror of `_resolve_category_and_card`. The longest suffix of the arg list that matches a known category key is taken as the target; everything before it is the card name.
+6. **`card remove` vs `card delete`**: `card remove` is a soft operation (card goes to Uncategorized, persistent warning fires); `card delete` is a hard operation (card is gone). This distinction gives users a safety net: accidental removes are visible in Uncategorized and can be recovered with `card move`; intentional deletes are final.
+7. **Session state**: the REPL holds at most one `Decklist` at a time. `decklist create` replaces any existing decklist (with a confirmation prompt if one already exists). `decklist load` similarly replaces.
+8. **Save format**: JSON (simple, human-readable, stdlib `json` module). Export format remains `1 Card Name` per the MVP spec.
