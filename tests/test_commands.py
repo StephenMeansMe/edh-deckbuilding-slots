@@ -611,6 +611,21 @@ class TestHelpHandler:
         result = handle_help()
         assert "decklist import" in result
 
+    def test_help_includes_card_move(self):
+        """The help output includes the card move command."""
+        result = handle_help()
+        assert "card move" in result
+
+    def test_help_includes_card_remove(self):
+        """The help output includes the card remove command."""
+        result = handle_help()
+        assert "card remove" in result
+
+    def test_help_includes_card_delete(self):
+        """The help output includes the card delete command."""
+        result = handle_help()
+        assert "card delete" in result
+
 
 class TestDispatch:
     """dispatch routes parsed commands to the correct handler."""
@@ -644,6 +659,85 @@ class TestDispatch:
         )
         result = dispatch(cmd, registry)
         assert "unknown command" in result.lower()
+
+    def test_dispatch_card_move(self):
+        """Full pipeline: register, dispatch card move, verify card relocated."""
+        session = Session()
+        registry = register_all_handlers(session)
+        dispatch(
+            _make_cmd("decklist create D", "decklist", "create", ["D"]), registry
+        )
+        dispatch(
+            _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd("category create Draw 10", "category", "create", ["Draw", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd(
+                "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
+            ),
+            registry,
+        )
+        result = dispatch(
+            _make_cmd(
+                "card move Sol Ring Draw", "card", "move", ["Sol", "Ring", "Draw"]
+            ),
+            registry,
+        )
+        assert "Sol Ring" in result
+        assert "Sol Ring" in session.decklist.categories["draw"].cards
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
+
+    def test_dispatch_card_remove(self):
+        """Full pipeline: register, dispatch card remove, verify card in Uncategorized."""
+        session = Session()
+        registry = register_all_handlers(session)
+        dispatch(
+            _make_cmd("decklist create D", "decklist", "create", ["D"]), registry
+        )
+        dispatch(
+            _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd(
+                "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
+            ),
+            registry,
+        )
+        result = dispatch(
+            _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"]),
+            registry,
+        )
+        assert "Uncategorized" in result
+        assert "Sol Ring" in session.decklist.categories["uncategorized"].cards
+
+    def test_dispatch_card_delete(self):
+        """Full pipeline: register, dispatch card delete, verify card gone."""
+        session = Session()
+        registry = register_all_handlers(session)
+        dispatch(
+            _make_cmd("decklist create D", "decklist", "create", ["D"]), registry
+        )
+        dispatch(
+            _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd(
+                "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
+            ),
+            registry,
+        )
+        result = dispatch(
+            _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"]),
+            registry,
+        )
+        assert "Sol Ring" in result
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
 
     def test_dispatch_card_add(self):
         """Full pipeline: register, dispatch card add, verify card in decklist."""
