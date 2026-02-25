@@ -933,6 +933,69 @@ class TestCardRemoveHandler:
         assert "Uncategorized" in result
 
 
+class TestCardDeleteHandler:
+    """handle_card_delete permanently removes a card from the decklist."""
+
+    def test_card_delete_requires_decklist(self):
+        """Returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        result = handle_card_delete(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_card_delete_returns_error_when_card_not_in_decklist(self):
+        """Returns an error when the named card is not in the decklist."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        result = handle_card_delete(session, cmd)
+        assert "not found" in result.lower()
+
+    def test_card_delete_removes_card_from_decklist(self):
+        """The card is permanently removed from its category."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        handle_card_delete(session, cmd)
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
+
+    def test_card_delete_prints_success_message(self):
+        """On success prints: Deleted '<card>' from the decklist."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        result = handle_card_delete(session, cmd)
+        assert result == "Deleted 'Sol Ring' from the decklist."
+
+    def test_card_delete_does_not_place_card_in_uncategorized(self):
+        """Deleted card is not added to Uncategorized."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        handle_card_delete(session, cmd)
+        assert "uncategorized" not in session.decklist.categories
+
+    def test_card_delete_removes_from_uncategorized(self):
+        """Card can be permanently deleted even when it is in Uncategorized."""
+        session = _make_session_with_deck()
+        _add_uncategorized(session, "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        handle_card_delete(session, cmd)
+        assert "Sol Ring" not in session.decklist.categories["uncategorized"].cards
+
+    def test_card_delete_supports_multi_word_card_name(self):
+        """All args after 'delete' are joined as the card name."""
+        session = _make_session_with_deck()
+        session.decklist.add_card("Atraxa, Praetors' Voice", "Commander")
+        cmd = _make_cmd(
+            "card delete Atraxa, Praetors' Voice",
+            "card",
+            "delete",
+            ["Atraxa,", "Praetors'", "Voice"],
+        )
+        result = handle_card_delete(session, cmd)
+        assert "Atraxa, Praetors' Voice" in result
+        assert "Atraxa, Praetors' Voice" not in (
+            session.decklist.categories["commander"].cards
+        )
+
+
 class TestCardAddHandler:
     """handle_card_add adds a card to a category in the active decklist."""
 
