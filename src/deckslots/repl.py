@@ -20,6 +20,18 @@ def run_repl():
                 continue
             if parsed.kind == "object_verb":
                 result = dispatch(parsed, registry)
+                if (
+                    session.decklist is not None
+                    and "uncategorized" in session.decklist.categories
+                    and session.decklist.categories["uncategorized"].filled > 0
+                ):
+                    n = session.decklist.categories["uncategorized"].filled
+                    warning = (
+                        f"Warning: {n} card(s) in Uncategorized. "
+                        "Assign them to categories before finalizing "
+                        "your decklist."
+                    )
+                    result = f"{warning}\n{result}"
                 print(result)
                 continue
             if parsed.kind == "unknown":

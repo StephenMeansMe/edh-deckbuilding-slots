@@ -1,16 +1,21 @@
+import pytest
+
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    _parse_import_file,
     _resolve_category_and_card,
     dispatch,
     handle_card_add,
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
+    handle_decklist_import,
     handle_decklist_show,
     handle_help,
     register_all_handlers,
 )
+from deckslots.models import Category
 
 
 def _make_session_with_deck():
@@ -322,6 +327,224 @@ class TestUncappedCategoryDisplay:
         assert "0/0" not in result
 
 
+class TestParseImportFile:
+    """_parse_import_file parses the $QUANTITY $CARDNAME import format."""
+
+    def test_parse_finds_commander(self, tmp_path):
+        """Commander-section card is returned as commander."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n")
+        result = _parse_import_file(str(f))
+        assert result.commander == "Atraxa, Praetors' Voice"
+
+    def test_parse_routes_basic_lands(self, tmp_path):
+        """Basic land names in Maindeck go to basic_lands, one entry per copy."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n4 Forest\n2 Island\n")
+        result = _parse_import_file(str(f))
+        assert result.basic_lands == ["Forest"] * 4 + ["Island"] * 2
+        assert result.uncategorized == []
+
+    def test_parse_routes_non_land_to_uncategorized(self, tmp_path):
+        """Non-basic-land Maindeck cards go to uncategorized, one entry per copy."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n2 Arcane Signet\n")
+        result = _parse_import_file(str(f))
+        assert result.uncategorized == [
+            "Sol Ring",
+            "Arcane Signet",
+            "Arcane Signet",
+        ]
+        assert result.basic_lands == []
+
+    def test_parse_raises_for_missing_file(self, tmp_path):
+        """FileNotFoundError is raised when the path does not exist."""
+        with pytest.raises(FileNotFoundError):
+            _parse_import_file(str(tmp_path / "nonexistent.txt"))
+
+    def test_parse_raises_for_no_card_lines(self, tmp_path):
+        """ValueError is raised when the file has no recognisable card lines."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n\nMaindeck\n\n")
+        with pytest.raises(ValueError, match="No recognizable card lines"):
+            _parse_import_file(str(f))
+
+    def test_parse_commander_absent_returns_none(self, tmp_path):
+        """When no Commander section is present, commander is None."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n")
+        result = _parse_import_file(str(f))
+        assert result.commander is None
+
+    def test_parse_section_headings_are_case_insensitive(self, tmp_path):
+        """COMMANDER and MAINDECK headings are recognised regardless of case."""
+        f = tmp_path / "deck.txt"
+        f.write_text("COMMANDER\n1 Atraxa\n\nMAINDECK\n1 Sol Ring\n")
+        result = _parse_import_file(str(f))
+        assert result.commander == "Atraxa"
+        assert result.uncategorized == ["Sol Ring"]
+
+    def test_parse_blank_lines_silently_skipped(self, tmp_path):
+        """Blank lines between card entries do not cause errors."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n\n1 Atraxa\n\nMaindeck\n\n1 Sol Ring\n\n4 Forest\n")
+        result = _parse_import_file(str(f))
+        assert result.commander == "Atraxa"
+        assert result.uncategorized == ["Sol Ring"]
+        assert result.basic_lands == ["Forest"] * 4
+
+
+class TestDecklistImportHandler:
+    """handle_decklist_import reads a file and builds a Decklist."""
+
+    def test_import_creates_decklist_named_after_file(self, tmp_path):
+        """Decklist name is the filename stem (no extension)."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist is not None
+        assert session.decklist.name == "MyDeck"
+
+    def test_import_routes_commander(self, tmp_path):
+        """Commander card is placed in the Commander category."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
+        )
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert "Atraxa, Praetors' Voice" in (
+            session.decklist.categories["commander"].cards
+        )
+
+    def test_import_routes_basic_lands(self, tmp_path):
+        """Basic land names are placed in the Basic Lands category."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n4 Forest\n2 Island\n")
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist.categories["basic lands"].filled == 6
+
+    def test_import_creates_uncategorized_category(self, tmp_path):
+        """Non-basic-land Maindeck cards go into an Uncategorized category."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n"
+        )
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        cat = session.decklist.categories["uncategorized"]
+        assert cat.filled == 3
+        assert not cat.user_addable
+
+    def test_import_returns_summary_string(self, tmp_path):
+        """A successful import returns a human-readable summary."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n"
+        )
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "MyDeck" in result
+        assert "1 commander" in result
+        assert "4 basic lands" in result
+        assert "1 uncategorized" in result
+
+    def test_import_returns_error_for_missing_file(self, tmp_path):
+        """Returns an error string (not exception) when the file doesn't exist."""
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist import /no/such/file.txt",
+            obj="decklist",
+            verb="import",
+            args=["/no/such/file.txt"],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "not found" in result.lower()
+        assert session.decklist is None
+
+    def test_import_requires_filepath_arg(self):
+        """Returns a usage message when no filepath is given."""
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw="decklist import",
+            obj="decklist",
+            verb="import",
+            args=[],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "usage" in result.lower()
+
+    def test_import_replaces_existing_decklist(self, tmp_path):
+        """An existing active decklist is silently replaced on import."""
+        f = tmp_path / "NewDeck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n")
+        session = _make_session_with_deck()  # sets session.decklist to "TestDeck"
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist.name == "NewDeck"
+
+    def test_import_notes_missing_commander_in_summary(self, tmp_path):
+        """Summary warns when no Commander section was found."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Maindeck\n1 Sol Ring\n")
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        result = handle_decklist_import(session, cmd)
+        assert "0 commander" in result
+        assert "no commander" in result.lower()
+
+
 class TestHelpHandler:
     """handle_help returns a list of available commands."""
 
@@ -339,6 +562,11 @@ class TestHelpHandler:
         """The help output includes the card add command."""
         result = handle_help()
         assert "card add" in result
+
+    def test_help_includes_decklist_import(self):
+        """The help output includes the decklist import command."""
+        result = handle_help()
+        assert "decklist import" in result
 
 
 class TestDispatch:
@@ -380,20 +608,33 @@ class TestDispatch:
         registry = register_all_handlers(session)
         # Create decklist
         dispatch(
-            ParsedCommand(kind="object_verb", raw="decklist create TestDeck",
-                          obj="decklist", verb="create", args=["TestDeck"]),
+            ParsedCommand(
+                kind="object_verb",
+                raw="decklist create TestDeck",
+                obj="decklist",
+                verb="create",
+                args=["TestDeck"],
+            ),
             registry,
         )
         # Create category
         dispatch(
-            ParsedCommand(kind="object_verb", raw="category create Ramp 10",
-                          obj="category", verb="create", args=["Ramp", "10"]),
+            ParsedCommand(
+                kind="object_verb",
+                raw="category create Ramp 10",
+                obj="category",
+                verb="create",
+                args=["Ramp", "10"],
+            ),
             registry,
         )
         # Add card
         cmd = ParsedCommand(
-            kind="object_verb", raw="card add Ramp Sol Ring",
-            obj="card", verb="add", args=["Ramp", "Sol", "Ring"]
+            kind="object_verb",
+            raw="card add Ramp Sol Ring",
+            obj="card",
+            verb="add",
+            args=["Ramp", "Sol", "Ring"],
         )
         result = dispatch(cmd, registry)
         assert "Sol Ring" in result
@@ -449,7 +690,9 @@ class TestCardAddHandler:
         session = _make_session_with_deck()
         cmd = _make_cmd(
             "card add Basic Lands Sol Ring",
-            "card", "add", ["Basic", "Lands", "Sol", "Ring"]
+            "card",
+            "add",
+            ["Basic", "Lands", "Sol", "Ring"],
         )
         result = handle_card_add(session, cmd)
         assert "not allowed" in result.lower()
@@ -481,9 +724,27 @@ class TestCardAddHandler:
         """handle_card_add adds a valid basic land to the Basic Lands category."""
         session = _make_session_with_deck()
         cmd = _make_cmd(
-            "card add Basic Lands Forest",
-            "card", "add", ["Basic", "Lands", "Forest"]
+            "card add Basic Lands Forest", "card", "add", ["Basic", "Lands", "Forest"]
         )
         result = handle_card_add(session, cmd)
         assert "Forest" in result
         assert "Basic Lands" in result
+
+    def test_card_add_rejects_non_user_addable_category(self):
+        """handle_card_add returns an error for categories with user_addable=False."""
+        session = _make_session_with_deck()
+        session.decklist.categories["uncategorized"] = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+        cmd = _make_cmd(
+            "card add Uncategorized Sol Ring",
+            "card",
+            "add",
+            ["Uncategorized", "Sol", "Ring"],
+        )
+        result = handle_card_add(session, cmd)
+        assert "cannot add" in result.lower()

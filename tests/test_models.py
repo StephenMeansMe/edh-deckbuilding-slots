@@ -326,3 +326,23 @@ class TestDecklistAddCard:
         deck = Decklist.create("Test Deck")
         deck.add_card("Atraxa, Praetors' Voice", "Commander")
         assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
+
+
+class TestCategoryUserAddable:
+    """Category.user_addable controls whether card add is permitted."""
+
+    def test_user_addable_defaults_to_true(self):
+        """A freshly created Category is user-addable by default."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.user_addable is True
+
+    def test_user_addable_can_be_set_false(self):
+        """user_addable=False can be set on a fixed uncapped category."""
+        cat = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+        assert cat.user_addable is False

@@ -26,6 +26,7 @@ class Category:
     capped: bool = True
     # Whitelist; enforced by future add_card method.
     allowed_cards: frozenset[str] | None = None
+    user_addable: bool = True
     cards: list[str] = field(default_factory=list)
 
     def __post_init__(self):

@@ -1,15 +1,75 @@
 from __future__ import annotations
 
+import os
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from deckslots.cli import ParsedCommand
-from deckslots.models import Decklist
+from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
 
 
 @dataclass
 class Session:
     decklist: Decklist | None = None
+
+
+_CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
+
+
+@dataclass
+class ParsedImport:
+    commander: str | None
+    basic_lands: list[str]
+    uncategorized: list[str]
+
+
+def _parse_import_file(path: str) -> ParsedImport:
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: '{path}'")
+    except OSError as e:
+        raise OSError(f"Cannot read file '{path}': {e}")
+
+    section: str | None = None
+    commander: str | None = None
+    basic_lands: list[str] = []
+    uncategorized: list[str] = []
+    any_card_found = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.lower() == "commander":
+            section = "commander"
+            continue
+        if stripped.lower() == "maindeck":
+            section = "maindeck"
+            continue
+        m = _CARD_LINE_RE.match(stripped)
+        if m:
+            qty = int(m.group(1))
+            card = m.group(2).strip()
+            any_card_found = True
+            if section == "commander":
+                commander = card
+            elif section == "maindeck":
+                if card in BASIC_LAND_NAMES:
+                    basic_lands.extend([card] * qty)
+                else:
+                    uncategorized.extend([card] * qty)
+
+    if not any_card_found:
+        raise ValueError(f"No recognizable card lines found in '{path}'.")
+
+    return ParsedImport(
+        commander=commander,
+        basic_lands=basic_lands,
+        uncategorized=uncategorized,
+    )
 
 
 def _resolve_category_and_card(
@@ -39,7 +99,10 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
     if resolved is None:
         return "Category not found. Usage: card add <category> <card-name>"
     category_key, card = resolved
-    category_name = session.decklist.categories[category_key].name
+    cat = session.decklist.categories[category_key]
+    if not cat.user_addable:
+        return f"Cannot add cards to '{cat.name}' directly."
+    category_name = cat.name
     try:
         session.decklist.add_card(card, category_name)
     except ValueError as e:
@@ -80,12 +143,61 @@ def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
     return "\n".join(lines)
 
 
+def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
+    if not cmd.args:
+        return "Usage: decklist import <filepath>"
+    path = cmd.args[0]
+    try:
+        parsed = _parse_import_file(path)
+    except FileNotFoundError as e:
+        return str(e)
+    except (OSError, ValueError) as e:
+        return str(e)
+
+    name = os.path.splitext(os.path.basename(path))[0]
+    deck = Decklist.create(name)
+
+    if parsed.commander is not None:
+        deck.add_card(parsed.commander, "Commander")
+
+    for card in parsed.basic_lands:
+        deck.add_card(card, "Basic Lands")
+
+    # Uncapped so imported quantities are taken at face value (including
+    # duplicate non-land cards). Uncapped categories also skip the singleton
+    # exclusivity check, letting cards later move to capped categories freely.
+    uncategorized_cat = Category(
+        name="Uncategorized",
+        total_slots=0,
+        fixed=True,
+        capped=False,
+        user_addable=False,
+    )
+    deck.categories["uncategorized"] = uncategorized_cat
+
+    for card in parsed.uncategorized:
+        deck.add_card(card, "Uncategorized")
+
+    session.decklist = deck
+
+    commander_count = 1 if parsed.commander is not None else 0
+    summary = (
+        f"Imported '{name}': {commander_count} commander, "
+        f"{len(parsed.basic_lands)} basic lands, "
+        f"{len(parsed.uncategorized)} uncategorized cards."
+    )
+    if parsed.commander is None:
+        summary += "\nWarning: no commander found in file."
+    return summary
+
+
 def handle_help() -> str:
     return "\n".join(
         [
             "Available commands:",
             "  decklist create <name>    Create a new decklist",
             "  decklist show             Show the active decklist",
+            "  decklist import <file>    Import a decklist from a text file",
             "  category create <n> <s>   Add a category with <s> slots",
             "  category list             List all categories",
             "  card add <cat> <name>     Add a card to a category",
@@ -113,6 +225,7 @@ def register_all_handlers(
     return {
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
+        ("decklist", "import"): lambda cmd: handle_decklist_import(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),

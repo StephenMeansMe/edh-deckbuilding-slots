@@ -230,3 +230,36 @@ class TestReplCardAddCommands:
 
         output = capsys.readouterr().out
         assert "no active decklist" in output.lower()
+
+
+class TestReplUncategorizedWarning:
+    """REPL prefixes every response with a warning while Uncategorized has cards."""
+
+    def test_warning_shown_after_import_with_uncategorized_cards(
+        self, capsys, tmp_path
+    ):
+        """Every command response is prefixed with the warning after import."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        with patch(
+            "builtins.input",
+            side_effect=[f"decklist import {f}", "category list", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        # Two object_verb commands dispatched (import + category list) →
+        # warning must appear twice to confirm it's truly persistent.
+        assert output.count("card(s) in Uncategorized") == 2
+        assert "Assign them to categories" in output
+
+    def test_warning_not_shown_without_uncategorized_category(self, capsys):
+        """No warning appears when the decklist has no Uncategorized category."""
+        with patch(
+            "builtins.input",
+            side_effect=["decklist create TestDeck", "category list", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "card(s) in Uncategorized" not in output
