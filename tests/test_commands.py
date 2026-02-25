@@ -4,9 +4,13 @@ from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
     _parse_import_file,
+    _resolve_card_and_category_suffix,
     _resolve_category_and_card,
     dispatch,
     handle_card_add,
+    handle_card_delete,
+    handle_card_move,
+    handle_card_remove,
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
@@ -62,6 +66,45 @@ class TestResolveCategoryAndCard:
         cats = self._categories("Basic", "Basic Lands")
         result = _resolve_category_and_card(["Basic", "Lands", "Forest"], cats)
         assert result == ("basic lands", "Forest")
+
+
+class TestResolveSuffixCategoryAndCard:
+    """_resolve_card_and_category_suffix resolves category from end of args."""
+
+    def _categories(self, *names):
+        return {name.lower(): object() for name in names}
+
+    def test_resolves_single_word_category_from_suffix(self):
+        """Single-word category at end is matched; remaining args form card name."""
+        cats = self._categories("Ramp")
+        result = _resolve_card_and_category_suffix(["Sol", "Ring", "Ramp"], cats)
+        assert result == ("Sol Ring", "ramp")
+
+    def test_resolves_multi_word_category_from_suffix(self):
+        """Multi-word category suffix is matched; remaining args form card name."""
+        cats = self._categories("Basic Lands")
+        result = _resolve_card_and_category_suffix(["Forest", "Basic", "Lands"], cats)
+        assert result == ("Forest", "basic lands")
+
+    def test_returns_none_when_no_suffix_matches(self):
+        """Returns None when no suffix of args matches a category key."""
+        cats = self._categories("Ramp")
+        result = _resolve_card_and_category_suffix(["Sol", "Ring", "Draw"], cats)
+        assert result is None
+
+    def test_prefers_longer_suffix_match(self):
+        """Prefers 'Big Ramp' over 'Ramp' when both are valid category suffixes."""
+        cats = self._categories("Ramp", "Big Ramp")
+        result = _resolve_card_and_category_suffix(
+            ["Sol", "Ring", "Big", "Ramp"], cats
+        )
+        assert result == ("Sol Ring", "big ramp")
+
+    def test_returns_none_for_single_element_args(self):
+        """Returns None when args has only one element (no card name possible)."""
+        cats = self._categories("Ramp")
+        result = _resolve_card_and_category_suffix(["Ramp"], cats)
+        assert result is None
 
 
 class TestSession:
