@@ -263,3 +263,289 @@ class TestReplUncategorizedWarning:
 
         output = capsys.readouterr().out
         assert "card(s) in Uncategorized" not in output
+
+    def test_warning_disappears_after_last_uncategorized_card_moved(
+        self, capsys, tmp_path
+    ):
+        """Warning disappears once the last card is moved out of Uncategorized."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        with patch(
+            "builtins.input",
+            side_effect=[
+                f"decklist import {f}",
+                "category create Ramp 10",
+                "card move Sol Ring Ramp",
+                "category list",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        # Warning appears after import (Sol Ring in Uncategorized) and after
+        # category create (Sol Ring still there), but NOT after card move
+        # (Uncategorized now empty) or after category list (still empty).
+        assert output.count("card(s) in Uncategorized") == 2
+
+    def test_warning_disappears_after_last_uncategorized_card_deleted(
+        self, capsys, tmp_path
+    ):
+        """Warning disappears once the last card is deleted from Uncategorized."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        with patch(
+            "builtins.input",
+            side_effect=[
+                f"decklist import {f}",
+                "card delete Sol Ring",
+                "category list",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        # Warning appears after import (Sol Ring in Uncategorized), but NOT
+        # after card delete (Uncategorized now empty) or category list.
+        assert output.count("card(s) in Uncategorized") == 1
+
+    def test_warning_shown_after_card_remove_sends_card_to_uncategorized(
+        self, capsys
+    ):
+        """Warning appears on subsequent commands after 'card remove' populates Uncategorized."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "card add Ramp Sol Ring",
+                "card remove Sol Ring",
+                "category list",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        # Warning on card remove result (Sol Ring now in Uncategorized) and
+        # on category list result (Sol Ring still there) — two appearances.
+        assert output.count("card(s) in Uncategorized") == 2
+
+
+class TestReplCardMoveCommands:
+    """The REPL dispatches card move commands and prints handler output."""
+
+    def test_card_move_success(self, capsys, tmp_path):
+        """'card move <card> <category>' moves card and prints confirmation."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        with patch(
+            "builtins.input",
+            side_effect=[
+                f"decklist import {f}",
+                "category create Ramp 10",
+                "card move Sol Ring Ramp",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Moved" in output
+        assert "Sol Ring" in output
+        assert "Ramp" in output
+
+    def test_card_move_reports_source_and_target_category(self, capsys, tmp_path):
+        """Success message names both the source and destination categories."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        with patch(
+            "builtins.input",
+            side_effect=[
+                f"decklist import {f}",
+                "category create Ramp 10",
+                "card move Sol Ring Ramp",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Uncategorized" in output
+        assert "Ramp" in output
+
+    def test_card_move_error_card_not_found(self, capsys):
+        """'card move' with an unknown card name prints an error."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "card move Nonexistent Ramp",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "not found" in output.lower()
+
+    def test_card_move_error_category_not_found(self, capsys, tmp_path):
+        """'card move' with an unknown category name prints an error."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        with patch(
+            "builtins.input",
+            side_effect=[
+                f"decklist import {f}",
+                "card move Sol Ring NoSuchCategory",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "not found" in output.lower()
+
+    def test_card_move_without_decklist_shows_error(self, capsys):
+        """'card move' without an active decklist prints an error."""
+        with patch(
+            "builtins.input",
+            side_effect=["card move Sol Ring Ramp", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "no active decklist" in output.lower()
+
+
+class TestReplCardRemoveCommands:
+    """The REPL dispatches card remove commands and prints handler output."""
+
+    def test_card_remove_moves_card_to_uncategorized(self, capsys):
+        """'card remove <card>' moves card to Uncategorized and prints confirmation."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "card add Ramp Sol Ring",
+                "card remove Sol Ring",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Uncategorized" in output
+        assert "Sol Ring" in output
+
+    def test_card_remove_activates_warning_on_subsequent_command(self, capsys):
+        """After 'card remove', the next command output is prefixed with the warning."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "card add Ramp Sol Ring",
+                "card remove Sol Ring",
+                "category list",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "card(s) in Uncategorized" in output
+
+    def test_card_remove_error_card_not_found(self, capsys):
+        """'card remove' with an unknown card name prints an error."""
+        with patch(
+            "builtins.input",
+            side_effect=["decklist create TestDeck", "card remove Nonexistent", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "not found" in output.lower()
+
+    def test_card_remove_without_decklist_shows_error(self, capsys):
+        """'card remove' without an active decklist prints an error."""
+        with patch(
+            "builtins.input",
+            side_effect=["card remove Sol Ring", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "no active decklist" in output.lower()
+
+
+class TestReplCardDeleteCommands:
+    """The REPL dispatches card delete commands and prints handler output."""
+
+    def test_card_delete_removes_card_and_prints_confirmation(self, capsys):
+        """'card delete <card>' deletes the card and prints confirmation."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "card add Ramp Sol Ring",
+                "card delete Sol Ring",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Deleted" in output
+        assert "Sol Ring" in output
+
+    def test_card_delete_does_not_trigger_uncategorized_warning(self, capsys):
+        """'card delete' from a named category does not trigger the Uncategorized warning."""
+        with patch(
+            "builtins.input",
+            side_effect=[
+                "decklist create TestDeck",
+                "category create Ramp 10",
+                "card add Ramp Sol Ring",
+                "card delete Sol Ring",
+                "category list",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "card(s) in Uncategorized" not in output
+
+    def test_card_delete_from_uncategorized(self, capsys, tmp_path):
+        """'card delete' can permanently remove a card from Uncategorized."""
+        f = tmp_path / "MyDeck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        with patch(
+            "builtins.input",
+            side_effect=[
+                f"decklist import {f}",
+                "card delete Sol Ring",
+                "quit",
+            ],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "Deleted" in output
+        assert "Sol Ring" in output
+
+    def test_card_delete_without_decklist_shows_error(self, capsys):
+        """'card delete' without an active decklist prints an error."""
+        with patch(
+            "builtins.input",
+            side_effect=["card delete Sol Ring", "quit"],
+        ):
+            run_repl()
+
+        output = capsys.readouterr().out
+        assert "no active decklist" in output.lower()
