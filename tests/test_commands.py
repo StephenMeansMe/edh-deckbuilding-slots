@@ -95,9 +95,7 @@ class TestResolveSuffixCategoryAndCard:
     def test_prefers_longer_suffix_match(self):
         """Prefers 'Big Ramp' over 'Ramp' when both are valid category suffixes."""
         cats = self._categories("Ramp", "Big Ramp")
-        result = _resolve_card_and_category_suffix(
-            ["Sol", "Ring", "Big", "Ramp"], cats
-        )
+        result = _resolve_card_and_category_suffix(["Sol", "Ring", "Big", "Ramp"], cats)
         assert result == ("Sol Ring", "big ramp")
 
     def test_returns_none_for_single_element_args(self):
@@ -459,9 +457,7 @@ class TestDecklistImportHandler:
     def test_import_routes_commander(self, tmp_path):
         """Commander card is placed in the Commander category."""
         f = tmp_path / "deck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
-        )
+        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -493,9 +489,7 @@ class TestDecklistImportHandler:
     def test_import_creates_uncategorized_category(self, tmp_path):
         """Non-basic-land Maindeck cards go into an Uncategorized category."""
         f = tmp_path / "deck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n"
-        )
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -512,9 +506,7 @@ class TestDecklistImportHandler:
     def test_import_returns_summary_string(self, tmp_path):
         """A successful import returns a human-readable summary."""
         f = tmp_path / "MyDeck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n"
-        )
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -664,9 +656,7 @@ class TestDispatch:
         """Full pipeline: register, dispatch card move, verify card relocated."""
         session = Session()
         registry = register_all_handlers(session)
-        dispatch(
-            _make_cmd("decklist create D", "decklist", "create", ["D"]), registry
-        )
+        dispatch(_make_cmd("decklist create D", "decklist", "create", ["D"]), registry)
         dispatch(
             _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
             registry,
@@ -676,9 +666,7 @@ class TestDispatch:
             registry,
         )
         dispatch(
-            _make_cmd(
-                "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
-            ),
+            _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]),
             registry,
         )
         result = dispatch(
@@ -692,20 +680,16 @@ class TestDispatch:
         assert "Sol Ring" not in session.decklist.categories["ramp"].cards
 
     def test_dispatch_card_remove(self):
-        """Full pipeline: register, dispatch card remove, verify card in Uncategorized."""
+        """Full pipeline: dispatch card remove; verify card lands in Uncategorized."""
         session = Session()
         registry = register_all_handlers(session)
-        dispatch(
-            _make_cmd("decklist create D", "decklist", "create", ["D"]), registry
-        )
+        dispatch(_make_cmd("decklist create D", "decklist", "create", ["D"]), registry)
         dispatch(
             _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
             registry,
         )
         dispatch(
-            _make_cmd(
-                "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
-            ),
+            _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]),
             registry,
         )
         result = dispatch(
@@ -719,17 +703,13 @@ class TestDispatch:
         """Full pipeline: register, dispatch card delete, verify card gone."""
         session = Session()
         registry = register_all_handlers(session)
-        dispatch(
-            _make_cmd("decklist create D", "decklist", "create", ["D"]), registry
-        )
+        dispatch(_make_cmd("decklist create D", "decklist", "create", ["D"]), registry)
         dispatch(
             _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
             registry,
         )
         dispatch(
-            _make_cmd(
-                "card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]
-            ),
+            _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]),
             registry,
         )
         result = dispatch(
@@ -810,7 +790,9 @@ class TestCardMoveHandler:
     def test_card_move_requires_decklist(self):
         """Returns an error when no decklist is active."""
         session = Session()
-        cmd = _make_cmd("card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"])
+        cmd = _make_cmd(
+            "card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"]
+        )
         result = handle_card_move(session, cmd)
         assert "no active decklist" in result.lower()
 
@@ -954,7 +936,7 @@ class TestCardRemoveHandler:
         assert "not found" in result.lower()
 
     def test_card_remove_returns_error_when_already_in_uncategorized(self):
-        """Returns an error and suggests card delete when card is already Uncategorized."""
+        """Returns error and suggests card delete when card is already Uncategorized."""
         session = _make_session_with_deck()
         _add_uncategorized(session, "Sol Ring")
         cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
