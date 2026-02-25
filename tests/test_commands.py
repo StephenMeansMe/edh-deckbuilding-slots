@@ -842,6 +842,97 @@ class TestCardMoveHandler:
         assert "not allowed" in result.lower()
 
 
+class TestCardRemoveHandler:
+    """handle_card_remove moves a card to the Uncategorized holding category."""
+
+    def test_card_remove_requires_decklist(self):
+        """Returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_card_remove_returns_error_when_card_not_in_decklist(self):
+        """Returns an error when the named card is not in the decklist."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert "not found" in result.lower()
+
+    def test_card_remove_returns_error_when_already_in_uncategorized(self):
+        """Returns an error and suggests card delete when card is already Uncategorized."""
+        session = _make_session_with_deck()
+        _add_uncategorized(session, "Sol Ring")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert "uncategorized" in result.lower()
+        assert "card delete" in result.lower()
+
+    def test_card_remove_moves_card_to_uncategorized(self):
+        """Removes card from its category and places it in Uncategorized."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        handle_card_remove(session, cmd)
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
+        assert "Sol Ring" in session.decklist.categories["uncategorized"].cards
+
+    def test_card_remove_creates_uncategorized_if_missing(self):
+        """Creates the Uncategorized category on demand when it does not exist."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        assert "uncategorized" not in session.decklist.categories
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        handle_card_remove(session, cmd)
+        assert "uncategorized" in session.decklist.categories
+        cat = session.decklist.categories["uncategorized"]
+        assert cat.fixed is True
+        assert cat.capped is False
+        assert cat.user_addable is False
+
+    def test_card_remove_prints_success_message(self):
+        """On success prints the expected message."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert result == (
+            "Removed 'Sol Ring' from 'Ramp'. Card is now in Uncategorized."
+        )
+
+    def test_card_remove_supports_multi_word_card_name(self):
+        """All args after 'remove' are joined as the card name."""
+        session = _make_session_with_deck()
+        session.decklist.add_card("Atraxa, Praetors' Voice", "Commander")
+        cmd = _make_cmd(
+            "card remove Atraxa, Praetors' Voice",
+            "card",
+            "remove",
+            ["Atraxa,", "Praetors'", "Voice"],
+        )
+        result = handle_card_remove(session, cmd)
+        assert "Atraxa, Praetors' Voice" in result
+        assert "Uncategorized" in result
+
+    def test_card_remove_increments_uncategorized_count(self):
+        """After remove, Uncategorized contains one more card than before."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        session.decklist.add_card("Mana Crypt", "Ramp")
+        _add_uncategorized(session, "Arcane Signet")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        handle_card_remove(session, cmd)
+        assert session.decklist.categories["uncategorized"].filled == 2
+
+    def test_card_remove_basic_land_moves_to_uncategorized(self):
+        """A basic land can be removed from Basic Lands and placed in Uncategorized."""
+        session = _make_session_with_deck()
+        session.decklist.add_card("Forest", "Basic Lands")
+        cmd = _make_cmd("card remove Forest", "card", "remove", ["Forest"])
+        result = handle_card_remove(session, cmd)
+        assert "Forest" not in session.decklist.categories["basic lands"].cards
+        assert "Forest" in session.decklist.categories["uncategorized"].cards
+        assert "Uncategorized" in result
+
+
 class TestCardAddHandler:
     """handle_card_add adds a card to a category in the active decklist."""
 
