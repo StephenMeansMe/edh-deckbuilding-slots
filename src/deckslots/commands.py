@@ -82,6 +82,21 @@ def _resolve_category_and_card(
     return None
 
 
+def _resolve_card_and_category_suffix(
+    args: list[str], categories: dict
+) -> tuple[str, str] | None:
+    """Greedy longest-suffix match: resolve <card-name> <to-category> from args.
+
+    Tries the longest possible suffix of args as the category name first,
+    falling back to shorter suffixes. Returns (card_name, category_key) or None.
+    """
+    for i in range(1, len(args)):
+        candidate = " ".join(args[i:]).lower()
+        if candidate in categories:
+            return (" ".join(args[:i]), candidate)
+    return None
+
+
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: decklist create <name>"
@@ -189,6 +204,18 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     if parsed.commander is None:
         summary += "\nWarning: no commander found in file."
     return summary
+
+
+def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
+    raise NotImplementedError
+
+
+def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
+    raise NotImplementedError
+
+
+def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
+    raise NotImplementedError
 
 
 def handle_help() -> str:
