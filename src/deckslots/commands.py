@@ -207,7 +207,38 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
 
 
 def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
-    raise NotImplementedError
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if len(cmd.args) < 2:
+        return "Usage: card move <card-name> <to-category>"
+    resolved = _resolve_card_and_category_suffix(
+        cmd.args, session.decklist.categories
+    )
+    if resolved is None:
+        return "Category not found. Usage: card move <card-name> <to-category>"
+    card, target_key = resolved
+    target_cat = session.decklist.categories[target_key]
+
+    if not target_cat.user_addable:
+        return (
+            f"Cannot move cards to '{target_cat.name}'. "
+            "Use 'card remove' instead."
+        )
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    source_cat = session.decklist.categories[source_key]
+
+    if source_key == target_key or card in target_cat.cards:
+        return f"'{card}' is already in '{target_cat.name}'."
+    if target_cat.is_full:
+        return f"Category '{target_cat.name}' is full (no available slots)."
+    if target_cat.allowed_cards is not None and card not in target_cat.allowed_cards:
+        return f"'{card}' is not allowed in '{target_cat.name}'."
+
+    source_cat.cards.remove(card)
+    target_cat.cards.append(card)
+    return f"Moved '{card}' from '{source_cat.name}' to '{target_cat.name}'."
 
 
 def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:

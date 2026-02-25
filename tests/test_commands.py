@@ -815,7 +815,6 @@ class TestCardMoveHandler:
     def test_card_move_supports_multi_word_card_name(self):
         """Greedy suffix matching correctly parses multi-word card names."""
         session = _make_session_with_deck()
-        session.decklist.add_category("Commander", 0)  # already exists; use existing
         session.decklist.add_category("Ramp", 10)
         session.decklist.add_card("Atraxa, Praetors' Voice", "Commander")
         cmd = _make_cmd(
