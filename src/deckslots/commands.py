@@ -271,7 +271,16 @@ def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
 
 
 def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
-    raise NotImplementedError
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not cmd.args:
+        return "Usage: card delete <card-name>"
+    card = " ".join(cmd.args)
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    session.decklist.categories[source_key].cards.remove(card)
+    return f"Deleted '{card}' from the decklist."
 
 
 def handle_help() -> str:
