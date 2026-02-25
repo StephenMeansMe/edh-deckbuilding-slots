@@ -242,7 +242,32 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
 
 
 def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
-    raise NotImplementedError
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not cmd.args:
+        return "Usage: card remove <card-name>"
+    card = " ".join(cmd.args)
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    if source_key == "uncategorized":
+        return (
+            f"'{card}' is already in Uncategorized. "
+            "Use 'card delete' to permanently remove it."
+        )
+    source_cat = session.decklist.categories[source_key]
+    if "uncategorized" not in session.decklist.categories:
+        session.decklist.categories["uncategorized"] = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+    uncategorized_cat = session.decklist.categories["uncategorized"]
+    source_cat.cards.remove(card)
+    uncategorized_cat.cards.append(card)
+    return f"Removed '{card}' from '{source_cat.name}'. Card is now in Uncategorized."
 
 
 def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
