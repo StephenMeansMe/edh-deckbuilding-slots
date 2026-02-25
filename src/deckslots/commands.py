@@ -287,14 +287,17 @@ def handle_help() -> str:
     return "\n".join(
         [
             "Available commands:",
-            "  decklist create <name>    Create a new decklist",
-            "  decklist show             Show the active decklist",
-            "  decklist import <file>    Import a decklist from a text file",
-            "  category create <n> <s>   Add a category with <s> slots",
-            "  category list             List all categories",
-            "  card add <cat> <name>     Add a card to a category",
-            "  help                      Show this help message",
-            "  quit / exit               Exit the program",
+            "  decklist create <name>        Create a new decklist",
+            "  decklist show                 Show the active decklist",
+            "  decklist import <file>        Import a decklist from a text file",
+            "  category create <n> <s>       Add a category with <s> slots",
+            "  category list                 List all categories",
+            "  card add <cat> <name>         Add a card to a category",
+            "  card move <name> <cat>        Move a card to a different category",
+            "  card remove <name>            Move a card to Uncategorized",
+            "  card delete <name>            Permanently remove a card",
+            "  help                          Show this help message",
+            "  quit / exit                   Exit the program",
         ]
     )
 
@@ -321,6 +324,9 @@ def register_all_handlers(
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
+        ("card", "move"): lambda cmd: handle_card_move(session, cmd),
+        ("card", "remove"): lambda cmd: handle_card_remove(session, cmd),
+        ("card", "delete"): lambda cmd: handle_card_delete(session, cmd),
     }
 
 
