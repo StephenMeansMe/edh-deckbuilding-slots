@@ -82,6 +82,21 @@ def _resolve_category_and_card(
     return None
 
 
+def _resolve_card_and_category_suffix(
+    args: list[str], categories: dict
+) -> tuple[str, str] | None:
+    """Greedy longest-suffix match: resolve <card-name> <to-category> from args.
+
+    Tries the longest possible suffix of args as the category name first,
+    falling back to shorter suffixes. Returns (card_name, category_key) or None.
+    """
+    for i in range(1, len(args)):
+        candidate = " ".join(args[i:]).lower()
+        if candidate in categories:
+            return (" ".join(args[:i]), candidate)
+    return None
+
+
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: decklist create <name>"
@@ -191,18 +206,93 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     return summary
 
 
+def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if len(cmd.args) < 2:
+        return "Usage: card move <card-name> <to-category>"
+    resolved = _resolve_card_and_category_suffix(cmd.args, session.decklist.categories)
+    if resolved is None:
+        return "Category not found. Usage: card move <card-name> <to-category>"
+    card, target_key = resolved
+    target_cat = session.decklist.categories[target_key]
+
+    if not target_cat.user_addable:
+        return f"Cannot move cards to '{target_cat.name}'. Use 'card remove' instead."
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    source_cat = session.decklist.categories[source_key]
+
+    if source_key == target_key or card in target_cat.cards:
+        return f"'{card}' is already in '{target_cat.name}'."
+    if target_cat.is_full:
+        return f"Category '{target_cat.name}' is full (no available slots)."
+    if target_cat.allowed_cards is not None and card not in target_cat.allowed_cards:
+        return f"'{card}' is not allowed in '{target_cat.name}'."
+
+    source_cat.cards.remove(card)
+    target_cat.cards.append(card)
+    return f"Moved '{card}' from '{source_cat.name}' to '{target_cat.name}'."
+
+
+def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not cmd.args:
+        return "Usage: card remove <card-name>"
+    card = " ".join(cmd.args)
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    if source_key == "uncategorized":
+        return (
+            f"'{card}' is already in Uncategorized. "
+            "Use 'card delete' to permanently remove it."
+        )
+    source_cat = session.decklist.categories[source_key]
+    if "uncategorized" not in session.decklist.categories:
+        session.decklist.categories["uncategorized"] = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+    uncategorized_cat = session.decklist.categories["uncategorized"]
+    source_cat.cards.remove(card)
+    uncategorized_cat.cards.append(card)
+    return f"Removed '{card}' from '{source_cat.name}'. Card is now in Uncategorized."
+
+
+def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not cmd.args:
+        return "Usage: card delete <card-name>"
+    card = " ".join(cmd.args)
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    session.decklist.categories[source_key].cards.remove(card)
+    return f"Deleted '{card}' from the decklist."
+
+
 def handle_help() -> str:
     return "\n".join(
         [
             "Available commands:",
-            "  decklist create <name>    Create a new decklist",
-            "  decklist show             Show the active decklist",
-            "  decklist import <file>    Import a decklist from a text file",
-            "  category create <n> <s>   Add a category with <s> slots",
-            "  category list             List all categories",
-            "  card add <cat> <name>     Add a card to a category",
-            "  help                      Show this help message",
-            "  quit / exit               Exit the program",
+            "  decklist create <name>        Create a new decklist",
+            "  decklist show                 Show the active decklist",
+            "  decklist import <file>        Import a decklist from a text file",
+            "  category create <n> <s>       Add a category with <s> slots",
+            "  category list                 List all categories",
+            "  card add <cat> <name>         Add a card to a category",
+            "  card move <name> <cat>        Move a card to a different category",
+            "  card remove <name>            Move a card to Uncategorized",
+            "  card delete <name>            Permanently remove a card",
+            "  help                          Show this help message",
+            "  quit / exit                   Exit the program",
         ]
     )
 
@@ -229,6 +319,9 @@ def register_all_handlers(
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
+        ("card", "move"): lambda cmd: handle_card_move(session, cmd),
+        ("card", "remove"): lambda cmd: handle_card_remove(session, cmd),
+        ("card", "delete"): lambda cmd: handle_card_delete(session, cmd),
     }
 
 

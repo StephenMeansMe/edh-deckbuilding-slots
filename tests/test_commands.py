@@ -4,9 +4,13 @@ from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
     _parse_import_file,
+    _resolve_card_and_category_suffix,
     _resolve_category_and_card,
     dispatch,
     handle_card_add,
+    handle_card_delete,
+    handle_card_move,
+    handle_card_remove,
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
@@ -62,6 +66,43 @@ class TestResolveCategoryAndCard:
         cats = self._categories("Basic", "Basic Lands")
         result = _resolve_category_and_card(["Basic", "Lands", "Forest"], cats)
         assert result == ("basic lands", "Forest")
+
+
+class TestResolveSuffixCategoryAndCard:
+    """_resolve_card_and_category_suffix resolves category from end of args."""
+
+    def _categories(self, *names):
+        return {name.lower(): object() for name in names}
+
+    def test_resolves_single_word_category_from_suffix(self):
+        """Single-word category at end is matched; remaining args form card name."""
+        cats = self._categories("Ramp")
+        result = _resolve_card_and_category_suffix(["Sol", "Ring", "Ramp"], cats)
+        assert result == ("Sol Ring", "ramp")
+
+    def test_resolves_multi_word_category_from_suffix(self):
+        """Multi-word category suffix is matched; remaining args form card name."""
+        cats = self._categories("Basic Lands")
+        result = _resolve_card_and_category_suffix(["Forest", "Basic", "Lands"], cats)
+        assert result == ("Forest", "basic lands")
+
+    def test_returns_none_when_no_suffix_matches(self):
+        """Returns None when no suffix of args matches a category key."""
+        cats = self._categories("Ramp")
+        result = _resolve_card_and_category_suffix(["Sol", "Ring", "Draw"], cats)
+        assert result is None
+
+    def test_prefers_longer_suffix_match(self):
+        """Prefers 'Big Ramp' over 'Ramp' when both are valid category suffixes."""
+        cats = self._categories("Ramp", "Big Ramp")
+        result = _resolve_card_and_category_suffix(["Sol", "Ring", "Big", "Ramp"], cats)
+        assert result == ("Sol Ring", "big ramp")
+
+    def test_returns_none_for_single_element_args(self):
+        """Returns None when args has only one element (no card name possible)."""
+        cats = self._categories("Ramp")
+        result = _resolve_card_and_category_suffix(["Ramp"], cats)
+        assert result is None
 
 
 class TestSession:
@@ -416,9 +457,7 @@ class TestDecklistImportHandler:
     def test_import_routes_commander(self, tmp_path):
         """Commander card is placed in the Commander category."""
         f = tmp_path / "deck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
-        )
+        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -450,9 +489,7 @@ class TestDecklistImportHandler:
     def test_import_creates_uncategorized_category(self, tmp_path):
         """Non-basic-land Maindeck cards go into an Uncategorized category."""
         f = tmp_path / "deck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n"
-        )
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -469,9 +506,7 @@ class TestDecklistImportHandler:
     def test_import_returns_summary_string(self, tmp_path):
         """A successful import returns a human-readable summary."""
         f = tmp_path / "MyDeck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n"
-        )
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -568,6 +603,21 @@ class TestHelpHandler:
         result = handle_help()
         assert "decklist import" in result
 
+    def test_help_includes_card_move(self):
+        """The help output includes the card move command."""
+        result = handle_help()
+        assert "card move" in result
+
+    def test_help_includes_card_remove(self):
+        """The help output includes the card remove command."""
+        result = handle_help()
+        assert "card remove" in result
+
+    def test_help_includes_card_delete(self):
+        """The help output includes the card delete command."""
+        result = handle_help()
+        assert "card delete" in result
+
 
 class TestDispatch:
     """dispatch routes parsed commands to the correct handler."""
@@ -601,6 +651,73 @@ class TestDispatch:
         )
         result = dispatch(cmd, registry)
         assert "unknown command" in result.lower()
+
+    def test_dispatch_card_move(self):
+        """Full pipeline: register, dispatch card move, verify card relocated."""
+        session = Session()
+        registry = register_all_handlers(session)
+        dispatch(_make_cmd("decklist create D", "decklist", "create", ["D"]), registry)
+        dispatch(
+            _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd("category create Draw 10", "category", "create", ["Draw", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]),
+            registry,
+        )
+        result = dispatch(
+            _make_cmd(
+                "card move Sol Ring Draw", "card", "move", ["Sol", "Ring", "Draw"]
+            ),
+            registry,
+        )
+        assert "Sol Ring" in result
+        assert "Sol Ring" in session.decklist.categories["draw"].cards
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
+
+    def test_dispatch_card_remove(self):
+        """Full pipeline: dispatch card remove; verify card lands in Uncategorized."""
+        session = Session()
+        registry = register_all_handlers(session)
+        dispatch(_make_cmd("decklist create D", "decklist", "create", ["D"]), registry)
+        dispatch(
+            _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]),
+            registry,
+        )
+        result = dispatch(
+            _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"]),
+            registry,
+        )
+        assert "Uncategorized" in result
+        assert "Sol Ring" in session.decklist.categories["uncategorized"].cards
+
+    def test_dispatch_card_delete(self):
+        """Full pipeline: register, dispatch card delete, verify card gone."""
+        session = Session()
+        registry = register_all_handlers(session)
+        dispatch(_make_cmd("decklist create D", "decklist", "create", ["D"]), registry)
+        dispatch(
+            _make_cmd("category create Ramp 10", "category", "create", ["Ramp", "10"]),
+            registry,
+        )
+        dispatch(
+            _make_cmd("card add Ramp Sol Ring", "card", "add", ["Ramp", "Sol", "Ring"]),
+            registry,
+        )
+        result = dispatch(
+            _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"]),
+            registry,
+        )
+        assert "Sol Ring" in result
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
 
     def test_dispatch_card_add(self):
         """Full pipeline: register, dispatch card add, verify card in decklist."""
@@ -643,6 +760,316 @@ class TestDispatch:
 
 def _make_cmd(raw, obj, verb, args):
     return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
+
+
+def _make_session_with_card_in_category(category_name, card_name, slots=10):
+    """Create a session with an active decklist and a card in a named category."""
+    session = _make_session_with_deck()
+    session.decklist.add_category(category_name, slots)
+    session.decklist.add_card(card_name, category_name)
+    return session
+
+
+def _add_uncategorized(session, *cards):
+    """Add an Uncategorized category to the session's decklist and populate it."""
+    session.decklist.categories["uncategorized"] = Category(
+        name="Uncategorized",
+        total_slots=0,
+        fixed=True,
+        capped=False,
+        user_addable=False,
+    )
+    for card in cards:
+        session.decklist.add_card(card, "Uncategorized")
+    return session
+
+
+class TestCardMoveHandler:
+    """handle_card_move moves a card from one category to another."""
+
+    def test_card_move_requires_decklist(self):
+        """Returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd(
+            "card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"]
+        )
+        result = handle_card_move(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_card_move_returns_error_when_card_not_in_decklist(self):
+        """Returns an error when the named card is not in the decklist."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        cmd = _make_cmd(
+            "card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"]
+        )
+        result = handle_card_move(session, cmd)
+        assert "not found" in result.lower()
+
+    def test_card_move_returns_error_when_target_category_not_found(self):
+        """Returns an error when the target category does not exist."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd(
+            "card move Sol Ring Draw", "card", "move", ["Sol", "Ring", "Draw"]
+        )
+        result = handle_card_move(session, cmd)
+        assert "not found" in result.lower()
+
+    def test_card_move_returns_error_when_target_is_full(self):
+        """Returns an error when the target category is capped and has no free slots."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Tiny", 1)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        session.decklist.add_card("Mana Crypt", "Tiny")
+        cmd = _make_cmd(
+            "card move Sol Ring Tiny", "card", "move", ["Sol", "Ring", "Tiny"]
+        )
+        result = handle_card_move(session, cmd)
+        assert "full" in result.lower()
+
+    def test_card_move_returns_error_when_target_is_uncategorized(self):
+        """Returns an error when the target category is Uncategorized."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        _add_uncategorized(session)
+        cmd = _make_cmd(
+            "card move Sol Ring Uncategorized",
+            "card",
+            "move",
+            ["Sol", "Ring", "Uncategorized"],
+        )
+        result = handle_card_move(session, cmd)
+        assert "card remove" in result.lower()
+
+    def test_card_move_returns_error_when_card_already_in_target(self):
+        """Returns an error when the card is already in the target category."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd(
+            "card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"]
+        )
+        result = handle_card_move(session, cmd)
+        assert "already in" in result.lower()
+
+    def test_card_move_succeeds_from_uncategorized_to_capped(self):
+        """Successfully moves a card from Uncategorized to a capped category."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        _add_uncategorized(session, "Sol Ring")
+        cmd = _make_cmd(
+            "card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"]
+        )
+        result = handle_card_move(session, cmd)
+        assert "Sol Ring" in result
+        assert "Ramp" in result
+        assert "Sol Ring" in session.decklist.categories["ramp"].cards
+        assert "Sol Ring" not in session.decklist.categories["uncategorized"].cards
+
+    def test_card_move_prints_success_message(self):
+        """On success prints: Moved '<card>' from '<from>' to '<to>'."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Draw", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        cmd = _make_cmd(
+            "card move Sol Ring Draw", "card", "move", ["Sol", "Ring", "Draw"]
+        )
+        result = handle_card_move(session, cmd)
+        assert result == "Moved 'Sol Ring' from 'Ramp' to 'Draw'."
+
+    def test_card_move_removes_card_from_source_category(self):
+        """After a move the source category no longer contains the card."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Draw", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        cmd = _make_cmd(
+            "card move Sol Ring Draw", "card", "move", ["Sol", "Ring", "Draw"]
+        )
+        handle_card_move(session, cmd)
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
+
+    def test_card_move_supports_multi_word_card_name(self):
+        """Greedy suffix matching correctly parses multi-word card names."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_card("Atraxa, Praetors' Voice", "Commander")
+        cmd = _make_cmd(
+            "card move Atraxa, Praetors' Voice Ramp",
+            "card",
+            "move",
+            ["Atraxa,", "Praetors'", "Voice", "Ramp"],
+        )
+        result = handle_card_move(session, cmd)
+        assert "Atraxa, Praetors' Voice" in result
+        assert "Ramp" in result
+
+    def test_card_move_rejects_disallowed_card_for_target(self):
+        """Returns an error when the card is not in the target's allowed_cards."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        cmd = _make_cmd(
+            "card move Sol Ring Basic Lands",
+            "card",
+            "move",
+            ["Sol", "Ring", "Basic", "Lands"],
+        )
+        result = handle_card_move(session, cmd)
+        assert "not allowed" in result.lower()
+
+
+class TestCardRemoveHandler:
+    """handle_card_remove moves a card to the Uncategorized holding category."""
+
+    def test_card_remove_requires_decklist(self):
+        """Returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_card_remove_returns_error_when_card_not_in_decklist(self):
+        """Returns an error when the named card is not in the decklist."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert "not found" in result.lower()
+
+    def test_card_remove_returns_error_when_already_in_uncategorized(self):
+        """Returns error and suggests card delete when card is already Uncategorized."""
+        session = _make_session_with_deck()
+        _add_uncategorized(session, "Sol Ring")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert "uncategorized" in result.lower()
+        assert "card delete" in result.lower()
+
+    def test_card_remove_moves_card_to_uncategorized(self):
+        """Removes card from its category and places it in Uncategorized."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        handle_card_remove(session, cmd)
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
+        assert "Sol Ring" in session.decklist.categories["uncategorized"].cards
+
+    def test_card_remove_creates_uncategorized_if_missing(self):
+        """Creates the Uncategorized category on demand when it does not exist."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        assert "uncategorized" not in session.decklist.categories
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        handle_card_remove(session, cmd)
+        assert "uncategorized" in session.decklist.categories
+        cat = session.decklist.categories["uncategorized"]
+        assert cat.fixed is True
+        assert cat.capped is False
+        assert cat.user_addable is False
+
+    def test_card_remove_prints_success_message(self):
+        """On success prints the expected message."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        result = handle_card_remove(session, cmd)
+        assert result == (
+            "Removed 'Sol Ring' from 'Ramp'. Card is now in Uncategorized."
+        )
+
+    def test_card_remove_supports_multi_word_card_name(self):
+        """All args after 'remove' are joined as the card name."""
+        session = _make_session_with_deck()
+        session.decklist.add_card("Atraxa, Praetors' Voice", "Commander")
+        cmd = _make_cmd(
+            "card remove Atraxa, Praetors' Voice",
+            "card",
+            "remove",
+            ["Atraxa,", "Praetors'", "Voice"],
+        )
+        result = handle_card_remove(session, cmd)
+        assert "Atraxa, Praetors' Voice" in result
+        assert "Uncategorized" in result
+
+    def test_card_remove_increments_uncategorized_count(self):
+        """After remove, Uncategorized contains one more card than before."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        session.decklist.add_card("Mana Crypt", "Ramp")
+        _add_uncategorized(session, "Arcane Signet")
+        cmd = _make_cmd("card remove Sol Ring", "card", "remove", ["Sol", "Ring"])
+        handle_card_remove(session, cmd)
+        assert session.decklist.categories["uncategorized"].filled == 2
+
+    def test_card_remove_basic_land_moves_to_uncategorized(self):
+        """A basic land can be removed from Basic Lands and placed in Uncategorized."""
+        session = _make_session_with_deck()
+        session.decklist.add_card("Forest", "Basic Lands")
+        cmd = _make_cmd("card remove Forest", "card", "remove", ["Forest"])
+        result = handle_card_remove(session, cmd)
+        assert "Forest" not in session.decklist.categories["basic lands"].cards
+        assert "Forest" in session.decklist.categories["uncategorized"].cards
+        assert "Uncategorized" in result
+
+
+class TestCardDeleteHandler:
+    """handle_card_delete permanently removes a card from the decklist."""
+
+    def test_card_delete_requires_decklist(self):
+        """Returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        result = handle_card_delete(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_card_delete_returns_error_when_card_not_in_decklist(self):
+        """Returns an error when the named card is not in the decklist."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        result = handle_card_delete(session, cmd)
+        assert "not found" in result.lower()
+
+    def test_card_delete_removes_card_from_decklist(self):
+        """The card is permanently removed from its category."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        handle_card_delete(session, cmd)
+        assert "Sol Ring" not in session.decklist.categories["ramp"].cards
+
+    def test_card_delete_prints_success_message(self):
+        """On success prints: Deleted '<card>' from the decklist."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        result = handle_card_delete(session, cmd)
+        assert result == "Deleted 'Sol Ring' from the decklist."
+
+    def test_card_delete_does_not_place_card_in_uncategorized(self):
+        """Deleted card is not added to Uncategorized."""
+        session = _make_session_with_card_in_category("Ramp", "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        handle_card_delete(session, cmd)
+        assert "uncategorized" not in session.decklist.categories
+
+    def test_card_delete_removes_from_uncategorized(self):
+        """Card can be permanently deleted even when it is in Uncategorized."""
+        session = _make_session_with_deck()
+        _add_uncategorized(session, "Sol Ring")
+        cmd = _make_cmd("card delete Sol Ring", "card", "delete", ["Sol", "Ring"])
+        handle_card_delete(session, cmd)
+        assert "Sol Ring" not in session.decklist.categories["uncategorized"].cards
+
+    def test_card_delete_supports_multi_word_card_name(self):
+        """All args after 'delete' are joined as the card name."""
+        session = _make_session_with_deck()
+        session.decklist.add_card("Atraxa, Praetors' Voice", "Commander")
+        cmd = _make_cmd(
+            "card delete Atraxa, Praetors' Voice",
+            "card",
+            "delete",
+            ["Atraxa,", "Praetors'", "Voice"],
+        )
+        result = handle_card_delete(session, cmd)
+        assert "Atraxa, Praetors' Voice" in result
+        assert "Atraxa, Praetors' Voice" not in (
+            session.decklist.categories["commander"].cards
+        )
 
 
 class TestCardAddHandler:
