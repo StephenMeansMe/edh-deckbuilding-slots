@@ -1,15 +1,164 @@
 from __future__ import annotations
 
+import os
+import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from deckslots.cli import ParsedCommand
-from deckslots.models import Decklist
+from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
+
+
+def _get_save_path() -> Path:
+    state_home = os.environ.get("XDG_STATE_HOME", "")
+    base = Path(state_home) if state_home else Path.home() / ".local" / "state"
+    return base / "deckslots" / "decklist.bak"
 
 
 @dataclass
 class Session:
     decklist: Decklist | None = None
+
+
+_CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
+_SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
+
+
+def _format_save_file(decklist: Decklist) -> str:
+    sections: list[str] = [f"# {decklist.name}"]
+    for cat in decklist.categories.values():
+        if cat.name == "Commander":
+            heading = "Commander"
+        elif cat.name == "Basic Lands":
+            heading = "Basic Lands"
+        elif cat.name == "Uncategorized":
+            heading = "Uncategorized"
+        else:
+            heading = f"{cat.name} [{cat.total_slots} slots]"
+        lines = [heading]
+        for card, qty in sorted(Counter(cat.cards).items()):
+            lines.append(f"{qty} {card}")
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def _parse_save_file(path: str) -> Decklist:
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: '{path}'")
+
+    stripped = [line.rstrip("\n") for line in lines]
+
+    # First non-empty line must be the name comment
+    name: str | None = None
+    start = 0
+    for i, line in enumerate(stripped):
+        if line.strip():
+            if line.startswith("# "):
+                name = line[2:].strip()
+                start = i + 1
+            break
+    if name is None:
+        raise ValueError("Save file missing '# <name>' header line.")
+
+    deck = Decklist.create(name)
+    current_category: str | None = None
+
+    for line in stripped[start:]:
+        s = line.strip()
+        if not s:
+            continue
+        if s == "Commander":
+            current_category = "Commander"
+            continue
+        if s == "Basic Lands":
+            current_category = "Basic Lands"
+            continue
+        if s == "Uncategorized":
+            if "uncategorized" not in deck.categories:
+                deck.categories["uncategorized"] = Category(
+                    name="Uncategorized",
+                    total_slots=0,
+                    fixed=True,
+                    capped=False,
+                    user_addable=False,
+                )
+            current_category = "Uncategorized"
+            continue
+        m_cat = _SAVE_CAT_RE.match(s)
+        if m_cat:
+            cat_name = m_cat.group(1)
+            slots = int(m_cat.group(2))
+            deck.add_category(cat_name, slots)
+            current_category = cat_name
+            continue
+        m_card = _CARD_LINE_RE.match(s)
+        if m_card and current_category is not None:
+            qty = int(m_card.group(1))
+            card = m_card.group(2).strip()
+            for _ in range(qty):
+                deck.add_card(card, current_category)
+
+    return deck
+
+
+@dataclass
+class ParsedImport:
+    commander: str | None
+    basic_lands: list[str]
+    uncategorized: list[str]
+
+
+def _parse_import_file(path: str) -> ParsedImport:
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: '{path}'")
+    except OSError as e:
+        raise OSError(f"Cannot read file '{path}': {e}")
+
+    section: str | None = None
+    commander: str | None = None
+    basic_lands: list[str] = []
+    uncategorized: list[str] = []
+    any_card_found = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.lower() == "commander":
+            section = "commander"
+            continue
+        if stripped.lower() == "maindeck":
+            section = "maindeck"
+            continue
+        m = _CARD_LINE_RE.match(stripped)
+        if m:
+            qty = int(m.group(1))
+            card = m.group(2).strip()
+            any_card_found = True
+            if section == "commander":
+                commander = card
+            elif section == "maindeck":
+                if card in BASIC_LAND_NAMES:
+                    basic_lands.extend([card] * qty)
+                else:
+                    uncategorized.extend([card] * qty)
+
+    if not any_card_found:
+        raise ValueError(f"No recognizable card lines found in '{path}'.")
+
+    return ParsedImport(
+        commander=commander,
+        basic_lands=basic_lands,
+        uncategorized=uncategorized,
+    )
 
 
 def _resolve_category_and_card(
@@ -19,6 +168,21 @@ def _resolve_category_and_card(
         candidate = " ".join(args[:i]).lower()
         if candidate in categories:
             return (candidate, " ".join(args[i:]))
+    return None
+
+
+def _resolve_card_and_category_suffix(
+    args: list[str], categories: dict
+) -> tuple[str, str] | None:
+    """Greedy longest-suffix match: resolve <card-name> <to-category> from args.
+
+    Tries the longest possible suffix of args as the category name first,
+    falling back to shorter suffixes. Returns (card_name, category_key) or None.
+    """
+    for i in range(1, len(args)):
+        candidate = " ".join(args[i:]).lower()
+        if candidate in categories:
+            return (" ".join(args[:i]), candidate)
     return None
 
 
@@ -39,7 +203,10 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
     if resolved is None:
         return "Category not found. Usage: card add <category> <card-name>"
     category_key, card = resolved
-    category_name = session.decklist.categories[category_key].name
+    cat = session.decklist.categories[category_key]
+    if not cat.user_addable:
+        return f"Cannot add cards to '{cat.name}' directly."
+    category_name = cat.name
     try:
         session.decklist.add_card(card, category_name)
     except ValueError as e:
@@ -80,17 +247,164 @@ def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
     return "\n".join(lines)
 
 
+def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
+    if not cmd.args:
+        return "Usage: decklist import <filepath>"
+    path = cmd.args[0]
+    try:
+        parsed = _parse_import_file(path)
+    except FileNotFoundError as e:
+        return str(e)
+    except (OSError, ValueError) as e:
+        return str(e)
+
+    name = os.path.splitext(os.path.basename(path))[0]
+    deck = Decklist.create(name)
+
+    if parsed.commander is not None:
+        deck.add_card(parsed.commander, "Commander")
+
+    for card in parsed.basic_lands:
+        deck.add_card(card, "Basic Lands")
+
+    # Uncapped so imported quantities are taken at face value (including
+    # duplicate non-land cards). Uncapped categories also skip the singleton
+    # exclusivity check, letting cards later move to capped categories freely.
+    uncategorized_cat = Category(
+        name="Uncategorized",
+        total_slots=0,
+        fixed=True,
+        capped=False,
+        user_addable=False,
+    )
+    deck.categories["uncategorized"] = uncategorized_cat
+
+    for card in parsed.uncategorized:
+        deck.add_card(card, "Uncategorized")
+
+    session.decklist = deck
+
+    commander_count = 1 if parsed.commander is not None else 0
+    summary = (
+        f"Imported '{name}': {commander_count} commander, "
+        f"{len(parsed.basic_lands)} basic lands, "
+        f"{len(parsed.uncategorized)} uncategorized cards."
+    )
+    if parsed.commander is None:
+        summary += "\nWarning: no commander found in file."
+    return summary
+
+
+def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if len(cmd.args) < 2:
+        return "Usage: card move <card-name> <to-category>"
+    resolved = _resolve_card_and_category_suffix(cmd.args, session.decklist.categories)
+    if resolved is None:
+        return "Category not found. Usage: card move <card-name> <to-category>"
+    card, target_key = resolved
+    target_cat = session.decklist.categories[target_key]
+
+    if not target_cat.user_addable:
+        return f"Cannot move cards to '{target_cat.name}'. Use 'card remove' instead."
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    source_cat = session.decklist.categories[source_key]
+
+    if source_key == target_key or card in target_cat.cards:
+        return f"'{card}' is already in '{target_cat.name}'."
+    if target_cat.is_full:
+        return f"Category '{target_cat.name}' is full (no available slots)."
+    if target_cat.allowed_cards is not None and card not in target_cat.allowed_cards:
+        return f"'{card}' is not allowed in '{target_cat.name}'."
+
+    source_cat.cards.remove(card)
+    target_cat.cards.append(card)
+    return f"Moved '{card}' from '{source_cat.name}' to '{target_cat.name}'."
+
+
+def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not cmd.args:
+        return "Usage: card remove <card-name>"
+    card = " ".join(cmd.args)
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    if source_key == "uncategorized":
+        return (
+            f"'{card}' is already in Uncategorized. "
+            "Use 'card delete' to permanently remove it."
+        )
+    source_cat = session.decklist.categories[source_key]
+    if "uncategorized" not in session.decklist.categories:
+        session.decklist.categories["uncategorized"] = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+    uncategorized_cat = session.decklist.categories["uncategorized"]
+    source_cat.cards.remove(card)
+    uncategorized_cat.cards.append(card)
+    return f"Removed '{card}' from '{source_cat.name}'. Card is now in Uncategorized."
+
+
+def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not cmd.args:
+        return "Usage: card delete <card-name>"
+    card = " ".join(cmd.args)
+    source_key = session.decklist.find_card(card)
+    if source_key is None:
+        return f"Card '{card}' not found in the decklist."
+    session.decklist.categories[source_key].cards.remove(card)
+    return f"Deleted '{card}' from the decklist."
+
+
+def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
+    path = _get_save_path()
+    try:
+        deck = _parse_save_file(str(path))
+    except FileNotFoundError:
+        return "No saved decklist found."
+    except (ValueError, OSError) as e:
+        return f"Error loading save file: {e}"
+    session.decklist = deck
+    return f"Loaded '{deck.name}'."
+
+
+def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    path = _get_save_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_format_save_file(session.decklist))
+    return f"Saved '{session.decklist.name}'."
+
+
 def handle_help() -> str:
     return "\n".join(
         [
             "Available commands:",
-            "  decklist create <name>    Create a new decklist",
-            "  decklist show             Show the active decklist",
-            "  category create <n> <s>   Add a category with <s> slots",
-            "  category list             List all categories",
-            "  card add <cat> <name>     Add a card to a category",
-            "  help                      Show this help message",
-            "  quit / exit               Exit the program",
+            "  decklist create <name>        Create a new decklist",
+            "  decklist show                 Show the active decklist",
+            "  decklist import <file>        Import a decklist from a text file",
+            "  decklist save                 Save the active decklist",
+            "  decklist load                 Load the last saved decklist",
+            "  category create <n> <s>       Add a category with <s> slots",
+            "  category list                 List all categories",
+            "  card add <cat> <name>         Add a card to a category",
+            "  card move <name> <cat>        Move a card to a different category",
+            "  card remove <name>            Move a card to Uncategorized",
+            "  card delete <name>            Permanently remove a card",
+            "  help                          Show this help message",
+            "  quit / exit                   Exit the program",
         ]
     )
 
@@ -113,9 +427,15 @@ def register_all_handlers(
     return {
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
+        ("decklist", "import"): lambda cmd: handle_decklist_import(session, cmd),
+        ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
+        ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
+        ("card", "move"): lambda cmd: handle_card_move(session, cmd),
+        ("card", "remove"): lambda cmd: handle_card_remove(session, cmd),
+        ("card", "delete"): lambda cmd: handle_card_delete(session, cmd),
     }
 
 

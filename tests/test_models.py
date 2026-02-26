@@ -326,3 +326,51 @@ class TestDecklistAddCard:
         deck = Decklist.create("Test Deck")
         deck.add_card("Atraxa, Praetors' Voice", "Commander")
         assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
+
+
+class TestDecklistFindCard:
+    """Decklist.find_card locates the category key containing a given card."""
+
+    def test_find_card_returns_category_key_when_found(self):
+        """find_card returns the lowercase category key when the card is present."""
+        deck = Decklist.create("Test Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        assert deck.find_card("Sol Ring") == "ramp"
+
+    def test_find_card_returns_none_when_absent(self):
+        """find_card returns None when the card is not in any category."""
+        deck = Decklist.create("Test Deck")
+        assert deck.find_card("Sol Ring") is None
+
+    def test_find_card_finds_card_in_uncapped_category(self):
+        """find_card finds cards stored in uncapped categories."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Forest", "Basic Lands")
+        assert deck.find_card("Forest") == "basic lands"
+
+    def test_find_card_finds_card_in_commander_category(self):
+        """find_card finds the commander in the Commander category."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        assert deck.find_card("Atraxa, Praetors' Voice") == "commander"
+
+
+class TestCategoryUserAddable:
+    """Category.user_addable controls whether card add is permitted."""
+
+    def test_user_addable_defaults_to_true(self):
+        """A freshly created Category is user-addable by default."""
+        cat = Category(name="Ramp", total_slots=10)
+        assert cat.user_addable is True
+
+    def test_user_addable_can_be_set_false(self):
+        """user_addable=False can be set on a fixed uncapped category."""
+        cat = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+        assert cat.user_addable is False
