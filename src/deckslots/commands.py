@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import os
 import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from deckslots.cli import ParsedCommand
 from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
+
+
+def _get_save_path() -> Path:
+    state_home = os.environ.get("XDG_STATE_HOME", "")
+    base = Path(state_home) if state_home else Path.home() / ".local" / "state"
+    return base / "deckslots" / "decklist.bak"
 
 
 @dataclass
