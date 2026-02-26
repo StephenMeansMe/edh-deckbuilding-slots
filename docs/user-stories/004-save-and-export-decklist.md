@@ -1,25 +1,25 @@
-# User Story 004: Save and Export a Decklist
+# User Story 004: Save and Load a Decklist
 
 ## Story
 
 **As an** EDH deckbuilder,
-**I want to** save my decklist to a file and re-load it in a later session,
-and separately export it as a plain text file with only `Commander` and
-`Maindeck` headings,
-**so that** I can pick up where I left off without starting over, and share my
-finished deck with online tools such as Moxfield or Archidekt.
+**I want to** save my work-in-progress decklist to a file and have it
+automatically load the next time I start the app,
+**so that** I can pick up right where I left off without re-importing or
+re-categorising anything.
 
 ## Background
 
-Two distinct file operations serve different needs:
+Session persistence is a two-part problem:
 
-- **Save** — produces an internal format that preserves the full decklist
-  structure (categories, slot counts, and card assignments). A saved file can
-  be re-loaded by an extended `decklist import` command in a future session
-  (see Future Work below).
-- **Export** — produces a simplified format (`Commander` and `Maindeck`
-  sections only, quantities aggregated) that is compatible with popular
-  deckbuilding platforms. Category information is intentionally discarded.
+- **Save** — write the full decklist structure (categories, slot counts, and
+  card assignments) to a file the app can later reconstruct exactly.
+- **Load / auto-resume** — on the next startup, the app automatically opens
+  the most recently saved file so the user sees their deck immediately.
+
+The save format is an **internal** format: it preserves categories and slot
+counts and is not designed for external tools. Sharing a finished deck with
+Moxfield, Archidekt, or similar platforms is covered by User Story 005.
 
 ## Acceptance Criteria
 
@@ -30,7 +30,8 @@ Two distinct file operations serve different needs:
 2. Returns an error if no decklist is active.
 3. Returns an error if `<filepath>` cannot be written (bad path, permissions,
    etc.).
-4. On success, prints:
+4. On success, records `<filepath>` in the session file
+   (`~/.config/deckslots/session`) and prints:
    ```
    Saved '<name>' to '<filepath>'.
    ```
@@ -44,6 +45,10 @@ Two distinct file operations serve different needs:
 10. Cards within each section are written in `<quantity> <card-name>` format,
     with identical card names aggregated (e.g., four copies of `Forest` appear
     as a single `4 Forest` line, not four `1 Forest` lines).
+11. If the destination file already exists it is silently overwritten; no
+    confirmation prompt is shown in the MVP.
+12. The file extension is not enforced; the user may supply any path (e.g.,
+    `my_deck.txt`, `my_deck`).
 
 #### Save file format
 
@@ -76,81 +81,90 @@ Uncategorized
 - Sections are separated by a single blank line.
 - No other metadata lines are written.
 
-### `decklist export <filepath>`
+### `decklist load <filepath>`
 
-11. Writes the current active decklist to `<filepath>` in a
-    Moxfield/Archidekt-compatible plain text format.
-12. Returns an error if no decklist is active.
-13. Returns an error if `<filepath>` cannot be written.
-14. On success, prints:
+13. Reads a file written by `decklist save` and sets the restored decklist as
+    the active decklist, replacing any currently active decklist without
+    prompting.
+14. Returns an error if `<filepath>` does not exist or cannot be read.
+15. Returns an error if the file cannot be parsed as a valid save file.
+16. On success, records `<filepath>` in the session file
+    (`~/.config/deckslots/session`) and prints:
     ```
-    Exported '<name>' to '<filepath>'.
+    Loaded '<name>' from '<filepath>'.
     ```
-15. The export file has exactly two sections: `Commander` and `Maindeck`,
-    separated by a blank line.
-16. The `Commander` section contains the commander card as `1 <card-name>`. If
-    no commander has been assigned, the `Commander` section is written with no
-    card lines.
-17. The `Maindeck` section contains every card from every non-Commander
-    category (including Basic Lands and Uncategorized), with identical card
-    names aggregated across all categories.
-18. Cards in the `Maindeck` section are sorted alphabetically by card name.
-19. Category information is not written to the export file.
+    where `<name>` is the file's stem (filename without extension), matching
+    how `decklist import` derives the decklist name.
+17. Restores the full category structure from the save format:
+    - `Commander` (bare heading) → the Commander category.
+    - `<name> [<n> slots]` → a user-defined capped category named `<name>`
+      with `total_slots = n`, created before cards are added.
+    - `Basic Lands` (bare heading) → the Basic Lands category.
+    - `Uncategorized` (bare heading) → the Uncategorized category (fixed,
+      uncapped, not user-addable), created on demand.
+    - Card lines `<qty> <name>`: `<qty>` copies of `<name>` are added to the
+      most recently seen category. Lines that do not match the card-line
+      pattern (including blank lines) are silently skipped.
+18. The `allowed_cards` whitelist for Basic Lands is enforced during load; an
+    error is returned if a non-basic-land card name is found under the
+    `Basic Lands` heading.
 
-#### Export file format
+### Auto-load on startup
 
-```
-Commander
-1 Atraxa, Praetors' Voice
-
-Maindeck
-1 Cultivate
-1 Doubling Season
-4 Forest
-3 Mountain
-1 Sol Ring
-```
+19. When the REPL starts, if the session file (`~/.config/deckslots/session`)
+    exists and contains a path, the app attempts to load the decklist at that
+    path using the same logic as `decklist load`.
+20. On successful auto-load, prints before the first prompt:
+    ```
+    Resumed '<name>' from '<filepath>'.
+    ```
+21. If the session file exists but the recorded file is missing or unreadable,
+    prints a warning and starts with no active decklist:
+    ```
+    Warning: could not resume session from '<filepath>' — file not found.
+    Use 'decklist create', 'decklist import', or 'decklist load' to begin.
+    ```
+22. If the session file does not exist, the REPL starts silently with no active
+    decklist (no message).
+23. The session file is stored at `~/.config/deckslots/session`. The parent
+    directory is created automatically if it does not exist.
 
 ### General
 
-20. Both commands require an active decklist; return an error if none exists.
-21. If the active decklist contains cards in Uncategorized, the persistent
+24. `decklist save` and `decklist load` require an active decklist and an
+    existing file respectively; see individual criteria above for error cases.
+25. If the active decklist contains cards in Uncategorized, the persistent
     Uncategorized warning (shown before every command response when
-    Uncategorized is non-empty) is displayed as usual — the save and export
-    operations still complete successfully.
-22. If the destination file already exists it is silently overwritten; no
-    confirmation prompt is shown in the MVP.
-23. The file extension is not enforced; the user may supply any path (e.g.,
-    `my_deck.txt`, `my_deck`).
+    Uncategorized is non-empty) is displayed as usual during a session — the
+    save operation still completes successfully.
+26. Unsaved in-session changes (e.g., cards added after the last `decklist
+    save`) are not persisted automatically. On the next startup the app
+    resumes from the last explicitly saved state.
 
 ## Notes
 
-- `decklist save` is the primary mechanism for session persistence in the MVP.
-  Database-backed persistence is a future roadmap item.
-- Re-loading a saved file in the current MVP is done via `decklist import`.
-  Because `import` routes unrecognised section headings' cards to Uncategorized
-  and ignores the `[<n> slots]` metadata, the user would lose category
-  assignments on re-load. A future extension (see below) will teach `import`
-  to recognise the save format and restore full category structure.
-- The `export` format is intentionally lossy: category names and slot counts
-  are discarded. It is designed for compatibility with external tools, not for
-  session resumption.
-- An incomplete deck (fewer than 100 assigned cards, or cards remaining in
-  Uncategorized) can still be saved and exported without error. The persistent
-  Uncategorized warning already signals work-in-progress state.
+- The session file (`~/.config/deckslots/session`) contains only the absolute
+  path of the most recently saved or explicitly loaded decklist, one line, no
+  trailing newline. It is updated by `decklist save` and `decklist load` only
+  — `decklist create` and `decklist import` do not touch it.
+- `decklist load` is the correct command for explicitly switching to a
+  different save file mid-session. `decklist import` continues to handle the
+  original `Commander` / `Maindeck` plain text format (User Story 002) and
+  routes all non-commander, non-basic-land cards to Uncategorized; it does not
+  recognise the `[<n> slots]` heading syntax.
+- An incomplete deck (fewer than 100 cards, or cards in Uncategorized) can be
+  saved and re-loaded without error. The persistent Uncategorized warning
+  already signals work-in-progress state.
 
 ## Future Work (out of scope)
 
-- **Extend `decklist import` to handle save format** — recognise the
-  `[<n> slots]` heading syntax and restore the full category structure (names,
-  slot counts) from a save file, rather than routing everything to
-  Uncategorized.
-- **Export sorting options** — sort Maindeck cards by mana value, by type, or
-  by the category they came from.
-- **Export format variants** — CSV, JSON, or platform-specific formats
-  (Archidekt, Manabox, etc.).
-- **Overwrite confirmation** — prompt the user before overwriting an existing
-  file.
-- **`decklist save` with name override** — allow
-  `decklist save <filepath> as <name>` to set an explicit decklist name that
-  differs from the filename stem.
+- **Auto-save** — write to the session file automatically after every
+  command so the user never loses an unsaved change.
+- **Named sessions** — maintain a history of save files rather than a single
+  last-session pointer, allowing the user to switch between multiple decks by
+  name.
+- **`decklist save` with name override** — `decklist save <filepath> as
+  <name>` sets an explicit decklist name that differs from the filename stem.
+- **Overwrite confirmation** — prompt before overwriting an existing file.
+- **Database-backed persistence** — replace flat text files with a local
+  database for richer querying and history (see Roadmap).
