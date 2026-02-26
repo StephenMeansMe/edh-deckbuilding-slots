@@ -51,7 +51,7 @@ def _parse_save_file(path: str) -> Decklist:
     except FileNotFoundError:
         raise FileNotFoundError(f"File not found: '{path}'")
 
-    stripped = [l.rstrip("\n") for l in lines]
+    stripped = [line.rstrip("\n") for line in lines]
 
     # First non-empty line must be the name comment
     name: str | None = None
@@ -395,6 +395,8 @@ def handle_help() -> str:
             "  decklist create <name>        Create a new decklist",
             "  decklist show                 Show the active decklist",
             "  decklist import <file>        Import a decklist from a text file",
+            "  decklist save                 Save the active decklist",
+            "  decklist load                 Load the last saved decklist",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  card add <cat> <name>         Add a card to a category",

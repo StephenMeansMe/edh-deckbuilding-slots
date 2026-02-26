@@ -310,10 +310,8 @@ class TestReplUncategorizedWarning:
         # after card delete (Uncategorized now empty) or category list.
         assert output.count("card(s) in Uncategorized") == 1
 
-    def test_warning_shown_after_card_remove_sends_card_to_uncategorized(
-        self, capsys
-    ):
-        """Warning appears on subsequent commands after 'card remove' populates Uncategorized."""
+    def test_warning_shown_after_card_remove_sends_card_to_uncategorized(self, capsys):
+        """Warning appears after 'card remove' populates Uncategorized."""
         with patch(
             "builtins.input",
             side_effect=[
@@ -504,7 +502,7 @@ class TestReplCardDeleteCommands:
         assert "Sol Ring" in output
 
     def test_card_delete_does_not_trigger_uncategorized_warning(self, capsys):
-        """'card delete' from a named category does not trigger the Uncategorized warning."""
+        """'card delete' from a named category does not trigger Uncategorized."""
         with patch(
             "builtins.input",
             side_effect=[
@@ -613,9 +611,7 @@ class TestReplAutoLoad:
         output = capsys.readouterr().out
         assert "Starting fresh" in output
 
-    def test_recovery_exit_quits_program(
-        self, monkeypatch, tmp_path, capsys
-    ):
+    def test_recovery_exit_quits_program(self, monkeypatch, tmp_path, capsys):
         """Typing 'exit' at the recovery prompt exits the program."""
         _write_save(tmp_path, monkeypatch, "not a valid save file\n")
         with patch("builtins.input", side_effect=["exit"]):
@@ -623,9 +619,7 @@ class TestReplAutoLoad:
         output = capsys.readouterr().out
         assert "Goodbye" in output
 
-    def test_recovery_eof_exits_program(
-        self, monkeypatch, tmp_path, capsys
-    ):
+    def test_recovery_eof_exits_program(self, monkeypatch, tmp_path, capsys):
         """EOF at the recovery prompt exits the program."""
         _write_save(tmp_path, monkeypatch, "not a valid save file\n")
         with patch("builtins.input", side_effect=EOFError):
@@ -633,13 +627,11 @@ class TestReplAutoLoad:
         output = capsys.readouterr().out
         assert "Goodbye" in output
 
-    def test_recovery_unknown_input_repeats_prompt(
-        self, monkeypatch, tmp_path, capsys
-    ):
+    def test_recovery_unknown_input_repeats_prompt(self, monkeypatch, tmp_path, capsys):
         """Unrecognised input at the recovery prompt repeats without crashing."""
         _write_save(tmp_path, monkeypatch, "not a valid save file\n")
         with patch("builtins.input", side_effect=["oops", "exit"]):
             run_repl()
         output = capsys.readouterr().out
-        # Recovery prompt should appear at least twice (once for 'oops', once for 'exit')
+        # Recovery prompt appears at least twice (once for 'oops', once for 'exit')
         assert output.count("deckslots(recovery)>") >= 2

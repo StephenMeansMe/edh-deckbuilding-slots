@@ -7,8 +7,6 @@ from deckslots.commands import (
     _get_save_path,
     _parse_import_file,
     _parse_save_file,
-    handle_decklist_load,
-    handle_decklist_save,
     _resolve_card_and_category_suffix,
     _resolve_category_and_card,
     dispatch,
@@ -20,6 +18,8 @@ from deckslots.commands import (
     handle_category_list,
     handle_decklist_create,
     handle_decklist_import,
+    handle_decklist_load,
+    handle_decklist_save,
     handle_decklist_show,
     handle_help,
     register_all_handlers,
@@ -1256,7 +1256,7 @@ class TestFormatSaveFile:
         lines = content.splitlines()
         removal_idx = lines.index("Removal [6 slots]")
         # Next non-blank line (if any) must not be a card line
-        next_lines = [l for l in lines[removal_idx + 1 :] if l.strip()]
+        next_lines = [ln for ln in lines[removal_idx + 1 :] if ln.strip()]
         assert not next_lines or not next_lines[0][0].isdigit()
 
     def test_duplicate_cards_aggregated(self):
@@ -1272,7 +1272,10 @@ class TestFormatSaveFile:
 
         deck = _make_deck_for_save()
         deck.categories["uncategorized"] = Category(
-            name="Uncategorized", total_slots=0, fixed=True, capped=False,
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
             user_addable=False,
         )
         deck.categories["uncategorized"].cards.append("Doubling Season")
@@ -1371,9 +1374,7 @@ class TestParseSaveFile:
     def test_restores_commander_card(self, tmp_path):
         """_parse_save_file adds the commander card to the Commander category."""
         f = tmp_path / "deck.bak"
-        f.write_text(
-            "# Test\n\nCommander\n1 Atraxa, Praetors' Voice\n"
-        )
+        f.write_text("# Test\n\nCommander\n1 Atraxa, Praetors' Voice\n")
         deck = _parse_save_file(str(f))
         assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
 
@@ -1388,7 +1389,10 @@ class TestParseSaveFile:
     def test_basic_lands_appear_before_user_categories_in_dict(self, tmp_path):
         """Basic Lands section is parsed before user-defined categories."""
         f = tmp_path / "deck.bak"
-        content = "# Test\n\nCommander\n\nBasic Lands\n2 Forest\n\nRamp [8 slots]\n1 Sol Ring\n"
+        content = (
+            "# Test\n\nCommander\n\nBasic Lands\n2 Forest\n\n"
+            "Ramp [8 slots]\n1 Sol Ring\n"
+        )
         f.write_text(content)
         deck = _parse_save_file(str(f))
         keys = list(deck.categories)
