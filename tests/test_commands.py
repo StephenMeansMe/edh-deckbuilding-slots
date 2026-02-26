@@ -7,6 +7,7 @@ from deckslots.commands import (
     _get_save_path,
     _parse_import_file,
     _parse_save_file,
+    handle_decklist_load,
     handle_decklist_save,
     _resolve_card_and_category_suffix,
     _resolve_category_and_card,
@@ -1437,3 +1438,68 @@ class TestParseSaveFile:
         for key, cat in original.categories.items():
             assert sorted(restored.categories[key].cards) == sorted(cat.cards)
             assert restored.categories[key].total_slots == cat.total_slots
+
+
+class TestDecklistLoadHandler:
+    def _save_deck(self, deck, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        save_file.parent.mkdir(parents=True)
+        save_file.write_text(_format_save_file(deck))
+
+    def test_load_returns_error_when_no_save_file(self, monkeypatch, tmp_path):
+        """handle_decklist_load returns an error when no save file exists."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = handle_decklist_load(session, cmd)
+        assert "no saved decklist" in result.lower()
+
+    def test_load_returns_error_on_parse_failure(self, monkeypatch, tmp_path):
+        """handle_decklist_load returns an error for an unparseable file."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        save_file.parent.mkdir(parents=True)
+        save_file.write_text("this is not a valid save file\n")
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = handle_decklist_load(session, cmd)
+        assert "error" in result.lower()
+
+    def test_load_restores_decklist(self, monkeypatch, tmp_path):
+        """handle_decklist_load sets session.decklist from the save file."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        handle_decklist_load(session, cmd)
+        assert session.decklist is not None
+        assert session.decklist.name == "Atraxa Stax"
+
+    def test_load_returns_success_message(self, monkeypatch, tmp_path):
+        """handle_decklist_load returns \"Loaded '<name>'.\" on success."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = handle_decklist_load(session, cmd)
+        assert result == "Loaded 'Atraxa Stax'."
+
+    def test_load_replaces_active_decklist(self, monkeypatch, tmp_path):
+        """handle_decklist_load replaces any currently active decklist."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = _make_session_with_deck()  # has a different active deck
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        handle_decklist_load(session, cmd)
+        assert session.decklist.name == "Atraxa Stax"
+
+    def test_load_registered_in_dispatch(self, monkeypatch, tmp_path):
+        """decklist load is dispatchable via the registry."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = Session()
+        registry = register_all_handlers(session)
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = dispatch(cmd, registry)
+        assert "Loaded" in result
