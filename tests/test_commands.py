@@ -3,6 +3,7 @@ import pytest
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    _get_save_path,
     _parse_import_file,
     _resolve_card_and_category_suffix,
     _resolve_category_and_card,
@@ -1175,3 +1176,19 @@ class TestCardAddHandler:
         )
         result = handle_card_add(session, cmd)
         assert "cannot add" in result.lower()
+
+
+class TestSavePath:
+    def test_default_path_uses_xdg_state_home_fallback(self, monkeypatch, tmp_path):
+        """_get_save_path returns ~/.local/state/deckslots/decklist.bak by default."""
+        monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+        from pathlib import Path
+
+        path = _get_save_path()
+        assert path == Path.home() / ".local" / "state" / "deckslots" / "decklist.bak"
+
+    def test_respects_xdg_state_home_env_var(self, monkeypatch, tmp_path):
+        """_get_save_path uses $XDG_STATE_HOME when set."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        path = _get_save_path()
+        assert path == tmp_path / "deckslots" / "decklist.bak"
