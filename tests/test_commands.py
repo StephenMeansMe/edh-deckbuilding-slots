@@ -6,6 +6,7 @@ from deckslots.commands import (
     _format_save_file,
     _get_save_path,
     _parse_import_file,
+    handle_decklist_save,
     _resolve_card_and_category_suffix,
     _resolve_category_and_card,
     dispatch,
@@ -1273,3 +1274,57 @@ class TestFormatSaveFile:
         content = _format_save_file(deck)
         assert "\n\n" in content
         assert "\n\n\n" not in content
+
+
+class TestDecklistSaveHandler:
+    def test_save_requires_active_decklist(self):
+        """handle_decklist_save returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        result = handle_decklist_save(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_save_writes_file_to_xdg_path(self, monkeypatch, tmp_path):
+        """handle_decklist_save writes the save file to the XDG state path."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        handle_decklist_save(session, cmd)
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        assert save_file.exists()
+
+    def test_save_creates_parent_directory(self, monkeypatch, tmp_path):
+        """handle_decklist_save creates the parent directory if absent."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        handle_decklist_save(session, cmd)
+        assert (tmp_path / "state" / "deckslots" / "decklist.bak").exists()
+
+    def test_save_returns_success_message(self, monkeypatch, tmp_path):
+        """handle_decklist_save returns \"Saved '<name>'.\" on success."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        result = handle_decklist_save(session, cmd)
+        assert result == "Saved 'TestDeck'."
+
+    def test_save_overwrites_existing_file(self, monkeypatch, tmp_path):
+        """handle_decklist_save silently overwrites an existing save file."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        save_file.parent.mkdir(parents=True)
+        save_file.write_text("old content")
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        handle_decklist_save(session, cmd)
+        assert save_file.read_text() != "old content"
+
+    def test_save_registered_in_dispatch(self, monkeypatch, tmp_path):
+        """decklist save is dispatchable via the registry."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        result = dispatch(cmd, registry)
+        assert "Saved" in result
