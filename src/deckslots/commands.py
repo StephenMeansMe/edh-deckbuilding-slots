@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import os
 import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from deckslots.cli import ParsedCommand
 from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
+
+
+def _get_save_path() -> Path:
+    state_home = os.environ.get("XDG_STATE_HOME", "")
+    base = Path(state_home) if state_home else Path.home() / ".local" / "state"
+    return base / "deckslots" / "decklist.bak"
 
 
 @dataclass
@@ -15,6 +23,87 @@ class Session:
 
 
 _CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
+_SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
+
+
+def _format_save_file(decklist: Decklist) -> str:
+    sections: list[str] = [f"# {decklist.name}"]
+    for cat in decklist.categories.values():
+        if cat.name == "Commander":
+            heading = "Commander"
+        elif cat.name == "Basic Lands":
+            heading = "Basic Lands"
+        elif cat.name == "Uncategorized":
+            heading = "Uncategorized"
+        else:
+            heading = f"{cat.name} [{cat.total_slots} slots]"
+        lines = [heading]
+        for card, qty in sorted(Counter(cat.cards).items()):
+            lines.append(f"{qty} {card}")
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def _parse_save_file(path: str) -> Decklist:
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: '{path}'")
+
+    stripped = [line.rstrip("\n") for line in lines]
+
+    # First non-empty line must be the name comment
+    name: str | None = None
+    start = 0
+    for i, line in enumerate(stripped):
+        if line.strip():
+            if line.startswith("# "):
+                name = line[2:].strip()
+                start = i + 1
+            break
+    if name is None:
+        raise ValueError("Save file missing '# <name>' header line.")
+
+    deck = Decklist.create(name)
+    current_category: str | None = None
+
+    for line in stripped[start:]:
+        s = line.strip()
+        if not s:
+            continue
+        if s == "Commander":
+            current_category = "Commander"
+            continue
+        if s == "Basic Lands":
+            current_category = "Basic Lands"
+            continue
+        if s == "Uncategorized":
+            if "uncategorized" not in deck.categories:
+                deck.categories["uncategorized"] = Category(
+                    name="Uncategorized",
+                    total_slots=0,
+                    fixed=True,
+                    capped=False,
+                    user_addable=False,
+                )
+            current_category = "Uncategorized"
+            continue
+        m_cat = _SAVE_CAT_RE.match(s)
+        if m_cat:
+            cat_name = m_cat.group(1)
+            slots = int(m_cat.group(2))
+            deck.add_category(cat_name, slots)
+            current_category = cat_name
+            continue
+        m_card = _CARD_LINE_RE.match(s)
+        if m_card and current_category is not None:
+            qty = int(m_card.group(1))
+            card = m_card.group(2).strip()
+            for _ in range(qty):
+                deck.add_card(card, current_category)
+
+    return deck
 
 
 @dataclass
@@ -278,6 +367,27 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
     return f"Deleted '{card}' from the decklist."
 
 
+def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
+    path = _get_save_path()
+    try:
+        deck = _parse_save_file(str(path))
+    except FileNotFoundError:
+        return "No saved decklist found."
+    except (ValueError, OSError) as e:
+        return f"Error loading save file: {e}"
+    session.decklist = deck
+    return f"Loaded '{deck.name}'."
+
+
+def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    path = _get_save_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_format_save_file(session.decklist))
+    return f"Saved '{session.decklist.name}'."
+
+
 def handle_help() -> str:
     return "\n".join(
         [
@@ -285,6 +395,8 @@ def handle_help() -> str:
             "  decklist create <name>        Create a new decklist",
             "  decklist show                 Show the active decklist",
             "  decklist import <file>        Import a decklist from a text file",
+            "  decklist save                 Save the active decklist",
+            "  decklist load                 Load the last saved decklist",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  card add <cat> <name>         Add a card to a category",
@@ -316,6 +428,8 @@ def register_all_handlers(
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
         ("decklist", "import"): lambda cmd: handle_decklist_import(session, cmd),
+        ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
+        ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
