@@ -157,7 +157,9 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
 8. **`Decklist.rename_category`** and **`Decklist.resize_category`**: rename rejects duplicates; resize rejects shrinking below filled count.
 9. **`Decklist.add_card`**: add card to a named category; reject if card already exists anywhere in the decklist (exclusive), or category is full.
 10. **`Decklist.remove_card`**: find and remove a card from whatever category it's in.
+    *Not implemented as a model method — card removal is handled directly in `handle_card_remove` and `handle_card_delete` (see Phase 5).*
 11. **`Decklist.move_card`**: remove from current category, add to target; reject if target is full.
+    *Not implemented as a model method — move/validate logic lives entirely in `handle_card_move` (see Phase 5).*
 12. **`Decklist.total_slots`**, **`Decklist.total_filled`**, **`Decklist.all_cards`**: aggregate queries.
 
 ### Phase 3 — Command parser and dispatcher
@@ -192,6 +194,9 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
     `cat.name`.
     Tests: removes from capped category, removes only one copy from uncapped,
     raises on missing card.
+    *Not implemented as a model method — removal is performed directly in
+    `handle_card_remove` and `handle_card_delete` via `cat.cards.remove(card)`,
+    keeping all validation in the handlers.*
 
 27. **`Decklist.move_card`**: validate target exists, `allowed_cards`,
     capacity; raise `ValueError` for each failure before mutating; then call
@@ -201,6 +206,8 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
     Tests: moves capped→capped, moves uncapped→capped (from Uncategorized),
     raises if target full, raises if target not found, raises if same category,
     raises if `allowed_cards` violated.
+    *Not implemented as a model method — all move logic (validation and
+    mutation) lives in `handle_card_move` in `commands.py`.*
 
 #### Command handlers (`src/deckslots/commands.py`)
 
@@ -223,7 +230,7 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
     reuses existing Uncategorized, error if already in Uncategorized, error if
     card not found, error if no decklist.
 
-30. **`_resolve_card_and_category`**: new helper — greedy longest-suffix match
+30. **`_resolve_card_and_category_suffix`** (implemented as this name, not `_resolve_card_and_category`): new helper — greedy longest-suffix match
     for category. Iterate `i` from 1 to `len(args)-1`; join `args[i:]` and
     check against `categories`; return `(" ".join(args[:i]), matched_key)` on
     first (longest-suffix) match, or `None` if no match.
@@ -268,7 +275,7 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
 2. **Case-insensitive command matching** for object and verb (`Category Create` works the same as `category create`). Card names preserve their original casing.
 3. **Category names may contain spaces** if we quote them or use a delimiter. For MVP simplicity: **single-word category names only** (e.g., `Ramp`, `Removal`, `Card-Draw`). Spaces in card names are handled by treating everything after the category argument as the card name, or vice versa.
 4. **Argument order for `card add`**: `card add <category> <card-name...>` — category first (single token), then card name (may contain spaces, consumes rest of line). This avoids the need for quoting card names.
-5. **Argument order for `card move`**: `card move <card-name> <to-category>` — natural English order (move THING to PLACE). Because both card name and category can contain spaces, argument parsing uses `_resolve_card_and_category`, a greedy longest-suffix match helper that is the mirror of `_resolve_category_and_card`. The longest suffix of the arg list that matches a known category key is taken as the target; everything before it is the card name.
+5. **Argument order for `card move`**: `card move <card-name> <to-category>` — natural English order (move THING to PLACE). Because both card name and category can contain spaces, argument parsing uses `_resolve_card_and_category_suffix`, a greedy longest-suffix match helper that is the mirror of `_resolve_category_and_card`. The longest suffix of the arg list that matches a known category key is taken as the target; everything before it is the card name.
 6. **`card remove` vs `card delete`**: `card remove` is a soft operation (card goes to Uncategorized, persistent warning fires); `card delete` is a hard operation (card is gone). This distinction gives users a safety net: accidental removes are visible in Uncategorized and can be recovered with `card move`; intentional deletes are final.
 7. **Session state**: the REPL holds at most one `Decklist` at a time. `decklist create` replaces any existing decklist (with a confirmation prompt if one already exists). `decklist load` similarly replaces.
 8. **Save format**: JSON (simple, human-readable, stdlib `json` module). Export format remains `1 Card Name` per the MVP spec.
