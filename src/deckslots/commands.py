@@ -44,6 +44,68 @@ def _format_save_file(decklist: Decklist) -> str:
     return "\n\n".join(sections)
 
 
+def _parse_save_file(path: str) -> Decklist:
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: '{path}'")
+
+    stripped = [l.rstrip("\n") for l in lines]
+
+    # First non-empty line must be the name comment
+    name: str | None = None
+    start = 0
+    for i, line in enumerate(stripped):
+        if line.strip():
+            if line.startswith("# "):
+                name = line[2:].strip()
+                start = i + 1
+            break
+    if name is None:
+        raise ValueError("Save file missing '# <name>' header line.")
+
+    deck = Decklist.create(name)
+    current_category: str | None = None
+
+    for line in stripped[start:]:
+        s = line.strip()
+        if not s:
+            continue
+        if s == "Commander":
+            current_category = "Commander"
+            continue
+        if s == "Basic Lands":
+            current_category = "Basic Lands"
+            continue
+        if s == "Uncategorized":
+            if "uncategorized" not in deck.categories:
+                deck.categories["uncategorized"] = Category(
+                    name="Uncategorized",
+                    total_slots=0,
+                    fixed=True,
+                    capped=False,
+                    user_addable=False,
+                )
+            current_category = "Uncategorized"
+            continue
+        m_cat = _SAVE_CAT_RE.match(s)
+        if m_cat:
+            cat_name = m_cat.group(1)
+            slots = int(m_cat.group(2))
+            deck.add_category(cat_name, slots)
+            current_category = cat_name
+            continue
+        m_card = _CARD_LINE_RE.match(s)
+        if m_card and current_category is not None:
+            qty = int(m_card.group(1))
+            card = m_card.group(2).strip()
+            for _ in range(qty):
+                deck.add_card(card, current_category)
+
+    return deck
+
+
 @dataclass
 class ParsedImport:
     commander: str | None
