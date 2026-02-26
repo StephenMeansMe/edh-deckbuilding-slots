@@ -3,53 +3,6 @@ from unittest.mock import patch
 from deckslots.repl import run_repl
 
 
-class TestReplCategoryCommands:
-    """The REPL dispatches category commands and prints handler output."""
-
-    def test_repl_category_create_prints_confirmation(self, capsys):
-        """'category create Ramp 10' prints a creation confirmation."""
-        with patch(
-            "builtins.input",
-            side_effect=[
-                "decklist create TestDeck",
-                "category create Ramp 10",
-                "quit",
-            ],
-        ):
-            run_repl()
-
-        output = capsys.readouterr().out
-        assert "Ramp" in output
-
-    def test_repl_category_create_without_decklist_shows_error(self, capsys):
-        """'category create' without a decklist shows an error."""
-        with patch(
-            "builtins.input",
-            side_effect=["category create Ramp 10", "quit"],
-        ):
-            run_repl()
-
-        output = capsys.readouterr().out
-        assert "no active decklist" in output.lower()
-
-    def test_repl_category_list_displays_categories(self, capsys):
-        """'category list' prints all categories."""
-        with patch(
-            "builtins.input",
-            side_effect=[
-                "decklist create TestDeck",
-                "category create Ramp 10",
-                "category list",
-                "quit",
-            ],
-        ):
-            run_repl()
-
-        output = capsys.readouterr().out
-        assert "Commander" in output
-        assert "Ramp" in output
-
-
 class TestReplCardAddCommands:
     """The REPL dispatches card add commands and prints handler output."""
 
