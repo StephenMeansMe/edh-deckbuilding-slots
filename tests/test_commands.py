@@ -1239,11 +1239,12 @@ class TestFormatSaveFile:
         """An empty category still appears as a heading with no card lines."""
         deck = _make_deck_for_save()
         content = _format_save_file(deck)
+        assert "Removal [6 slots]" in content
         lines = content.splitlines()
         removal_idx = lines.index("Removal [6 slots]")
-        # Next non-blank line after the heading must not be a card line
+        # Next non-blank line (if any) must not be a card line
         next_lines = [l for l in lines[removal_idx + 1 :] if l.strip()]
-        assert not next_lines[0][0].isdigit()
+        assert not next_lines or not next_lines[0][0].isdigit()
 
     def test_duplicate_cards_aggregated(self):
         """Multiple copies of the same card are written as a single quantity line."""

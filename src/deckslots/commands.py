@@ -23,6 +23,25 @@ class Session:
 
 
 _CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
+_SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
+
+
+def _format_save_file(decklist: Decklist) -> str:
+    sections: list[str] = [f"# {decklist.name}"]
+    for cat in decklist.categories.values():
+        if cat.name == "Commander":
+            heading = "Commander"
+        elif cat.name == "Basic Lands":
+            heading = "Basic Lands"
+        elif cat.name == "Uncategorized":
+            heading = "Uncategorized"
+        else:
+            heading = f"{cat.name} [{cat.total_slots} slots]"
+        lines = [heading]
+        for card, qty in sorted(Counter(cat.cards).items()):
+            lines.append(f"{qty} {card}")
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
 
 
 @dataclass
