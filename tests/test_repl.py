@@ -310,8 +310,10 @@ class TestReplUncategorizedWarning:
         # after card delete (Uncategorized now empty) or category list.
         assert output.count("card(s) in Uncategorized") == 1
 
-    def test_warning_shown_after_card_remove_sends_card_to_uncategorized(self, capsys):
-        """Warning appears after 'card remove' populates Uncategorized."""
+    def test_warning_shown_after_card_remove_sends_card_to_uncategorized(
+        self, capsys
+    ):
+        """Warning appears on subsequent commands after 'card remove' populates Uncategorized."""
         with patch(
             "builtins.input",
             side_effect=[
@@ -502,7 +504,7 @@ class TestReplCardDeleteCommands:
         assert "Sol Ring" in output
 
     def test_card_delete_does_not_trigger_uncategorized_warning(self, capsys):
-        """'card delete' from a named category does not trigger Uncategorized."""
+        """'card delete' from a named category does not trigger the Uncategorized warning."""
         with patch(
             "builtins.input",
             side_effect=[
