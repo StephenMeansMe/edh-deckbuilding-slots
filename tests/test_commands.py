@@ -3,7 +3,10 @@ import pytest
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    _format_save_file,
+    _get_save_path,
     _parse_import_file,
+    _parse_save_file,
     _resolve_card_and_category_suffix,
     _resolve_category_and_card,
     dispatch,
@@ -15,11 +18,13 @@ from deckslots.commands import (
     handle_category_list,
     handle_decklist_create,
     handle_decklist_import,
+    handle_decklist_load,
+    handle_decklist_save,
     handle_decklist_show,
     handle_help,
     register_all_handlers,
 )
-from deckslots.models import Category
+from deckslots.models import Category, Decklist
 
 
 def _make_session_with_deck():
@@ -618,6 +623,16 @@ class TestHelpHandler:
         result = handle_help()
         assert "card delete" in result
 
+    def test_help_includes_decklist_save(self):
+        """The help output includes the decklist save command."""
+        result = handle_help()
+        assert "decklist save" in result
+
+    def test_help_includes_decklist_load(self):
+        """The help output includes the decklist load command."""
+        result = handle_help()
+        assert "decklist load" in result
+
 
 class TestDispatch:
     """dispatch routes parsed commands to the correct handler."""
@@ -1175,3 +1190,330 @@ class TestCardAddHandler:
         )
         result = handle_card_add(session, cmd)
         assert "cannot add" in result.lower()
+
+
+class TestSavePath:
+    def test_default_path_uses_xdg_state_home_fallback(self, monkeypatch, tmp_path):
+        """_get_save_path returns ~/.local/state/deckslots/decklist.bak by default."""
+        monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+        from pathlib import Path
+
+        path = _get_save_path()
+        assert path == Path.home() / ".local" / "state" / "deckslots" / "decklist.bak"
+
+    def test_respects_xdg_state_home_env_var(self, monkeypatch, tmp_path):
+        """_get_save_path uses $XDG_STATE_HOME when set."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        path = _get_save_path()
+        assert path == tmp_path / "deckslots" / "decklist.bak"
+
+
+def _make_deck_for_save():
+    """Return a Decklist with two user categories, basic lands, and a commander."""
+    deck = Decklist.create("Atraxa Stax")
+    deck.add_card("Atraxa, Praetors' Voice", "Commander")
+    deck.add_category("Ramp", 8)
+    deck.add_card("Sol Ring", "Ramp")
+    deck.add_card("Cultivate", "Ramp")
+    deck.add_category("Removal", 6)
+    deck.add_card("Forest", "Basic Lands")
+    deck.add_card("Forest", "Basic Lands")
+    deck.add_card("Forest", "Basic Lands")
+    deck.add_card("Mountain", "Basic Lands")
+    return deck
+
+
+class TestFormatSaveFile:
+    def test_first_line_is_name_comment(self):
+        """First line of the save file is '# <name>'."""
+        deck = Decklist.create("My Deck")
+        lines = _format_save_file(deck).splitlines()
+        assert lines[0] == "# My Deck"
+
+    def test_commander_section_written(self):
+        """Commander section uses bare 'Commander' heading."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "Commander\n1 Atraxa, Praetors' Voice" in content
+
+    def test_basic_lands_follows_commander(self):
+        """Basic Lands section appears before user-defined categories."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert content.index("Basic Lands") < content.index("Ramp [")
+
+    def test_user_defined_category_heading_includes_slot_count(self):
+        """User-defined capped category heading is '<name> [<n> slots]'."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "Ramp [8 slots]" in content
+
+    def test_empty_category_heading_written_without_card_lines(self):
+        """An empty category still appears as a heading with no card lines."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "Removal [6 slots]" in content
+        lines = content.splitlines()
+        removal_idx = lines.index("Removal [6 slots]")
+        # Next non-blank line (if any) must not be a card line
+        next_lines = [ln for ln in lines[removal_idx + 1 :] if ln.strip()]
+        assert not next_lines or not next_lines[0][0].isdigit()
+
+    def test_duplicate_cards_aggregated(self):
+        """Multiple copies of the same card are written as a single quantity line."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "3 Forest" in content
+        assert "1 Forest" not in content
+
+    def test_uncategorized_written_last_when_present(self):
+        """Uncategorized section appears after user-defined categories."""
+        from deckslots.models import Category
+
+        deck = _make_deck_for_save()
+        deck.categories["uncategorized"] = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+        deck.categories["uncategorized"].cards.append("Doubling Season")
+        content = _format_save_file(deck)
+        assert content.index("Uncategorized") > content.index("Ramp [")
+        assert "Doubling Season" in content
+
+    def test_sections_separated_by_blank_line(self):
+        """Each section is separated from the next by exactly one blank line."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "\n\n" in content
+        assert "\n\n\n" not in content
+
+
+class TestDecklistSaveHandler:
+    def test_save_requires_active_decklist(self):
+        """handle_decklist_save returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        result = handle_decklist_save(session, cmd)
+        assert "no active decklist" in result.lower()
+
+    def test_save_writes_file_to_xdg_path(self, monkeypatch, tmp_path):
+        """handle_decklist_save writes the save file to the XDG state path."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        handle_decklist_save(session, cmd)
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        assert save_file.exists()
+
+    def test_save_creates_parent_directory(self, monkeypatch, tmp_path):
+        """handle_decklist_save creates the parent directory if absent."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        handle_decklist_save(session, cmd)
+        assert (tmp_path / "state" / "deckslots" / "decklist.bak").exists()
+
+    def test_save_returns_success_message(self, monkeypatch, tmp_path):
+        """handle_decklist_save returns \"Saved '<name>'.\" on success."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        result = handle_decklist_save(session, cmd)
+        assert result == "Saved 'TestDeck'."
+
+    def test_save_overwrites_existing_file(self, monkeypatch, tmp_path):
+        """handle_decklist_save silently overwrites an existing save file."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        save_file.parent.mkdir(parents=True)
+        save_file.write_text("old content")
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        handle_decklist_save(session, cmd)
+        assert save_file.read_text() != "old content"
+
+    def test_save_registered_in_dispatch(self, monkeypatch, tmp_path):
+        """decklist save is dispatchable via the registry."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        cmd = _make_cmd("decklist save", "decklist", "save", [])
+        result = dispatch(cmd, registry)
+        assert "Saved" in result
+
+
+def _write_save_file(path, content):
+    """Write content to a file at path, creating parents as needed."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+
+
+class TestParseSaveFile:
+    def test_raises_file_not_found(self, tmp_path):
+        """_parse_save_file raises FileNotFoundError for a missing path."""
+        with pytest.raises(FileNotFoundError):
+            _parse_save_file(str(tmp_path / "missing.bak"))
+
+    def test_raises_value_error_without_name_line(self, tmp_path):
+        """_parse_save_file raises ValueError when the # <name> line is absent."""
+        f = tmp_path / "deck.bak"
+        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n")
+        with pytest.raises(ValueError, match="name"):
+            _parse_save_file(str(f))
+
+    def test_restores_decklist_name(self, tmp_path):
+        """_parse_save_file uses the # <name> line as the decklist name."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Atraxa Stax\n\nCommander\n")
+        deck = _parse_save_file(str(f))
+        assert deck.name == "Atraxa Stax"
+
+    def test_restores_commander_card(self, tmp_path):
+        """_parse_save_file adds the commander card to the Commander category."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n1 Atraxa, Praetors' Voice\n")
+        deck = _parse_save_file(str(f))
+        assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
+
+    def test_restores_basic_lands(self, tmp_path):
+        """_parse_save_file adds basic land cards to the Basic Lands category."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nBasic Lands\n3 Forest\n1 Mountain\n")
+        deck = _parse_save_file(str(f))
+        assert deck.categories["basic lands"].cards.count("Forest") == 3
+        assert deck.categories["basic lands"].cards.count("Mountain") == 1
+
+    def test_basic_lands_appear_before_user_categories_in_dict(self, tmp_path):
+        """Basic Lands section is parsed before user-defined categories."""
+        f = tmp_path / "deck.bak"
+        content = (
+            "# Test\n\nCommander\n\nBasic Lands\n2 Forest\n\n"
+            "Ramp [8 slots]\n1 Sol Ring\n"
+        )
+        f.write_text(content)
+        deck = _parse_save_file(str(f))
+        keys = list(deck.categories)
+        assert keys.index("basic lands") < keys.index("ramp")
+
+    def test_restores_user_defined_category_with_slot_count(self, tmp_path):
+        """_parse_save_file creates a user-defined category with correct total_slots."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nRamp [8 slots]\n1 Sol Ring\n")
+        deck = _parse_save_file(str(f))
+        assert "ramp" in deck.categories
+        assert deck.categories["ramp"].total_slots == 8
+        assert "Sol Ring" in deck.categories["ramp"].cards
+
+    def test_restores_uncategorized(self, tmp_path):
+        """_parse_save_file creates the Uncategorized category when present."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nUncategorized\n1 Doubling Season\n")
+        deck = _parse_save_file(str(f))
+        cat = deck.categories["uncategorized"]
+        assert not cat.capped
+        assert not cat.user_addable
+        assert "Doubling Season" in cat.cards
+
+    def test_aggregated_quantity_expanded_to_multiple_entries(self, tmp_path):
+        """'3 Forest' in the save file is restored as three separate list entries."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nBasic Lands\n3 Forest\n")
+        deck = _parse_save_file(str(f))
+        assert deck.categories["basic lands"].cards.count("Forest") == 3
+
+    def test_non_basic_land_under_basic_lands_raises(self, tmp_path):
+        """A non-basic-land card under Basic Lands raises ValueError."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nBasic Lands\n1 Sol Ring\n")
+        with pytest.raises(ValueError):
+            _parse_save_file(str(f))
+
+    def test_blank_and_unrecognised_lines_skipped(self, tmp_path):
+        """Blank lines and unrecognised lines are silently skipped."""
+        f = tmp_path / "deck.bak"
+        f.write_text(
+            "# Test\n\nCommander\n\n# stray comment\n1 Atraxa, Praetors' Voice\n"
+        )
+        deck = _parse_save_file(str(f))
+        assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
+
+    def test_round_trip_preserves_full_deck(self, tmp_path):
+        """A deck serialised then parsed is identical to the original."""
+        original = _make_deck_for_save()
+        content = _format_save_file(original)
+        f = tmp_path / "deck.bak"
+        f.write_text(content)
+        restored = _parse_save_file(str(f))
+        assert restored.name == original.name
+        assert set(restored.categories) == set(original.categories)
+        for key, cat in original.categories.items():
+            assert sorted(restored.categories[key].cards) == sorted(cat.cards)
+            assert restored.categories[key].total_slots == cat.total_slots
+
+
+class TestDecklistLoadHandler:
+    def _save_deck(self, deck, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        save_file.parent.mkdir(parents=True)
+        save_file.write_text(_format_save_file(deck))
+
+    def test_load_returns_error_when_no_save_file(self, monkeypatch, tmp_path):
+        """handle_decklist_load returns an error when no save file exists."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = handle_decklist_load(session, cmd)
+        assert "no saved decklist" in result.lower()
+
+    def test_load_returns_error_on_parse_failure(self, monkeypatch, tmp_path):
+        """handle_decklist_load returns an error for an unparseable file."""
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        save_file = tmp_path / "deckslots" / "decklist.bak"
+        save_file.parent.mkdir(parents=True)
+        save_file.write_text("this is not a valid save file\n")
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = handle_decklist_load(session, cmd)
+        assert "error" in result.lower()
+
+    def test_load_restores_decklist(self, monkeypatch, tmp_path):
+        """handle_decklist_load sets session.decklist from the save file."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        handle_decklist_load(session, cmd)
+        assert session.decklist is not None
+        assert session.decklist.name == "Atraxa Stax"
+
+    def test_load_returns_success_message(self, monkeypatch, tmp_path):
+        """handle_decklist_load returns \"Loaded '<name>'.\" on success."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = Session()
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = handle_decklist_load(session, cmd)
+        assert result == "Loaded 'Atraxa Stax'."
+
+    def test_load_replaces_active_decklist(self, monkeypatch, tmp_path):
+        """handle_decklist_load replaces any currently active decklist."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = _make_session_with_deck()  # has a different active deck
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        handle_decklist_load(session, cmd)
+        assert session.decklist.name == "Atraxa Stax"
+
+    def test_load_registered_in_dispatch(self, monkeypatch, tmp_path):
+        """decklist load is dispatchable via the registry."""
+        original = _make_deck_for_save()
+        self._save_deck(original, tmp_path, monkeypatch)
+        session = Session()
+        registry = register_all_handlers(session)
+        cmd = _make_cmd("decklist load", "decklist", "load", [])
+        result = dispatch(cmd, registry)
+        assert "Loaded" in result
