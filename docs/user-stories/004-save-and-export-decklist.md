@@ -42,9 +42,9 @@ Moxfield, Archidekt, or similar platforms is covered by User Story 005.
    Saved '<name>'.
    ```
 5. The Commander category is always written first.
-6. User-defined capped categories follow in creation order, each as a named
+6. The Basic Lands category follows immediately after Commander.
+7. User-defined capped categories follow in creation order, each as a named
    section with its slot count in brackets.
-7. The Basic Lands category is written after user-defined categories.
 8. The Uncategorized category (if present) is written last.
 9. Empty categories (no cards yet assigned) are still written so the slot
    structure is preserved on re-load.
@@ -61,15 +61,15 @@ Moxfield, Archidekt, or similar platforms is covered by User Story 005.
 Commander
 1 Atraxa, Praetors' Voice
 
+Basic Lands
+4 Forest
+3 Mountain
+
 Ramp [8 slots]
 1 Sol Ring
 1 Cultivate
 
 Removal [6 slots]
-
-Basic Lands
-4 Forest
-3 Mountain
 
 Uncategorized
 1 Doubling Season
@@ -125,14 +125,29 @@ Uncategorized
     ```
 20. If the save file does not exist, the REPL starts silently with no active
     decklist (no message).
+21. If the save file exists but cannot be parsed, the REPL prints a warning and
+    a recovery prompt before the main loop:
+    ```
+    Warning: could not load save file: <reason>.
+    Options:
+      discard — delete the save file and start fresh
+      exit    — quit so you can inspect the file manually
+    deckslots(recovery)>
+    ```
+    The recovery prompt loops until the user types one of the two options
+    (case-insensitive). Any other input repeats the prompt.
+22. On `discard`: the save file is deleted, a confirmation is printed, and the
+    REPL continues into the main loop with no active decklist.
+23. On `exit`: `Goodbye.` is printed and the program exits.
+24. EOF or `KeyboardInterrupt` at the recovery prompt is treated as `exit`.
 
 ### General
 
-21. If the active decklist contains cards in Uncategorized, the persistent
+25. If the active decklist contains cards in Uncategorized, the persistent
     Uncategorized warning (shown before every command response when
     Uncategorized is non-empty) is displayed as usual — the save operation
     still completes successfully.
-22. Unsaved in-session changes (e.g., cards added after the last
+26. Unsaved in-session changes (e.g., cards added after the last
     `decklist save`) are not persisted automatically. On the next startup the
     app resumes from the last explicitly saved state.
 
