@@ -26,6 +26,7 @@ class Category:
     capped: bool = True
     # Whitelist; enforced by future add_card method.
     allowed_cards: frozenset[str] | None = None
+    user_addable: bool = True
     cards: list[str] = field(default_factory=list)
 
     def __post_init__(self):
@@ -88,6 +89,13 @@ class Decklist:
                 if other.capped and card in other.cards:
                     raise ValueError(f"'{card}' is already in the decklist.")
         cat.cards.append(card)
+
+    def find_card(self, card: str) -> str | None:
+        """Return the category key containing this card, or None if not found."""
+        for key, cat in self.categories.items():
+            if card in cat.cards:
+                return key
+        return None
 
     @classmethod
     def create(cls, name: str) -> "Decklist":
