@@ -623,6 +623,16 @@ class TestHelpHandler:
         result = handle_help()
         assert "card delete" in result
 
+    def test_help_includes_decklist_save(self):
+        """The help output includes the decklist save command."""
+        result = handle_help()
+        assert "decklist save" in result
+
+    def test_help_includes_decklist_load(self):
+        """The help output includes the decklist load command."""
+        result = handle_help()
+        assert "decklist load" in result
+
 
 class TestDispatch:
     """dispatch routes parsed commands to the correct handler."""
