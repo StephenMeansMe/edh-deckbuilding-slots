@@ -26,10 +26,18 @@ edh-deckbuilding-slots/
 │       └── repl.py            # Interactive REPL loop
 ├── tests/
 │   ├── __init__.py
-│   ├── test_cli.py            # Parser behavior tests
-│   ├── test_commands.py       # Handler and dispatch tests
-│   ├── test_models.py         # Domain model tests
-│   └── test_repl.py           # REPL end-to-end tests
+│   ├── test_cli.py            # Parser behavior tests (pytest)
+│   ├── test_commands.py       # Handler and dispatch tests (pytest)
+│   ├── test_models.py         # Domain model tests (pytest)
+│   └── functional/            # Functional CLI tests (scrut)
+│       ├── setup.md           # Smoke test / bootstrap
+│       ├── 01-startup.md      # Startup, quit/exit, help
+│       ├── 02-decklist.md     # decklist create/show
+│       ├── 03-categories.md   # category create/list
+│       ├── 04-cards.md        # card add/move/remove/delete
+│       ├── 05-uncategorized.md # Uncategorized warning system
+│       ├── 06-save-load.md    # decklist save/load
+│       └── 07-autoload.md     # Auto-resume and recovery mode
 ├── .gitignore
 ├── CLAUDE.md
 ├── pyproject.toml             # Project metadata, deps, tool config
@@ -90,10 +98,20 @@ Each step should be its own commit so the TDD history is visible in the git log.
 uv sync                      # Install all dependencies (creates .venv)
 ```
 
+#### Install scrut (one-time — functional CLI testing framework)
+
+```bash
+# Download prebuilt binary (Linux x86_64)
+curl -L https://github.com/facebookincubator/scrut/releases/download/v0.4.3/scrut-v0.4.3-linux-x86_64.tar.gz \
+  | tar -xz -C /tmp/ && mv /tmp/scrut-linux-x86_64/scrut ~/.local/bin/scrut && chmod +x ~/.local/bin/scrut
+
+# Alternatively: cargo install scrut
+```
+
 ### Common Commands
 
 ```bash
-uv run pytest                # Run all tests
+uv run pytest                # Run unit/integration tests (193 tests)
 uv run pytest -x             # Stop on first failure (useful during Red phase)
 uv run pytest -v             # Verbose output
 uv run pytest --tb=short     # Concise tracebacks
@@ -102,6 +120,11 @@ uv run ruff format .         # Format
 uv run ty check              # Type check
 uv run deckslots             # Run the app (console script)
 ./bin/deckslots              # Run the app (standalone script)
+
+# Functional CLI tests (run from project root)
+scrut test --work-directory . tests/functional/              # All functional tests
+scrut test --work-directory . tests/functional/01-startup.md # One file
+uv run pytest && scrut test --work-directory . tests/functional/  # Full suite
 ```
 
 ## Conventions
@@ -138,6 +161,8 @@ For detailed product requirements, roadmap, and user stories, see `docs/`.
 ## Notes for AI Assistants
 
 - **TDD is mandatory.** Do not skip the Red phase. Always start by writing or showing the failing test before implementing production code.
+- **Test split**: pytest covers unit and integration tests (parser, models, handlers). scrut covers functional/black-box CLI tests (`tests/functional/*.md`). New REPL behaviors should get a scrut test; new handler/model behaviors get a pytest test.
+- **scrut test format**: Each ` ```scrut ` code block is one test case with exactly one `$ ` command (the first line). All subsequent lines are expected stdout. Use separate blocks for setup steps (setup block has no expected output). `$TMPDIR` is shared within a file but fresh per file; use subdirectories (`$TMPDIR/t1`, etc.) to isolate test cases that write save files. Run with `scrut test --work-directory . tests/functional/`.
 - **Test file imports**: Only import names that already exist in production code. A top-level `ImportError` fails the *entire* test file, not just the new test class. Add new imports to test files at the same TDD step you add the production function.
 - This is a greenfield project. When adding new files, follow Python packaging best practices (e.g., `src/` layout or flat layout with `pyproject.toml`).
 - Prefer modern Python tooling (pyproject.toml over setup.py, Ruff over flake8/black, etc.).
