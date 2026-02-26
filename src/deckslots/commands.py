@@ -305,6 +305,15 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
     return f"Deleted '{card}' from the decklist."
 
 
+def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    path = _get_save_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_format_save_file(session.decklist))
+    return f"Saved '{session.decklist.name}'."
+
+
 def handle_help() -> str:
     return "\n".join(
         [
@@ -343,6 +352,7 @@ def register_all_handlers(
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
         ("decklist", "import"): lambda cmd: handle_decklist_import(session, cmd),
+        ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
