@@ -462,7 +462,9 @@ class TestDecklistImportHandler:
     def test_import_routes_commander(self, tmp_path):
         """Commander card is placed in the Commander category."""
         f = tmp_path / "deck.txt"
-        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n")
+        f.write_text(
+            "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
+        )
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -494,7 +496,9 @@ class TestDecklistImportHandler:
     def test_import_creates_uncategorized_category(self, tmp_path):
         """Non-basic-land Maindeck cards go into an Uncategorized category."""
         f = tmp_path / "deck.txt"
-        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n")
+        f.write_text(
+            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n"
+        )
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -511,7 +515,9 @@ class TestDecklistImportHandler:
     def test_import_returns_summary_string(self, tmp_path):
         """A successful import returns a human-readable summary."""
         f = tmp_path / "MyDeck.txt"
-        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n")
+        f.write_text(
+            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n"
+        )
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
