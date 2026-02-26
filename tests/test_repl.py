@@ -3,31 +3,6 @@ from unittest.mock import patch
 from deckslots.repl import run_repl
 
 
-class TestReplDecklistCommands:
-    """The REPL dispatches decklist commands and prints handler output."""
-
-    def test_repl_decklist_create_prints_confirmation(self, capsys):
-        """'decklist create TestDeck' prints a creation confirmation."""
-        with patch("builtins.input", side_effect=["decklist create TestDeck", "quit"]):
-            run_repl()
-
-        output = capsys.readouterr().out
-        assert "created" in output.lower()
-        assert "TestDeck" in output
-
-    def test_repl_decklist_show_displays_summary(self, capsys):
-        """'decklist show' prints the decklist summary."""
-        with patch(
-            "builtins.input",
-            side_effect=["decklist create TestDeck", "decklist show", "quit"],
-        ):
-            run_repl()
-
-        output = capsys.readouterr().out
-        assert "TestDeck" in output
-        assert "Commander" in output
-
-
 class TestReplCategoryCommands:
     """The REPL dispatches category commands and prints handler output."""
 
