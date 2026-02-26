@@ -104,6 +104,14 @@ class TestReplUncategorizedWarning:
         assert output.count("card(s) in Uncategorized") == 2
 
 
+def _write_save(tmp_path, monkeypatch, content):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    save = tmp_path / "deckslots" / "decklist.bak"
+    save.parent.mkdir(parents=True)
+    save.write_text(content)
+    return save
+
+
 class TestReplAutoLoad:
     def test_resumes_deck_on_startup_when_save_file_exists(
         self, monkeypatch, tmp_path, capsys
