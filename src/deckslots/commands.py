@@ -367,6 +367,18 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
     return f"Deleted '{card}' from the decklist."
 
 
+def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
+    path = _get_save_path()
+    try:
+        deck = _parse_save_file(str(path))
+    except FileNotFoundError:
+        return "No saved decklist found."
+    except (ValueError, OSError) as e:
+        return f"Error loading save file: {e}"
+    session.decklist = deck
+    return f"Loaded '{deck.name}'."
+
+
 def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return "No active decklist. Use 'decklist create <name>' first."
@@ -415,6 +427,7 @@ def register_all_handlers(
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
         ("decklist", "import"): lambda cmd: handle_decklist_import(session, cmd),
         ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
+        ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
