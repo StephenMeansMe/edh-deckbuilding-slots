@@ -6,6 +6,7 @@ from deckslots.commands import (
     _format_save_file,
     _get_save_path,
     _parse_import_file,
+    _parse_save_file,
     handle_decklist_save,
     _resolve_card_and_category_suffix,
     _resolve_category_and_card,
@@ -1328,3 +1329,111 @@ class TestDecklistSaveHandler:
         cmd = _make_cmd("decklist save", "decklist", "save", [])
         result = dispatch(cmd, registry)
         assert "Saved" in result
+
+
+def _write_save_file(path, content):
+    """Write content to a file at path, creating parents as needed."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+
+
+class TestParseSaveFile:
+    def test_raises_file_not_found(self, tmp_path):
+        """_parse_save_file raises FileNotFoundError for a missing path."""
+        with pytest.raises(FileNotFoundError):
+            _parse_save_file(str(tmp_path / "missing.bak"))
+
+    def test_raises_value_error_without_name_line(self, tmp_path):
+        """_parse_save_file raises ValueError when the # <name> line is absent."""
+        f = tmp_path / "deck.bak"
+        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n")
+        with pytest.raises(ValueError, match="name"):
+            _parse_save_file(str(f))
+
+    def test_restores_decklist_name(self, tmp_path):
+        """_parse_save_file uses the # <name> line as the decklist name."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Atraxa Stax\n\nCommander\n")
+        deck = _parse_save_file(str(f))
+        assert deck.name == "Atraxa Stax"
+
+    def test_restores_commander_card(self, tmp_path):
+        """_parse_save_file adds the commander card to the Commander category."""
+        f = tmp_path / "deck.bak"
+        f.write_text(
+            "# Test\n\nCommander\n1 Atraxa, Praetors' Voice\n"
+        )
+        deck = _parse_save_file(str(f))
+        assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
+
+    def test_restores_basic_lands(self, tmp_path):
+        """_parse_save_file adds basic land cards to the Basic Lands category."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nBasic Lands\n3 Forest\n1 Mountain\n")
+        deck = _parse_save_file(str(f))
+        assert deck.categories["basic lands"].cards.count("Forest") == 3
+        assert deck.categories["basic lands"].cards.count("Mountain") == 1
+
+    def test_basic_lands_appear_before_user_categories_in_dict(self, tmp_path):
+        """Basic Lands section is parsed before user-defined categories."""
+        f = tmp_path / "deck.bak"
+        content = "# Test\n\nCommander\n\nBasic Lands\n2 Forest\n\nRamp [8 slots]\n1 Sol Ring\n"
+        f.write_text(content)
+        deck = _parse_save_file(str(f))
+        keys = list(deck.categories)
+        assert keys.index("basic lands") < keys.index("ramp")
+
+    def test_restores_user_defined_category_with_slot_count(self, tmp_path):
+        """_parse_save_file creates a user-defined category with correct total_slots."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nRamp [8 slots]\n1 Sol Ring\n")
+        deck = _parse_save_file(str(f))
+        assert "ramp" in deck.categories
+        assert deck.categories["ramp"].total_slots == 8
+        assert "Sol Ring" in deck.categories["ramp"].cards
+
+    def test_restores_uncategorized(self, tmp_path):
+        """_parse_save_file creates the Uncategorized category when present."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nUncategorized\n1 Doubling Season\n")
+        deck = _parse_save_file(str(f))
+        cat = deck.categories["uncategorized"]
+        assert not cat.capped
+        assert not cat.user_addable
+        assert "Doubling Season" in cat.cards
+
+    def test_aggregated_quantity_expanded_to_multiple_entries(self, tmp_path):
+        """'3 Forest' in the save file is restored as three separate list entries."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nCommander\n\nBasic Lands\n3 Forest\n")
+        deck = _parse_save_file(str(f))
+        assert deck.categories["basic lands"].cards.count("Forest") == 3
+
+    def test_non_basic_land_under_basic_lands_raises(self, tmp_path):
+        """A non-basic-land card under Basic Lands raises ValueError."""
+        f = tmp_path / "deck.bak"
+        f.write_text("# Test\n\nBasic Lands\n1 Sol Ring\n")
+        with pytest.raises(ValueError):
+            _parse_save_file(str(f))
+
+    def test_blank_and_unrecognised_lines_skipped(self, tmp_path):
+        """Blank lines and unrecognised lines are silently skipped."""
+        f = tmp_path / "deck.bak"
+        f.write_text(
+            "# Test\n\nCommander\n\n# stray comment\n1 Atraxa, Praetors' Voice\n"
+        )
+        deck = _parse_save_file(str(f))
+        assert "Atraxa, Praetors' Voice" in deck.categories["commander"].cards
+
+    def test_round_trip_preserves_full_deck(self, tmp_path):
+        """A deck serialised then parsed is identical to the original."""
+        original = _make_deck_for_save()
+        content = _format_save_file(original)
+        f = tmp_path / "deck.bak"
+        f.write_text(content)
+        restored = _parse_save_file(str(f))
+        assert restored.name == original.name
+        assert set(restored.categories) == set(original.categories)
+        for key, cat in original.categories.items():
+            assert sorted(restored.categories[key].cards) == sorted(cat.cards)
+            assert restored.categories[key].total_slots == cat.total_slots
