@@ -3,6 +3,7 @@ import pytest
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    _format_save_file,
     _get_save_path,
     _parse_import_file,
     _resolve_card_and_category_suffix,
@@ -20,7 +21,7 @@ from deckslots.commands import (
     handle_help,
     register_all_handlers,
 )
-from deckslots.models import Category
+from deckslots.models import Category, Decklist
 
 
 def _make_session_with_deck():
@@ -1192,3 +1193,82 @@ class TestSavePath:
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
         path = _get_save_path()
         assert path == tmp_path / "deckslots" / "decklist.bak"
+
+
+def _make_deck_for_save():
+    """Return a Decklist with two user categories, basic lands, and a commander."""
+    deck = Decklist.create("Atraxa Stax")
+    deck.add_card("Atraxa, Praetors' Voice", "Commander")
+    deck.add_category("Ramp", 8)
+    deck.add_card("Sol Ring", "Ramp")
+    deck.add_card("Cultivate", "Ramp")
+    deck.add_category("Removal", 6)
+    deck.add_card("Forest", "Basic Lands")
+    deck.add_card("Forest", "Basic Lands")
+    deck.add_card("Forest", "Basic Lands")
+    deck.add_card("Mountain", "Basic Lands")
+    return deck
+
+
+class TestFormatSaveFile:
+    def test_first_line_is_name_comment(self):
+        """First line of the save file is '# <name>'."""
+        deck = Decklist.create("My Deck")
+        lines = _format_save_file(deck).splitlines()
+        assert lines[0] == "# My Deck"
+
+    def test_commander_section_written(self):
+        """Commander section uses bare 'Commander' heading."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "Commander\n1 Atraxa, Praetors' Voice" in content
+
+    def test_basic_lands_follows_commander(self):
+        """Basic Lands section appears before user-defined categories."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert content.index("Basic Lands") < content.index("Ramp [")
+
+    def test_user_defined_category_heading_includes_slot_count(self):
+        """User-defined capped category heading is '<name> [<n> slots]'."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "Ramp [8 slots]" in content
+
+    def test_empty_category_heading_written_without_card_lines(self):
+        """An empty category still appears as a heading with no card lines."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        lines = content.splitlines()
+        removal_idx = lines.index("Removal [6 slots]")
+        # Next non-blank line after the heading must not be a card line
+        next_lines = [l for l in lines[removal_idx + 1 :] if l.strip()]
+        assert not next_lines[0][0].isdigit()
+
+    def test_duplicate_cards_aggregated(self):
+        """Multiple copies of the same card are written as a single quantity line."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "3 Forest" in content
+        assert "1 Forest" not in content
+
+    def test_uncategorized_written_last_when_present(self):
+        """Uncategorized section appears after user-defined categories."""
+        from deckslots.models import Category
+
+        deck = _make_deck_for_save()
+        deck.categories["uncategorized"] = Category(
+            name="Uncategorized", total_slots=0, fixed=True, capped=False,
+            user_addable=False,
+        )
+        deck.categories["uncategorized"].cards.append("Doubling Season")
+        content = _format_save_file(deck)
+        assert content.index("Uncategorized") > content.index("Ramp [")
+        assert "Doubling Season" in content
+
+    def test_sections_separated_by_blank_line(self):
+        """Each section is separated from the next by exactly one blank line."""
+        deck = _make_deck_for_save()
+        content = _format_save_file(deck)
+        assert "\n\n" in content
+        assert "\n\n\n" not in content
