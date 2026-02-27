@@ -257,8 +257,8 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
 
 ### Phase 6 — File I/O
 
-34. **`decklist export`**: write the decklist to a flat text file in `1 Card Name` format, grouped by category.
-35. **`decklist save`**: serialize decklist structure (categories, slot counts, card assignments) to a text/JSON file.
+34. **`decklist export`**: write the decklist to a Moxfield/Archidekt-compatible plain text file with exactly two sections: `Commander` (the commander card, if any) and `Maindeck` (all cards from every other category, quantities aggregated, sorted alphabetically by card name). Category names and slot counts are not written.
+35. **`decklist save`**: serialize decklist structure (categories, slot counts, card assignments) to the internal plain-text save format (see Design Decision 8).
 36. **`decklist load`**: deserialize and restore a decklist from a saved file.
 
 ### Phase 7 — Integration and polish
@@ -278,4 +278,5 @@ Each numbered step is a Red-Green-Refactor cycle and gets its own commit(s).
 5. **Argument order for `card move`**: `card move <card-name> <to-category>` — natural English order (move THING to PLACE). Because both card name and category can contain spaces, argument parsing uses `_resolve_card_and_category_suffix`, a greedy longest-suffix match helper that is the mirror of `_resolve_category_and_card`. The longest suffix of the arg list that matches a known category key is taken as the target; everything before it is the card name.
 6. **`card remove` vs `card delete`**: `card remove` is a soft operation (card goes to Uncategorized, persistent warning fires); `card delete` is a hard operation (card is gone). This distinction gives users a safety net: accidental removes are visible in Uncategorized and can be recovered with `card move`; intentional deletes are final.
 7. **Session state**: the REPL holds at most one `Decklist` at a time. `decklist create` replaces any existing decklist (with a confirmation prompt if one already exists). `decklist load` similarly replaces.
-8. **Save format**: JSON (simple, human-readable, stdlib `json` module). Export format remains `1 Card Name` per the MVP spec.
+8. **Save format**: a custom plain-text format (not JSON). The file starts with a `# <name>` header, followed by one section per category: `Commander`, `Basic Lands`, user-defined categories as `<name> [<n> slots]`, and `Uncategorized`. Card lines are `<qty> <card-name>`. Sections are blank-line separated. This format is internal and round-trips through `decklist load`; it is not compatible with external tools.
+9. **Export format**: two-section plain text — `Commander` and `Maindeck` — compatible with Moxfield, Archidekt, and the `decklist import` command (User Story 005). Category structure is discarded. All non-commander cards are merged into `Maindeck`, sorted alphabetically by card name.
