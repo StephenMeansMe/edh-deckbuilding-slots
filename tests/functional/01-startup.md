@@ -61,6 +61,7 @@ deckslots> Available commands:
   decklist create <name>        Create a new decklist
   decklist show                 Show the active decklist
   decklist import <file>        Import a decklist from a text file
+  decklist export <file>        Export the active decklist to a text file
   decklist save                 Save the active decklist
   decklist load                 Load the last saved decklist
   category create <n> <s>       Add a category with <s> slots

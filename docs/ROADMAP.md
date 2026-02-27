@@ -19,7 +19,7 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 
 - **Linux CLI** — The only supported interface is a command-line application running on Linux.
 - **Decklist import** — `decklist import <file>` reads a plain text file in `$QUANTITY $CARDNAME` format with `Commander` and `Maindeck` section headings. The commander is routed to the Commander slot, basic lands to the Basic Lands category, and all other cards to a temporary **Uncategorized** category. The app persistently warns until Uncategorized is empty. *(User Story 002)*
-- **Plain text export** — Export format is `$QUANTITY $CARDNAME` (e.g., `1 Sol Ring`), one entry per line.
+- **Plain text export** — `decklist export <filepath>` writes a Moxfield/Archidekt-compatible file with two sections: `Commander` (the assigned commander, if any) and `Maindeck` (all other cards, quantities aggregated, sorted alphabetically by card name). Category structure is intentionally discarded; external tools apply their own grouping and display logic. The export format is also compatible with `decklist import` (User Story 005).
 
 ### Intentional omissions
 
