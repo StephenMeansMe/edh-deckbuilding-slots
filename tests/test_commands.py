@@ -3,6 +3,7 @@ import pytest
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
+    _format_export_file,
     _format_save_file,
     _get_save_path,
     _parse_import_file,
@@ -17,6 +18,7 @@ from deckslots.commands import (
     handle_category_create,
     handle_category_list,
     handle_decklist_create,
+    handle_decklist_export,
     handle_decklist_import,
     handle_decklist_load,
     handle_decklist_save,
@@ -1523,3 +1525,155 @@ class TestDecklistLoadHandler:
         cmd = _make_cmd("decklist load", "decklist", "load", [])
         result = dispatch(cmd, registry)
         assert "Loaded" in result
+
+
+class TestFormatExportFile:
+    """_format_export_file produces a two-section Commander/Maindeck export."""
+
+    def test_empty_decklist_produces_two_sections(self):
+        """Even with no cards the output has Commander and Maindeck headers."""
+        deck = Decklist.create("TestDeck")
+        result = _format_export_file(deck)
+        assert result == "Commander\n\nMaindeck\n"
+
+    def test_commander_card_appears_in_commander_section(self):
+        """A card in the Commander category appears under the Commander header."""
+        deck = Decklist.create("TestDeck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        result = _format_export_file(deck)
+        assert "Commander\n1 Atraxa, Praetors' Voice\n" in result
+
+    def test_no_commander_assigned_commander_section_is_empty(self):
+        """With no commander card the Commander section header has no card lines."""
+        deck = Decklist.create("TestDeck")
+        result = _format_export_file(deck)
+        lines = result.split("\n")
+        commander_idx = lines.index("Commander")
+        assert lines[commander_idx + 1] == ""
+
+    def test_capped_category_cards_appear_in_maindeck(self):
+        """Cards in a user-defined category appear in the Maindeck section."""
+        deck = Decklist.create("TestDeck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        result = _format_export_file(deck)
+        assert "Maindeck\n1 Sol Ring\n" in result
+
+    def test_basic_land_duplicates_aggregated(self):
+        """Multiple copies of a basic land are aggregated into a single qty line."""
+        deck = Decklist.create("TestDeck")
+        for _ in range(3):
+            deck.add_card("Forest", "Basic Lands")
+        result = _format_export_file(deck)
+        assert "3 Forest" in result
+        assert "1 Forest" not in result
+
+    def test_maindeck_cards_sorted_alphabetically(self):
+        """Maindeck card lines appear in alphabetical order by card name."""
+        deck = Decklist.create("TestDeck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.add_card("Cultivate", "Ramp")
+        result = _format_export_file(deck)
+        maindeck_start = result.index("Maindeck\n") + len("Maindeck\n")
+        maindeck_body = result[maindeck_start:]
+        card_lines = [l for l in maindeck_body.strip().split("\n") if l]
+        assert card_lines == sorted(card_lines)
+
+    def test_category_names_and_slot_counts_not_written(self):
+        """Category names (other than Commander / Maindeck) do not appear in output."""
+        deck = Decklist.create("TestDeck")
+        deck.add_category("Ramp", 5)
+        deck.add_card("Sol Ring", "Ramp")
+        result = _format_export_file(deck)
+        assert "Ramp" not in result
+        assert "[5 slots]" not in result
+
+    def test_cards_aggregated_across_categories(self):
+        """The same card name in two categories yields one aggregated Maindeck line."""
+        deck = Decklist.create("TestDeck")
+        # Basic Lands and Uncategorized are both uncapped, so Forest can appear in both
+        deck.add_card("Forest", "Basic Lands")
+        deck.add_card("Forest", "Basic Lands")
+        deck.categories["uncategorized"] = Category(
+            name="Uncategorized",
+            total_slots=0,
+            fixed=True,
+            capped=False,
+            user_addable=False,
+        )
+        deck.categories["uncategorized"].cards.append("Forest")
+        result = _format_export_file(deck)
+        assert "3 Forest" in result
+
+
+class TestHandleDecklistExport:
+    """handle_decklist_export writes the deck to a file and returns confirmation."""
+
+    def test_no_decklist_returns_error(self):
+        """Returns an error when no decklist is active."""
+        session = Session()
+        cmd = _make_cmd("decklist export /tmp/x.txt", "decklist", "export", ["/tmp/x.txt"])
+        result = handle_decklist_export(session, cmd)
+        assert result == "No active decklist. Use 'decklist create <name>' first."
+
+    def test_no_args_returns_usage(self):
+        """Returns a usage message when no filepath is supplied."""
+        session = _make_session_with_deck()
+        cmd = _make_cmd("decklist export", "decklist", "export", [])
+        result = handle_decklist_export(session, cmd)
+        assert result == "Usage: decklist export <filepath>"
+
+    def test_export_writes_file(self, tmp_path):
+        """The export file is created at the given path."""
+        session = _make_session_with_deck()
+        out = tmp_path / "deck.txt"
+        cmd = _make_cmd(f"decklist export {out}", "decklist", "export", [str(out)])
+        handle_decklist_export(session, cmd)
+        assert out.exists()
+
+    def test_export_returns_confirmation_with_name_and_path(self, tmp_path):
+        """Returns \"Exported '<name>' to '<filepath>'.\" on success."""
+        session = _make_session_with_deck()
+        out = tmp_path / "deck.txt"
+        cmd = _make_cmd(f"decklist export {out}", "decklist", "export", [str(out)])
+        result = handle_decklist_export(session, cmd)
+        assert result == f"Exported 'TestDeck' to '{out}'."
+
+    def test_export_file_contents_match_format_function(self, tmp_path):
+        """File contents equal _format_export_file(session.decklist)."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 5)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        out = tmp_path / "deck.txt"
+        cmd = _make_cmd(f"decklist export {out}", "decklist", "export", [str(out)])
+        handle_decklist_export(session, cmd)
+        assert out.read_text() == _format_export_file(session.decklist)
+
+    def test_export_creates_parent_directory(self, tmp_path):
+        """Parent directory is created automatically if it does not exist."""
+        session = _make_session_with_deck()
+        out = tmp_path / "subdir" / "deck.txt"
+        cmd = _make_cmd(f"decklist export {out}", "decklist", "export", [str(out)])
+        handle_decklist_export(session, cmd)
+        assert out.exists()
+
+    def test_export_path_assembled_from_multi_token_args(self, tmp_path):
+        """Filepath args with spaces are joined into a single path."""
+        session = _make_session_with_deck()
+        out = tmp_path / "my deck.txt"
+        args = [str(tmp_path), "my deck.txt"]
+        # Simulate args that would reconstruct the path when joined
+        args = str(out).split(" ")
+        cmd = _make_cmd(f"decklist export {out}", "decklist", "export", args)
+        handle_decklist_export(session, cmd)
+        assert out.exists()
+
+    def test_export_registered_in_dispatch(self, tmp_path):
+        """decklist export is dispatchable via the registry."""
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        out = tmp_path / "deck.txt"
+        cmd = _make_cmd(f"decklist export {out}", "decklist", "export", [str(out)])
+        result = dispatch(cmd, registry)
+        assert "Exported" in result
