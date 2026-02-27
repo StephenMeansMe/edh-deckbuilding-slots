@@ -1577,7 +1577,7 @@ class TestFormatExportFile:
         result = _format_export_file(deck)
         maindeck_start = result.index("Maindeck\n") + len("Maindeck\n")
         maindeck_body = result[maindeck_start:]
-        card_lines = [l for l in maindeck_body.strip().split("\n") if l]
+        card_lines = [ln for ln in maindeck_body.strip().split("\n") if ln]
         assert card_lines == sorted(card_lines)
 
     def test_category_names_and_slot_counts_not_written(self):
@@ -1613,7 +1613,9 @@ class TestHandleDecklistExport:
     def test_no_decklist_returns_error(self):
         """Returns an error when no decklist is active."""
         session = Session()
-        cmd = _make_cmd("decklist export /tmp/x.txt", "decklist", "export", ["/tmp/x.txt"])
+        cmd = _make_cmd(
+            "decklist export /tmp/x.txt", "decklist", "export", ["/tmp/x.txt"]
+        )
         result = handle_decklist_export(session, cmd)
         assert result == "No active decklist. Use 'decklist create <name>' first."
 

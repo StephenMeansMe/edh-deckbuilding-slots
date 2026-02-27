@@ -44,6 +44,10 @@ Story 004).
    category (including Basic Lands and Uncategorized), with identical card
    names aggregated across all categories.
 8. Cards in the `Maindeck` section are sorted alphabetically by card name.
+   Alphabetical order is the only sorting the export applies; external tools
+   such as Moxfield and Archidekt apply their own grouping and display logic
+   (by type, mana value, colour, etc.) regardless of the order cards arrive in
+   the file, so no additional sorting is required.
 9. Category names and slot counts are not written to the export file.
 10. If the destination file already exists it is silently overwritten; no
     confirmation prompt is shown in the MVP.
@@ -79,9 +83,9 @@ Maindeck
 
 ## Notes
 
-- `decklist export` does **not** update the session file
-  (`~/.config/deckslots/session`). Exporting a deck is not the same as saving
-  a session; use `decklist save` to persist session state.
+- `decklist export` does **not** update the save file
+  (`~/.local/state/deckslots/decklist.bak`). Exporting a deck is not the same
+  as saving a session; use `decklist save` to persist session state.
 - An incomplete deck (fewer than 100 cards, or cards remaining in
   Uncategorized) can be exported without error. The persistent Uncategorized
   warning already signals work-in-progress state.

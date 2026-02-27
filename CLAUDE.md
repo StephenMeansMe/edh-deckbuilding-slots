@@ -16,7 +16,9 @@ edh-deckbuilding-slots/
 │   └── user-stories/
 │       ├── 001-create-decklist-with-categorized-slots.md
 │       ├── 002-import-decklist-from-file.md
-│       └── 003-card-management.md
+│       ├── 003-card-management.md
+│       ├── 004-save-load-and-autoresume.md
+│       └── 005-export-decklist.md
 ├── src/
 │   └── deckslots/
 │       ├── __init__.py
@@ -160,6 +162,7 @@ For detailed product requirements, roadmap, and user stories, see `docs/`.
 
 ## Notes for AI Assistants
 
+- **Read all user stories before planning.** Every file under `docs/user-stories/` is the authoritative specification for its feature. Read them all at the start of any planning session — new user story files are added as the project grows and may not yet be reflected in `CLAUDE.md`'s directory listing.
 - **TDD is mandatory.** Do not skip the Red phase. Always start by writing or showing the failing test before implementing production code.
 - **Test split**: pytest covers unit and integration tests (parser, models, handlers). scrut covers functional/black-box CLI tests (`tests/functional/*.md`). New REPL behaviors should get a scrut test; new handler/model behaviors get a pytest test.
 - **scrut test format**: Each ` ```scrut ` code block is one test case with exactly one `$ ` command (the first line). All subsequent lines are expected stdout. Use separate blocks for setup steps (setup block has no expected output). `$TMPDIR` is shared within a file but fresh per file; use subdirectories (`$TMPDIR/t1`, etc.) to isolate test cases that write save files. Run with `scrut test --work-directory . tests/functional/`.
