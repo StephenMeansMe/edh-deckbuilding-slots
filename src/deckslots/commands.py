@@ -367,6 +367,39 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
     return f"Deleted '{card}' from the decklist."
 
 
+def _format_export_file(decklist: Decklist) -> str:
+    commander_cat = decklist.categories.get("commander")
+    commander_lines = ["Commander"]
+    if commander_cat and commander_cat.cards:
+        commander_lines.append(f"1 {commander_cat.cards[0]}")
+
+    maindeck_cards: Counter[str] = Counter()
+    for key, cat in decklist.categories.items():
+        if key == "commander":
+            continue
+        maindeck_cards.update(cat.cards)
+
+    maindeck_lines = ["Maindeck"]
+    for card, qty in sorted(maindeck_cards.items()):
+        maindeck_lines.append(f"{qty} {card}")
+
+    return "\n".join(commander_lines) + "\n\n" + "\n".join(maindeck_lines) + "\n"
+
+
+def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not cmd.args:
+        return "Usage: decklist export <filepath>"
+    filepath = Path(" ".join(cmd.args))
+    try:
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(_format_export_file(session.decklist))
+    except OSError as e:
+        return f"Error exporting decklist: {e}"
+    return f"Exported '{session.decklist.name}' to '{filepath}'."
+
+
 def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
     path = _get_save_path()
     try:
@@ -395,6 +428,7 @@ def handle_help() -> str:
             "  decklist create <name>        Create a new decklist",
             "  decklist show                 Show the active decklist",
             "  decklist import <file>        Import a decklist from a text file",
+            "  decklist export <file>        Export the active decklist to a text file",
             "  decklist save                 Save the active decklist",
             "  decklist load                 Load the last saved decklist",
             "  category create <n> <s>       Add a category with <s> slots",
@@ -428,6 +462,7 @@ def register_all_handlers(
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
         ("decklist", "import"): lambda cmd: handle_decklist_import(session, cmd),
+        ("decklist", "export"): lambda cmd: handle_decklist_export(session, cmd),
         ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
         ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
