@@ -8,7 +8,7 @@
 
 - `bin/` — Standalone CLI entrypoint
 - `docs/` — ROADMAP, user stories, domain-concepts.md, implementation plans
-- `src/deckslots/` — Source: cli.py, models.py, commands.py, repl.py
+- `src/deckslots/` — Source modules (cli.py, models.py, commands.py, repl.py) + CLAUDE.md (architecture notes)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`)
 
 ## Tech Stack
@@ -23,12 +23,7 @@
 
 ## Architecture
 
-The app uses an **object-verb command pattern** with a dispatch registry:
-
-- **`cli.py`** — `parse_command(line)` returns a `ParsedCommand` with `kind` (`builtin`, `object_verb`, `unknown`, `empty`), `obj`, `verb`, and `args`. Known objects: `decklist`, `category`, `card`. Builtins: `quit`, `exit`, `help`.
-- **`models.py`** — Domain models. `Category` (name, total_slots, fixed, capped, allowed_cards, cards) and `Decklist` (name, categories dict). `Decklist.create()` auto-adds mandatory Commander and Basic Lands categories. `BASIC_LAND_NAMES` is a module-level `frozenset[str]` of all 12 valid basic land names. `Category.cards` is `list[str]` (allows duplicates for basic lands). `Decklist.add_card(card, category_name)` enforces: category existence, `allowed_cards` whitelist, fullness, and singleton exclusivity across capped categories (uncapped categories skip the exclusivity check). Capped categories validate `1 <= total_slots <= 99`; uncapped categories validate `total_slots >= 0` with no upper limit. Uncapped categories return `None` for `available` and `False` for `is_full`.
-- **`commands.py`** — `Session` holds REPL state (`decklist: Decklist | None`). Handler functions (e.g., `handle_decklist_create`) return strings. Two arg-resolution helpers: `_resolve_category_and_card(args, categories)` uses greedy longest-prefix match to resolve multi-word category names from `<category> <card>` args (used by `card add`); `_resolve_card_and_category_suffix(args, categories)` uses greedy longest-suffix match to resolve multi-word category names from `<card> <category>` args (used by `card move`). Card move/remove operations manipulate `category.cards` directly in the handlers rather than through model methods, so the exclusivity check in `Decklist.add_card()` is not re-run during a move. `register_all_handlers(session)` builds a `dict[tuple[str, str], Callable]` dispatch registry. `dispatch(cmd, registry)` routes commands.
-- **`repl.py`** — `run_repl()` creates a Session and registry, loops on `input()`, delegates to dispatch for object-verb commands and `handle_help` for the help builtin.
+See [`src/deckslots/CLAUDE.md`](src/deckslots/CLAUDE.md) for module-level architecture notes.
 
 ## Development Methodology: Test-Driven Design (TDD)
 
