@@ -207,6 +207,8 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
     if not cat.user_addable:
         return f"Cannot add cards to '{cat.name}' directly."
     category_name = cat.name
+    if card in BASIC_LAND_NAMES and category_name != "Basic Lands":
+        return "Error: Basic lands can only be added to the 'Basic Lands' category."
     try:
         session.decklist.add_card(card, category_name)
     except ValueError as e:
@@ -319,6 +321,8 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
         return f"Category '{target_cat.name}' is full (no available slots)."
     if target_cat.allowed_cards is not None and card not in target_cat.allowed_cards:
         return f"'{card}' is not allowed in '{target_cat.name}'."
+    if card in BASIC_LAND_NAMES and target_cat.name != "Basic Lands":
+        return "Error: Basic lands can only be added to the 'Basic Lands' category."
     if card not in BASIC_LAND_NAMES:
         for key, cat in session.decklist.categories.items():
             if key != source_key and cat.capped and card in cat.cards:
