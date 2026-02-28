@@ -314,7 +314,7 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
     source_cat = session.decklist.categories[source_key]
 
     if source_key == target_key or card in target_cat.cards:
-        return f"'{card}' is already in '{target_cat.name}'."
+        return f"'{card}' is already in '{target_cat.name}'. Nothing to do."
     if target_cat.is_full:
         return f"Category '{target_cat.name}' is full (no available slots)."
     if target_cat.allowed_cards is not None and card not in target_cat.allowed_cards:

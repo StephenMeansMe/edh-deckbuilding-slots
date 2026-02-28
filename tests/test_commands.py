@@ -864,14 +864,14 @@ class TestCardMoveHandler:
         result = handle_card_move(session, cmd)
         assert "card remove" in result.lower()
 
-    def test_card_move_returns_error_when_card_already_in_target(self):
-        """Returns an error when the card is already in the target category."""
+    def test_card_move_is_noop_when_card_already_in_target(self):
+        """Moving a card to the category it is already in is a silent no-op."""
         session = _make_session_with_card_in_category("Ramp", "Sol Ring")
         cmd = _make_cmd(
             "card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"]
         )
         result = handle_card_move(session, cmd)
-        assert "already in" in result.lower()
+        assert result == "'Sol Ring' is already in 'Ramp'. Nothing to do."
 
     def test_card_move_succeeds_from_uncategorized_to_capped(self):
         """Successfully moves a card from Uncategorized to a capped category."""
