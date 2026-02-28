@@ -976,6 +976,32 @@ class TestCardMoveHandler:
         assert "Moved" in result
         assert "Forest" in result
 
+    def test_card_move_rejects_basic_land_to_non_basic_lands_category(self):
+        """card move rejects moving a basic land to any category other than Basic Lands."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        _add_uncategorized(session, "Forest")
+        cmd = _make_cmd(
+            "card move Forest Ramp", "card", "move", ["Forest", "Ramp"]
+        )
+        result = handle_card_move(session, cmd)
+        assert result.startswith("Error:")
+        assert "Basic Lands" in result
+
+    def test_card_move_allows_basic_land_to_basic_lands_category(self):
+        """Moving a basic land from Uncategorized to Basic Lands is permitted (AC 7)."""
+        session = _make_session_with_deck()
+        _add_uncategorized(session, "Forest")
+        cmd = _make_cmd(
+            "card move Forest Basic Lands",
+            "card",
+            "move",
+            ["Forest", "Basic", "Lands"],
+        )
+        result = handle_card_move(session, cmd)
+        assert "Moved" in result
+        assert "Forest" in session.decklist.categories["basic lands"].cards
+
 
 class TestCardRemoveHandler:
     """handle_card_remove moves a card to the Uncategorized holding category."""
@@ -1234,6 +1260,17 @@ class TestCardAddHandler:
         )
         result = handle_card_add(session, cmd)
         assert "cannot add" in result.lower()
+
+    def test_card_add_rejects_basic_land_in_non_basic_lands_category(self):
+        """handle_card_add rejects a basic land card added to any category other than Basic Lands."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        cmd = _make_cmd(
+            "card add Ramp Forest", "card", "add", ["Ramp", "Forest"]
+        )
+        result = handle_card_add(session, cmd)
+        assert result.startswith("Error:")
+        assert "Basic Lands" in result
 
 
 class TestSavePath:
