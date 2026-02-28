@@ -319,6 +319,10 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
         return f"Category '{target_cat.name}' is full (no available slots)."
     if target_cat.allowed_cards is not None and card not in target_cat.allowed_cards:
         return f"'{card}' is not allowed in '{target_cat.name}'."
+    if card not in BASIC_LAND_NAMES:
+        for key, cat in session.decklist.categories.items():
+            if key != source_key and cat.capped and card in cat.cards:
+                return f"Error: '{card}' is already in the deck (in '{cat.name}')."
 
     source_cat.cards.remove(card)
     target_cat.cards.append(card)
