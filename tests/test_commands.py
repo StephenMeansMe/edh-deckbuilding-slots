@@ -940,6 +940,42 @@ class TestCardMoveHandler:
         result = handle_card_move(session, cmd)
         assert "not allowed" in result.lower()
 
+    def test_card_move_rejects_when_card_already_in_another_capped_category(self):
+        """card move is rejected when the card exists in a capped category other than the source."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Draw", 10)
+        session.decklist.add_category("Payoffs", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        # Inject Sol Ring into Draw directly to simulate an inconsistent state
+        session.decklist.categories["draw"].cards.append("Sol Ring")
+        cmd = _make_cmd(
+            "card move Sol Ring Payoffs", "card", "move", ["Sol", "Ring", "Payoffs"]
+        )
+        result = handle_card_move(session, cmd)
+        assert result.startswith("Error:")
+        assert "already in the deck" in result
+        assert "Draw" in result
+
+    def test_card_move_singleton_check_exempts_basic_lands(self):
+        """Basic land cards bypass the singleton non-basic-land rule on card move."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Lands", 10)
+        session.decklist.add_category("Draw", 10)
+        # Inject Forest into two capped categories to simulate an inconsistent state
+        session.decklist.categories["lands"].cards.append("Forest")
+        session.decklist.categories["draw"].cards.append("Forest")
+        # Moving Forest from Lands to Basic Lands should succeed (basic lands are exempt)
+        cmd = _make_cmd(
+            "card move Forest Basic Lands",
+            "card",
+            "move",
+            ["Forest", "Basic", "Lands"],
+        )
+        result = handle_card_move(session, cmd)
+        assert "Moved" in result
+        assert "Forest" in result
+
 
 class TestCardRemoveHandler:
     """handle_card_remove moves a card to the Uncategorized holding category."""
