@@ -464,9 +464,7 @@ class TestDecklistImportHandler:
     def test_import_routes_commander(self, tmp_path):
         """Commander card is placed in the Commander category."""
         f = tmp_path / "deck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
-        )
+        f.write_text("Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -498,9 +496,7 @@ class TestDecklistImportHandler:
     def test_import_creates_uncategorized_category(self, tmp_path):
         """Non-basic-land Maindeck cards go into an Uncategorized category."""
         f = tmp_path / "deck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n"
-        )
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n2 Arcane Signet\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -517,9 +513,7 @@ class TestDecklistImportHandler:
     def test_import_returns_summary_string(self, tmp_path):
         """A successful import returns a human-readable summary."""
         f = tmp_path / "MyDeck.txt"
-        f.write_text(
-            "Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n"
-        )
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n4 Forest\n")
         session = Session()
         cmd = ParsedCommand(
             kind="object_verb",
@@ -864,14 +858,14 @@ class TestCardMoveHandler:
         result = handle_card_move(session, cmd)
         assert "card remove" in result.lower()
 
-    def test_card_move_returns_error_when_card_already_in_target(self):
-        """Returns an error when the card is already in the target category."""
+    def test_card_move_is_noop_when_card_already_in_target(self):
+        """Moving a card to the category it is already in is a silent no-op."""
         session = _make_session_with_card_in_category("Ramp", "Sol Ring")
         cmd = _make_cmd(
             "card move Sol Ring Ramp", "card", "move", ["Sol", "Ring", "Ramp"]
         )
         result = handle_card_move(session, cmd)
-        assert "already in" in result.lower()
+        assert result == "'Sol Ring' is already in 'Ramp'. Nothing to do."
 
     def test_card_move_succeeds_from_uncategorized_to_capped(self):
         """Successfully moves a card from Uncategorized to a capped category."""
@@ -939,6 +933,66 @@ class TestCardMoveHandler:
         )
         result = handle_card_move(session, cmd)
         assert "not allowed" in result.lower()
+
+    def test_card_move_rejects_when_card_already_in_another_capped_category(self):
+        """card move is rejected when the card exists in another capped category."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Draw", 10)
+        session.decklist.add_category("Payoffs", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        # Inject Sol Ring into Draw directly to simulate an inconsistent state
+        session.decklist.categories["draw"].cards.append("Sol Ring")
+        cmd = _make_cmd(
+            "card move Sol Ring Payoffs", "card", "move", ["Sol", "Ring", "Payoffs"]
+        )
+        result = handle_card_move(session, cmd)
+        assert result.startswith("Error:")
+        assert "already in the deck" in result
+        assert "Draw" in result
+
+    def test_card_move_singleton_check_exempts_basic_lands(self):
+        """Basic land cards bypass the singleton non-basic-land rule on card move."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Lands", 10)
+        session.decklist.add_category("Draw", 10)
+        # Inject Forest into two capped categories to simulate an inconsistent state
+        session.decklist.categories["lands"].cards.append("Forest")
+        session.decklist.categories["draw"].cards.append("Forest")
+        # Moving Forest to Basic Lands should succeed (basic lands are exempt)
+        cmd = _make_cmd(
+            "card move Forest Basic Lands",
+            "card",
+            "move",
+            ["Forest", "Basic", "Lands"],
+        )
+        result = handle_card_move(session, cmd)
+        assert "Moved" in result
+        assert "Forest" in result
+
+    def test_card_move_rejects_basic_land_to_non_basic_lands_category(self):
+        """card move rejects moving a basic land to a non-Basic-Lands category."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        _add_uncategorized(session, "Forest")
+        cmd = _make_cmd("card move Forest Ramp", "card", "move", ["Forest", "Ramp"])
+        result = handle_card_move(session, cmd)
+        assert result.startswith("Error:")
+        assert "Basic Lands" in result
+
+    def test_card_move_allows_basic_land_to_basic_lands_category(self):
+        """Moving a basic land from Uncategorized to Basic Lands is permitted (AC 7)."""
+        session = _make_session_with_deck()
+        _add_uncategorized(session, "Forest")
+        cmd = _make_cmd(
+            "card move Forest Basic Lands",
+            "card",
+            "move",
+            ["Forest", "Basic", "Lands"],
+        )
+        result = handle_card_move(session, cmd)
+        assert "Moved" in result
+        assert "Forest" in session.decklist.categories["basic lands"].cards
 
 
 class TestCardRemoveHandler:
@@ -1198,6 +1252,15 @@ class TestCardAddHandler:
         )
         result = handle_card_add(session, cmd)
         assert "cannot add" in result.lower()
+
+    def test_card_add_rejects_basic_land_in_non_basic_lands_category(self):
+        """handle_card_add rejects a basic land added to a non-Basic-Lands category."""
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        cmd = _make_cmd("card add Ramp Forest", "card", "add", ["Ramp", "Forest"])
+        result = handle_card_add(session, cmd)
+        assert result.startswith("Error:")
+        assert "Basic Lands" in result
 
 
 class TestSavePath:
