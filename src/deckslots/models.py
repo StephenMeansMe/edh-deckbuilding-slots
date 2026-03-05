@@ -97,6 +97,23 @@ class Decklist:
                 return key
         return None
 
+    def rename_category(self, old_name: str, new_name: str) -> None:
+        old_key = old_name.lower()
+        new_key = new_name.lower()
+        if old_key not in self.categories:
+            raise ValueError(f"Category '{old_name}' not found.")
+        cat = self.categories[old_key]
+        if cat.fixed:
+            raise ValueError(f"Cannot rename fixed category '{cat.name}'.")
+        if new_key in self.categories and new_key != old_key:
+            raise ValueError(f"Category '{new_name}' already exists.")
+        del self.categories[old_key]
+        cat.name = new_name
+        self.categories[new_key] = cat
+
+    def rename(self, new_name: str) -> None:
+        self.name = new_name
+
     @classmethod
     def create(cls, name: str) -> "Decklist":
         commander = Category(name="Commander", total_slots=1, fixed=True)
