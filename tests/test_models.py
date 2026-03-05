@@ -374,3 +374,64 @@ class TestCategoryUserAddable:
             user_addable=False,
         )
         assert cat.user_addable is False
+
+
+class TestDecklistRenameCategory:
+    def test_rename_category_updates_display_name_and_key(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.rename_category("Ramp", "Mana Rocks")
+        assert "ramp" not in deck.categories
+        assert "mana rocks" in deck.categories
+        assert deck.categories["mana rocks"].name == "Mana Rocks"
+
+    def test_rename_category_case_insensitive_lookup(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.rename_category("ramp", "Mana Rocks")  # lowercase lookup
+        assert "mana rocks" in deck.categories
+        assert deck.categories["mana rocks"].name == "Mana Rocks"
+
+    def test_rename_category_preserves_cards(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Cultivate", "Ramp")
+        deck.rename_category("Ramp", "Mana Rocks")
+        assert "Cultivate" in deck.categories["mana rocks"].cards
+
+    def test_rename_category_allows_case_change_only(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.rename_category("Ramp", "RAMP")  # same key, different display
+        assert "ramp" in deck.categories
+        assert deck.categories["ramp"].name == "RAMP"
+
+    def test_rename_category_allows_same_name(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.rename_category("Ramp", "Ramp")  # no-op: no error
+        assert deck.categories["ramp"].name == "Ramp"
+
+    def test_rename_category_raises_for_not_found(self):
+        deck = Decklist.create("My Deck")
+        with pytest.raises(ValueError, match="not found"):
+            deck.rename_category("Nonexistent", "Something")
+
+    def test_rename_category_raises_for_fixed_commander(self):
+        deck = Decklist.create("My Deck")
+        with pytest.raises(ValueError, match="Cannot rename fixed category"):
+            deck.rename_category("commander", "Leader")
+
+    def test_rename_category_raises_for_name_conflict(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_category("Combo", 10)
+        with pytest.raises(ValueError, match="already exists"):
+            deck.rename_category("Ramp", "Combo")
+
+
+class TestDecklistRename:
+    def test_rename_updates_decklist_name(self):
+        deck = Decklist.create("Old Name")
+        deck.rename("New Name")
+        assert deck.name == "New Name"

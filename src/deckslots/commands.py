@@ -429,6 +429,51 @@ def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
     return f"Saved '{session.decklist.name}'."
 
 
+def validate_decklist_rename(session: Session) -> str | None:
+    """Returns an error string if rename is not possible, else None."""
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    return None
+
+
+def validate_category_rename(session: Session, old_name: str) -> str | None:
+    """Returns an error string if the category cannot be renamed, else None."""
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    if not old_name:
+        return "Usage: category rename <name>"
+    key = old_name.lower()
+    if key not in session.decklist.categories:
+        return f"Category '{old_name}' not found."
+    cat = session.decklist.categories[key]
+    if cat.fixed:
+        return f"Cannot rename fixed category '{cat.name}'."
+    return None
+
+
+def handle_decklist_rename(session: Session, new_name: str) -> str:
+    """Rename the active decklist. Call after validate_decklist_rename returns None."""
+    assert session.decklist is not None
+    if not new_name.strip():
+        return "Name cannot be empty."
+    session.decklist.rename(new_name)
+    return f"Renamed decklist to '{new_name}'."
+
+
+def handle_category_rename(session: Session, old_name: str, new_name: str) -> str:
+    """Rename a category. Call only after validate_category_rename returns None."""
+    assert session.decklist is not None
+    if not new_name.strip():
+        return "Name cannot be empty."
+    old_key = old_name.lower()
+    display_old = session.decklist.categories[old_key].name
+    try:
+        session.decklist.rename_category(old_name, new_name)
+    except ValueError as e:
+        return str(e)
+    return f"Renamed category '{display_old}' to '{new_name}'."
+
+
 def handle_help() -> str:
     return "\n".join(
         [
@@ -439,8 +484,10 @@ def handle_help() -> str:
             "  decklist export <file>        Export the active decklist to a text file",
             "  decklist save                 Save the active decklist",
             "  decklist load                 Load the last saved decklist",
+            "  decklist rename               Rename the active decklist",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
+            "  category rename <name>        Rename a user-created category",
             "  card add <cat> <name>         Add a card to a category",
             "  card move <name> <cat>        Move a card to a different category",
             "  card remove <name>            Move a card to Uncategorized",
