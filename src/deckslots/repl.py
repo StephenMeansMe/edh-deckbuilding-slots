@@ -4,8 +4,12 @@ from deckslots.commands import (
     _get_save_path,
     _parse_save_file,
     dispatch,
+    handle_category_rename,
+    handle_decklist_rename,
     handle_help,
     register_all_handlers,
+    validate_category_rename,
+    validate_decklist_rename,
 )
 
 
@@ -52,7 +56,32 @@ def run_repl():
             if parsed.kind == "empty":
                 continue
             if parsed.kind == "object_verb":
-                result = dispatch(parsed, registry)
+                if parsed.verb == "rename":
+                    if parsed.obj == "decklist":
+                        error = validate_decklist_rename(session)
+                        if error:
+                            print(error)
+                            continue
+                        new_name = input("New name: ").strip()
+                        if not new_name:
+                            print("Name cannot be empty.")
+                            continue
+                        result = handle_decklist_rename(session, new_name)
+                    elif parsed.obj == "category":
+                        old_name = " ".join(parsed.args)
+                        error = validate_category_rename(session, old_name)
+                        if error:
+                            print(error)
+                            continue
+                        new_name = input("New name: ").strip()
+                        if not new_name:
+                            print("Name cannot be empty.")
+                            continue
+                        result = handle_category_rename(session, old_name, new_name)
+                    else:
+                        result = dispatch(parsed, registry)
+                else:
+                    result = dispatch(parsed, registry)
                 if (
                     session.decklist is not None
                     and "uncategorized" in session.decklist.categories
