@@ -64,8 +64,10 @@ deckslots> Available commands:
   decklist export <file>        Export the active decklist to a text file
   decklist save                 Save the active decklist
   decklist load                 Load the last saved decklist
+  decklist rename               Rename the active decklist
   category create <n> <s>       Add a category with <s> slots
   category list                 List all categories
+  category rename <name>        Rename a user-created category
   card add <cat> <name>         Add a card to a category
   card move <name> <cat>        Move a card to a different category
   card remove <name>            Move a card to Uncategorized
