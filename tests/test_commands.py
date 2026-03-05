@@ -1773,11 +1773,13 @@ class TestValidateCategoryRename:
     def test_not_found_returns_error(self):
         session = _make_session_with_deck()
         result = validate_category_rename(session, "nonexistent")
+        assert result is not None
         assert "not found" in result
 
     def test_fixed_category_returns_error(self):
         session = _make_session_with_deck()
         result = validate_category_rename(session, "commander")
+        assert result is not None
         assert "Cannot rename fixed category" in result
 
     def test_valid_user_category_returns_none(self):

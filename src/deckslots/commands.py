@@ -452,7 +452,8 @@ def validate_category_rename(session: Session, old_name: str) -> str | None:
 
 
 def handle_decklist_rename(session: Session, new_name: str) -> str:
-    """Rename the active decklist. Call only after validate_decklist_rename returns None."""
+    """Rename the active decklist. Call after validate_decklist_rename returns None."""
+    assert session.decklist is not None
     if not new_name.strip():
         return "Name cannot be empty."
     session.decklist.rename(new_name)
@@ -461,6 +462,7 @@ def handle_decklist_rename(session: Session, new_name: str) -> str:
 
 def handle_category_rename(session: Session, old_name: str, new_name: str) -> str:
     """Rename a category. Call only after validate_category_rename returns None."""
+    assert session.decklist is not None
     if not new_name.strip():
         return "Name cannot be empty."
     old_key = old_name.lower()
