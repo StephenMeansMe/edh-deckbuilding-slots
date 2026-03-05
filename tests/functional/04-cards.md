@@ -1,13 +1,5 @@
 # Card Commands
 
-## Setup: create a shared import file used by move/remove/delete tests
-
-```scrut
-$ printf 'Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n' > "$TMPDIR/deck.txt"
-```
-
----
-
 ## card add to a named category
 
 ```scrut
@@ -45,7 +37,7 @@ deckslots> Goodbye.
 ## card move reports source and destination categories
 
 ```scrut
-$ printf "decklist import $TMPDIR/deck.txt\ncategory create Ramp 10\ncard move Sol Ring Ramp\nquit\n" \
+$ printf "decklist import $TESTDIR/deck.txt\ncategory create Ramp 10\ncard move Sol Ring Ramp\nquit\n" \
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Warning: 1 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.
@@ -71,7 +63,7 @@ deckslots> Goodbye.
 ## card move error: category not found
 
 ```scrut
-$ printf "decklist import $TMPDIR/deck.txt\ncard move Sol Ring NoSuchCategory\nquit\n" \
+$ printf "decklist import $TESTDIR/deck.txt\ncard move Sol Ring NoSuchCategory\nquit\n" \
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Warning: 1 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.
@@ -144,7 +136,7 @@ deckslots> Goodbye.
 ## card delete from Uncategorized (after import)
 
 ```scrut
-$ printf "decklist import $TMPDIR/deck.txt\ncard delete Sol Ring\nquit\n" \
+$ printf "decklist import $TESTDIR/deck.txt\ncard delete Sol Ring\nquit\n" \
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Warning: 1 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.

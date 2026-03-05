@@ -4,18 +4,10 @@ The REPL prepends a warning to every command response while the Uncategorized
 category has at least one card. The warning disappears once Uncategorized is
 empty.
 
-## Setup: create import file with one card going to Uncategorized
-
-```scrut
-$ printf 'Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n' > "$TMPDIR/deck.txt"
-```
-
----
-
 ## Warning appears on every response while Uncategorized has cards
 
 ```scrut
-$ printf "decklist import $TMPDIR/deck.txt\ncategory list\nquit\n" \
+$ printf "decklist import $TESTDIR/deck.txt\ncategory list\nquit\n" \
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Warning: 1 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.
@@ -48,7 +40,7 @@ still active), card move empties Uncategorized — subsequent category list has
 no warning.
 
 ```scrut
-$ printf "decklist import $TMPDIR/deck.txt\ncategory create Ramp 10\ncard move Sol Ring Ramp\ncategory list\nquit\n" \
+$ printf "decklist import $TESTDIR/deck.txt\ncategory create Ramp 10\ncard move Sol Ring Ramp\ncategory list\nquit\n" \
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Warning: 1 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.
@@ -67,7 +59,7 @@ deckslots> Goodbye.
 ## Warning disappears after last card deleted from Uncategorized
 
 ```scrut
-$ printf "decklist import $TMPDIR/deck.txt\ncard delete Sol Ring\ncategory list\nquit\n" \
+$ printf "decklist import $TESTDIR/deck.txt\ncard delete Sol Ring\ncategory list\nquit\n" \
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Warning: 1 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.
