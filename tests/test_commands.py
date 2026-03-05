@@ -17,14 +17,18 @@ from deckslots.commands import (
     handle_card_remove,
     handle_category_create,
     handle_category_list,
+    handle_category_rename,
     handle_decklist_create,
     handle_decklist_export,
     handle_decklist_import,
     handle_decklist_load,
+    handle_decklist_rename,
     handle_decklist_save,
     handle_decklist_show,
     handle_help,
     register_all_handlers,
+    validate_category_rename,
+    validate_decklist_rename,
 )
 from deckslots.models import Category, Decklist
 
@@ -1742,3 +1746,87 @@ class TestHandleDecklistExport:
         cmd = _make_cmd(f"decklist export {out}", "decklist", "export", [str(out)])
         result = dispatch(cmd, registry)
         assert "Exported" in result
+
+
+class TestValidateDecklistRename:
+    def test_no_decklist_returns_error(self):
+        session = Session()
+        result = validate_decklist_rename(session)
+        assert result == "No active decklist. Use 'decklist create <name>' first."
+
+    def test_active_decklist_returns_none(self):
+        session = _make_session_with_deck()
+        assert validate_decklist_rename(session) is None
+
+
+class TestValidateCategoryRename:
+    def test_no_decklist_returns_error(self):
+        session = Session()
+        result = validate_category_rename(session, "ramp")
+        assert result == "No active decklist. Use 'decklist create <name>' first."
+
+    def test_empty_old_name_returns_usage(self):
+        session = _make_session_with_deck()
+        result = validate_category_rename(session, "")
+        assert result == "Usage: category rename <name>"
+
+    def test_not_found_returns_error(self):
+        session = _make_session_with_deck()
+        result = validate_category_rename(session, "nonexistent")
+        assert "not found" in result
+
+    def test_fixed_category_returns_error(self):
+        session = _make_session_with_deck()
+        result = validate_category_rename(session, "commander")
+        assert "Cannot rename fixed category" in result
+
+    def test_valid_user_category_returns_none(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        assert validate_category_rename(session, "ramp") is None
+
+
+class TestHandleDecklistRename:
+    def test_renames_decklist(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_rename(session, "New Name")
+        assert result == "Renamed decklist to 'New Name'."
+        assert session.decklist.name == "New Name"
+
+    def test_empty_name_returns_error_without_renaming(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_rename(session, "")
+        assert result == "Name cannot be empty."
+        assert session.decklist.name == "TestDeck"  # unchanged
+
+
+class TestHandleCategoryRename:
+    def test_renames_category(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_category_rename(session, "ramp", "Mana Rocks")
+        assert result == "Renamed category 'Ramp' to 'Mana Rocks'."
+        assert "mana rocks" in session.decklist.categories
+        assert "ramp" not in session.decklist.categories
+
+    def test_shows_original_display_name_in_message(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        # old_name passed as lowercase, but message shows stored display name
+        result = handle_category_rename(session, "ramp", "Mana Rocks")
+        assert "'Ramp'" in result  # original display name, not "ramp"
+
+    def test_empty_new_name_returns_error_without_renaming(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_category_rename(session, "ramp", "")
+        assert result == "Name cannot be empty."
+        assert "ramp" in session.decklist.categories  # unchanged
+
+    def test_conflicting_new_name_returns_error(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_category("Combo", 10)
+        result = handle_category_rename(session, "ramp", "Combo")
+        assert "already exists" in result
+        assert "ramp" in session.decklist.categories  # unchanged
