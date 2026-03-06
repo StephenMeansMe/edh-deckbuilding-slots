@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 BASIC_LAND_NAMES: frozenset[str] = frozenset(
@@ -18,40 +19,77 @@ BASIC_LAND_NAMES: frozenset[str] = frozenset(
 )
 
 
+class Category(ABC):
+    """Abstract base class for deck categories."""
+
+    name: str
+    fixed: bool
+    allowed_cards: frozenset[str] | None
+    user_addable: bool
+    cards: list[str]
+
+    @property
+    @abstractmethod
+    def filled(self) -> int: ...
+
+    @property
+    @abstractmethod
+    def is_full(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def available(self) -> int | None: ...
+
+
 @dataclass
-class Category:
+class CappedCategory(Category):
+    """A category with a fixed maximum slot count (1–99)."""
+
     name: str
     total_slots: int
     fixed: bool = False
-    capped: bool = True
-    # Whitelist; enforced by future add_card method.
     allowed_cards: frozenset[str] | None = None
     user_addable: bool = True
     cards: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        if self.capped:
-            if self.total_slots < 1 or self.total_slots > 99:
-                raise ValueError("total_slots must be between 1 and 99")
-        else:
-            if self.total_slots < 0:
-                raise ValueError("total_slots must not be negative")
+    def __post_init__(self) -> None:
+        if not (1 <= self.total_slots <= 99):
+            raise ValueError("total_slots must be between 1 and 99")
 
     @property
     def filled(self) -> int:
         return len(self.cards)
 
     @property
-    def available(self) -> int | None:
-        if not self.capped:
-            return None
-        return self.total_slots - self.filled
+    def is_full(self) -> bool:
+        return len(self.cards) >= self.total_slots
+
+    @property
+    def available(self) -> int:
+        return self.total_slots - len(self.cards)
+
+
+@dataclass
+class UncappedCategory(Category):
+    """A category with no upper slot limit (basic lands, uncategorized)."""
+
+    name: str
+    fixed: bool = False
+    allowed_cards: frozenset[str] | None = None
+    user_addable: bool = True
+    cards: list[str] = field(default_factory=list)
+
+    @property
+    def filled(self) -> int:
+        return len(self.cards)
 
     @property
     def is_full(self) -> bool:
-        if not self.capped:
-            return False
-        return self.available == 0
+        return False
+
+    @property
+    def available(self) -> None:
+        return None
 
 
 @dataclass
@@ -61,7 +99,11 @@ class Decklist:
 
     @property
     def total_slots(self) -> int:
-        return sum(c.total_slots for c in self.categories.values())
+        return sum(
+            c.total_slots
+            for c in self.categories.values()
+            if isinstance(c, CappedCategory)
+        )
 
     @property
     def total_filled(self) -> int:
@@ -71,7 +113,7 @@ class Decklist:
         key = name.lower()
         if key in self.categories:
             raise ValueError(f"Category '{name}' already exists")
-        self.categories[key] = Category(name=name, total_slots=slots)
+        self.categories[key] = CappedCategory(name=name, total_slots=slots)
 
     def add_card(self, card: str, category_name: str) -> None:
         key = category_name.lower()
@@ -84,9 +126,9 @@ class Decklist:
             raise ValueError(
                 f"Category '{category_name}' is full (no available slots)."
             )
-        if cat.capped:
+        if isinstance(cat, CappedCategory):
             for other in self.categories.values():
-                if other.capped and card in other.cards:
+                if isinstance(other, CappedCategory) and card in other.cards:
                     raise ValueError(f"'{card}' is already in the decklist.")
         cat.cards.append(card)
 
@@ -116,12 +158,10 @@ class Decklist:
 
     @classmethod
     def create(cls, name: str) -> "Decklist":
-        commander = Category(name="Commander", total_slots=1, fixed=True)
-        basic_lands = Category(
+        commander = CappedCategory(name="Commander", total_slots=1, fixed=True)
+        basic_lands = UncappedCategory(
             name="Basic Lands",
-            total_slots=0,
             fixed=True,
-            capped=False,
             allowed_cards=BASIC_LAND_NAMES,
         )
         return cls(

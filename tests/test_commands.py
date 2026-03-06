@@ -30,7 +30,7 @@ from deckslots.commands import (
     validate_category_rename,
     validate_decklist_rename,
 )
-from deckslots.models import Category, Decklist
+from deckslots.models import CappedCategory, Category, Decklist, UncappedCategory
 
 
 def _make_session_with_deck():
@@ -793,11 +793,9 @@ def _make_session_with_card_in_category(category_name, card_name, slots=10):
 
 def _add_uncategorized(session, *cards):
     """Add an Uncategorized category to the session's decklist and populate it."""
-    session.decklist.categories["uncategorized"] = Category(
+    session.decklist.categories["uncategorized"] = UncappedCategory(
         name="Uncategorized",
-        total_slots=0,
         fixed=True,
-        capped=False,
         user_addable=False,
     )
     for card in cards:
@@ -1042,7 +1040,7 @@ class TestCardRemoveHandler:
         assert "uncategorized" in session.decklist.categories
         cat = session.decklist.categories["uncategorized"]
         assert cat.fixed is True
-        assert cat.capped is False
+        assert isinstance(cat, UncappedCategory)
         assert cat.user_addable is False
 
     def test_card_remove_prints_success_message(self):
@@ -1241,11 +1239,9 @@ class TestCardAddHandler:
     def test_card_add_rejects_non_user_addable_category(self):
         """handle_card_add returns an error for categories with user_addable=False."""
         session = _make_session_with_deck()
-        session.decklist.categories["uncategorized"] = Category(
+        session.decklist.categories["uncategorized"] = UncappedCategory(
             name="Uncategorized",
-            total_slots=0,
             fixed=True,
-            capped=False,
             user_addable=False,
         )
         cmd = _make_cmd(
@@ -1343,14 +1339,10 @@ class TestFormatSaveFile:
 
     def test_uncategorized_written_last_when_present(self):
         """Uncategorized section appears after user-defined categories."""
-        from deckslots.models import Category
-
         deck = _make_deck_for_save()
-        deck.categories["uncategorized"] = Category(
+        deck.categories["uncategorized"] = UncappedCategory(
             name="Uncategorized",
-            total_slots=0,
             fixed=True,
-            capped=False,
             user_addable=False,
         )
         deck.categories["uncategorized"].cards.append("Doubling Season")
@@ -1479,8 +1471,10 @@ class TestParseSaveFile:
         f.write_text("# Test\n\nCommander\n\nRamp [8 slots]\n1 Sol Ring\n")
         deck = _parse_save_file(str(f))
         assert "ramp" in deck.categories
-        assert deck.categories["ramp"].total_slots == 8
-        assert "Sol Ring" in deck.categories["ramp"].cards
+        ramp = deck.categories["ramp"]
+        assert isinstance(ramp, CappedCategory)
+        assert ramp.total_slots == 8
+        assert "Sol Ring" in ramp.cards
 
     def test_restores_uncategorized(self, tmp_path):
         """_parse_save_file creates the Uncategorized category when present."""
@@ -1488,7 +1482,7 @@ class TestParseSaveFile:
         f.write_text("# Test\n\nCommander\n\nUncategorized\n1 Doubling Season\n")
         deck = _parse_save_file(str(f))
         cat = deck.categories["uncategorized"]
-        assert not cat.capped
+        assert isinstance(cat, UncappedCategory)
         assert not cat.user_addable
         assert "Doubling Season" in cat.cards
 
@@ -1526,7 +1520,9 @@ class TestParseSaveFile:
         assert set(restored.categories) == set(original.categories)
         for key, cat in original.categories.items():
             assert sorted(restored.categories[key].cards) == sorted(cat.cards)
-            assert restored.categories[key].total_slots == cat.total_slots
+            restored_cat = restored.categories[key]
+            if isinstance(cat, CappedCategory) and isinstance(restored_cat, CappedCategory):
+                assert restored_cat.total_slots == cat.total_slots
 
 
 class TestDecklistLoadHandler:
@@ -1662,11 +1658,9 @@ class TestFormatExportFile:
         # Basic Lands and Uncategorized are both uncapped, so Forest can appear in both
         deck.add_card("Forest", "Basic Lands")
         deck.add_card("Forest", "Basic Lands")
-        deck.categories["uncategorized"] = Category(
+        deck.categories["uncategorized"] = UncappedCategory(
             name="Uncategorized",
-            total_slots=0,
             fixed=True,
-            capped=False,
             user_addable=False,
         )
         deck.categories["uncategorized"].cards.append("Forest")

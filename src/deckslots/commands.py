@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Protocol
 
 from deckslots.cli import ParsedCommand
-from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
+from deckslots.models import (
+    BASIC_LAND_NAMES,
+    CappedCategory,
+    Category,
+    Decklist,
+    UncappedCategory,
+)
 
 
 class DispatchedHandler(Protocol):
@@ -40,6 +46,7 @@ def _format_save_file(decklist: Decklist) -> str:
         elif cat.name == "Uncategorized":
             heading = "Uncategorized"
         else:
+            assert isinstance(cat, CappedCategory)
             heading = f"{cat.name} [{cat.total_slots} slots]"
         lines = [heading]
         for card, qty in sorted(Counter(cat.cards).items()):
@@ -84,11 +91,9 @@ def _parse_save_file(path: str) -> Decklist:
             continue
         if s == "Uncategorized":
             if "uncategorized" not in deck.categories:
-                deck.categories["uncategorized"] = Category(
+                deck.categories["uncategorized"] = UncappedCategory(
                     name="Uncategorized",
-                    total_slots=0,
                     fixed=True,
-                    capped=False,
                     user_addable=False,
                 )
             current_category = "Uncategorized"
@@ -238,10 +243,10 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
     return f"Created category '{name}' with {slots} slots."
 
 
-def _format_category_line(cat) -> str:
-    if not cat.capped:
-        return f"  {cat.name}: {cat.filled} slots filled (uncapped)"
-    return f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled"
+def _format_category_line(cat: Category) -> str:
+    if isinstance(cat, CappedCategory):
+        return f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled"
+    return f"  {cat.name}: {cat.filled} slots filled (uncapped)"
 
 
 def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
@@ -276,11 +281,9 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     # Uncapped so imported quantities are taken at face value (including
     # duplicate non-land cards). Uncapped categories also skip the singleton
     # exclusivity check, letting cards later move to capped categories freely.
-    uncategorized_cat = Category(
+    uncategorized_cat = UncappedCategory(
         name="Uncategorized",
-        total_slots=0,
         fixed=True,
-        capped=False,
         user_addable=False,
     )
     deck.categories["uncategorized"] = uncategorized_cat
@@ -329,7 +332,7 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
         return "Error: Basic lands can only be added to the 'Basic Lands' category."
     if card not in BASIC_LAND_NAMES:
         for key, cat in session.decklist.categories.items():
-            if key != source_key and cat.capped and card in cat.cards:
+            if key != source_key and isinstance(cat, CappedCategory) and card in cat.cards:
                 return f"Error: '{card}' is already in the deck (in '{cat.name}')."
 
     source_cat.cards.remove(card)
@@ -353,11 +356,9 @@ def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
         )
     source_cat = session.decklist.categories[source_key]
     if "uncategorized" not in session.decklist.categories:
-        session.decklist.categories["uncategorized"] = Category(
+        session.decklist.categories["uncategorized"] = UncappedCategory(
             name="Uncategorized",
-            total_slots=0,
             fixed=True,
-            capped=False,
             user_addable=False,
         )
     uncategorized_cat = session.decklist.categories["uncategorized"]

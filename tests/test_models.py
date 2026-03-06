@@ -1,6 +1,20 @@
 import pytest
 
-from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
+from deckslots.models import (
+    BASIC_LAND_NAMES,
+    CappedCategory,
+    Category,
+    Decklist,
+    UncappedCategory,
+)
+
+
+class TestCategoryIsAbstract:
+    """Category is an abstract base class and cannot be instantiated directly."""
+
+    def test_category_cannot_be_instantiated(self):
+        with pytest.raises(TypeError):
+            Category(name="Ramp", total_slots=10)  # type: ignore[abstract]
 
 
 class TestCategory:
@@ -8,48 +22,48 @@ class TestCategory:
 
     def test_category_has_name_and_total_slots(self):
         """A category has a name and a total number of slots."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.name == "Ramp"
         assert cat.total_slots == 10
 
     def test_new_category_has_empty_cards(self):
         """A new category starts with no cards assigned."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.cards == []
 
     def test_filled_returns_zero_for_empty_category(self):
         """filled returns 0 when no cards are assigned."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.filled == 0
 
     def test_available_returns_total_slots_for_empty_category(self):
         """available returns total_slots when no cards are assigned."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.available == 10
 
     def test_is_full_returns_false_for_empty_category(self):
         """is_full returns False when no cards are assigned."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.is_full is False
 
     def test_category_rejects_zero_slots(self):
         """A category must have at least 1 slot."""
         with pytest.raises(ValueError):
-            Category(name="Bad", total_slots=0)
+            CappedCategory(name="Bad", total_slots=0)
 
     def test_category_rejects_100_slots(self):
         """A category must have at most 99 slots."""
         with pytest.raises(ValueError):
-            Category(name="Bad", total_slots=100)
+            CappedCategory(name="Bad", total_slots=100)
 
     def test_category_fixed_defaults_to_false(self):
         """Categories are not fixed by default."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.fixed is False
 
     def test_fixed_category_has_correct_attributes(self):
         """A fixed category preserves all fields correctly."""
-        cat = Category(name="Commander", total_slots=1, fixed=True)
+        cat = CappedCategory(name="Commander", total_slots=1, fixed=True)
         assert cat.name == "Commander"
         assert cat.total_slots == 1
         assert cat.fixed is True
@@ -64,42 +78,27 @@ class TestCategoryCards:
 
     def test_new_category_cards_is_list(self):
         """A new category's cards field is a list, not a set."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert isinstance(cat.cards, list)
 
 
 class TestCategoryCapped:
-    """Category.capped controls slot validation behavior."""
-
-    def test_uncapped_category_accepts_zero_slots(self):
-        """An uncapped category allows total_slots=0."""
-        cat = Category(name="Basic Lands", total_slots=0, capped=False)
-        assert cat.total_slots == 0
-
-    def test_uncapped_category_accepts_slots_above_99(self):
-        """An uncapped category allows total_slots above 99."""
-        cat = Category(name="Basic Lands", total_slots=200, capped=False)
-        assert cat.total_slots == 200
-
-    def test_uncapped_category_rejects_negative_slots(self):
-        """An uncapped category still rejects negative total_slots."""
-        with pytest.raises(ValueError):
-            Category(name="Basic Lands", total_slots=-1, capped=False)
+    """CappedCategory and UncappedCategory have distinct slot validation behavior."""
 
     def test_uncapped_category_is_never_full(self):
-        """An uncapped category with 0 slots and no cards is not full."""
-        cat = Category(name="Basic Lands", total_slots=0, capped=False)
+        """An UncappedCategory is never full."""
+        cat = UncappedCategory(name="Basic Lands")
         assert cat.is_full is False
 
     def test_uncapped_category_available_is_none(self):
-        """An uncapped category reports available as None (unbounded)."""
-        cat = Category(name="Basic Lands", total_slots=0, capped=False)
+        """An UncappedCategory reports available as None (unbounded)."""
+        cat = UncappedCategory(name="Basic Lands")
         assert cat.available is None
 
-    def test_capped_defaults_to_true(self):
-        """Categories are capped by default."""
-        cat = Category(name="Ramp", total_slots=10)
-        assert cat.capped is True
+    def test_user_created_category_is_capped(self):
+        """User-created categories are CappedCategory instances."""
+        cat = CappedCategory(name="Ramp", total_slots=10)
+        assert isinstance(cat, CappedCategory)
 
 
 class TestCategoryAllowedCards:
@@ -107,15 +106,13 @@ class TestCategoryAllowedCards:
 
     def test_category_allowed_cards_defaults_to_none(self):
         """By default, a category has no card restrictions."""
-        cat = Category(name="Ramp", total_slots=10)
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.allowed_cards is None
 
     def test_category_stores_allowed_cards(self):
         """A category can be constructed with an allowed_cards whitelist."""
         allowed = frozenset({"Plains", "Island"})
-        cat = Category(
-            name="Basics", total_slots=5, allowed_cards=allowed, capped=False
-        )
+        cat = UncappedCategory(name="Basics", allowed_cards=allowed)
         assert cat.allowed_cards == allowed
 
 
@@ -169,6 +166,7 @@ class TestDecklistCreate:
         """The Commander category has exactly 1 fixed slot."""
         deck = Decklist.create("Test Deck")
         commander = deck.categories["commander"]
+        assert isinstance(commander, CappedCategory)
         assert commander.total_slots == 1
         assert commander.fixed is True
 
@@ -191,15 +189,10 @@ class TestDecklistCreateBasicLands:
         deck = Decklist.create("Test Deck")
         assert deck.categories["basic lands"].fixed is True
 
-    def test_basic_lands_starts_with_zero_slots(self):
-        """The Basic Lands category starts with 0 slots."""
-        deck = Decklist.create("Test Deck")
-        assert deck.categories["basic lands"].total_slots == 0
-
     def test_basic_lands_is_uncapped(self):
-        """The Basic Lands category is uncapped (no upper limit)."""
+        """The Basic Lands category is an UncappedCategory."""
         deck = Decklist.create("Test Deck")
-        assert deck.categories["basic lands"].capped is False
+        assert isinstance(deck.categories["basic lands"], UncappedCategory)
 
     def test_basic_lands_has_allowed_cards(self):
         """The Basic Lands category restricts cards to BASIC_LAND_NAMES."""
@@ -215,8 +208,10 @@ class TestDecklistAddCategory:
         deck = Decklist.create("Test Deck")
         deck.add_category("Ramp", 10)
         assert "ramp" in deck.categories
-        assert deck.categories["ramp"].name == "Ramp"
-        assert deck.categories["ramp"].total_slots == 10
+        ramp = deck.categories["ramp"]
+        assert ramp.name == "Ramp"
+        assert isinstance(ramp, CappedCategory)
+        assert ramp.total_slots == 10
 
     def test_add_category_increases_total_slots(self):
         """Adding a category increases the decklist's total slot count."""
@@ -360,19 +355,13 @@ class TestCategoryUserAddable:
     """Category.user_addable controls whether card add is permitted."""
 
     def test_user_addable_defaults_to_true(self):
-        """A freshly created Category is user-addable by default."""
-        cat = Category(name="Ramp", total_slots=10)
+        """A freshly created CappedCategory is user-addable by default."""
+        cat = CappedCategory(name="Ramp", total_slots=10)
         assert cat.user_addable is True
 
     def test_user_addable_can_be_set_false(self):
         """user_addable=False can be set on a fixed uncapped category."""
-        cat = Category(
-            name="Uncategorized",
-            total_slots=0,
-            fixed=True,
-            capped=False,
-            user_addable=False,
-        )
+        cat = UncappedCategory(name="Uncategorized", fixed=True, user_addable=False)
         assert cat.user_addable is False
 
 
