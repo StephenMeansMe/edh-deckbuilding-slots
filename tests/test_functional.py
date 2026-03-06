@@ -105,10 +105,7 @@ def _write_save(state_home: Path, content: str) -> None:
 class TestAutoload:
     def test_no_resumed_message_when_no_save_file(self, tmp_path):
         out = _run("quit\n", tmp_path)
-        assert out == (
-            "deckslots> Welcome to deckslots.\n"
-            "deckslots> Goodbye.\n"
-        )
+        assert out == ("deckslots> Welcome to deckslots.\ndeckslots> Goodbye.\n")
 
     def test_resumed_message_appears_before_welcome(self, tmp_path):
         _write_save(tmp_path, "# My Deck\n\nCommander\n")
@@ -123,7 +120,8 @@ class TestAutoload:
         _write_save(tmp_path, "not a valid save file\n")
         out = _run("exit\n", tmp_path)
         assert out == (
-            "Warning: could not load save file: Save file missing '# <name>' header line..\n"
+            "Warning: could not load save file: "
+            "Save file missing '# <name>' header line..\n"
             "Options:\n"
             "  discard — delete the save file and start fresh\n"
             "  exit    — quit so you can inspect the file manually\n"
@@ -134,7 +132,8 @@ class TestAutoload:
         _write_save(tmp_path, "not a valid save file\n")
         out = _run("discard\nquit\n", tmp_path)
         assert out == (
-            "Warning: could not load save file: Save file missing '# <name>' header line..\n"
+            "Warning: could not load save file: "
+            "Save file missing '# <name>' header line..\n"
             "Options:\n"
             "  discard — delete the save file and start fresh\n"
             "  exit    — quit so you can inspect the file manually\n"
@@ -153,7 +152,8 @@ class TestAutoload:
         _write_save(tmp_path, "not a valid save file\n")
         out = _run("exit\n", tmp_path)
         assert out == (
-            "Warning: could not load save file: Save file missing '# <name>' header line..\n"
+            "Warning: could not load save file: "
+            "Save file missing '# <name>' header line..\n"
             "Options:\n"
             "  discard — delete the save file and start fresh\n"
             "  exit    — quit so you can inspect the file manually\n"
@@ -164,7 +164,8 @@ class TestAutoload:
         _write_save(tmp_path, "not a valid save file\n")
         out = _run("", tmp_path)
         assert out == (
-            "Warning: could not load save file: Save file missing '# <name>' header line..\n"
+            "Warning: could not load save file: "
+            "Save file missing '# <name>' header line..\n"
             "Options:\n"
             "  discard — delete the save file and start fresh\n"
             "  exit    — quit so you can inspect the file manually\n"
@@ -175,7 +176,8 @@ class TestAutoload:
         _write_save(tmp_path, "not a valid save file\n")
         out = _run("oops\nexit\n", tmp_path)
         assert out == (
-            "Warning: could not load save file: Save file missing '# <name>' header line..\n"
+            "Warning: could not load save file: "
+            "Save file missing '# <name>' header line..\n"
             "Options:\n"
             "  discard — delete the save file and start fresh\n"
             "  exit    — quit so you can inspect the file manually\n"
@@ -202,7 +204,11 @@ class TestExport:
         )
         # The "Exported to <path>" line contains a tmp path that varies; skip it.
         # Its exact format is covered by the unit tests in test_commands.py.
-        lines = [l for l in out.splitlines() if not l.startswith("deckslots> Exported")]
+        lines = [
+            line
+            for line in out.splitlines()
+            if not line.startswith("deckslots> Exported")
+        ]
         assert lines == [
             "deckslots> Welcome to deckslots.",
             "deckslots> Created decklist 'TestDeck'.",

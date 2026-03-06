@@ -3,12 +3,22 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from deckslots.cli import ParsedCommand
-from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
+from deckslots.models import (
+    BASIC_LAND_NAMES,
+    CappedCategory,
+    Category,
+    Decklist,
+    UncappedCategory,
+)
+
+
+class DispatchedHandler(Protocol):
+    def __call__(self, cmd: ParsedCommand) -> str: ...
 
 
 def _get_save_path() -> Path:
@@ -36,6 +46,7 @@ def _format_save_file(decklist: Decklist) -> str:
         elif cat.name == "Uncategorized":
             heading = "Uncategorized"
         else:
+            assert isinstance(cat, CappedCategory)
             heading = f"{cat.name} [{cat.total_slots} slots]"
         lines = [heading]
         for card, qty in sorted(Counter(cat.cards).items()):
@@ -80,11 +91,9 @@ def _parse_save_file(path: str) -> Decklist:
             continue
         if s == "Uncategorized":
             if "uncategorized" not in deck.categories:
-                deck.categories["uncategorized"] = Category(
+                deck.categories["uncategorized"] = UncappedCategory(
                     name="Uncategorized",
-                    total_slots=0,
                     fixed=True,
-                    capped=False,
                     user_addable=False,
                 )
             current_category = "Uncategorized"
@@ -234,10 +243,10 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
     return f"Created category '{name}' with {slots} slots."
 
 
-def _format_category_line(cat) -> str:
-    if not cat.capped:
-        return f"  {cat.name}: {cat.filled} slots filled (uncapped)"
-    return f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled"
+def _format_category_line(cat: Category) -> str:
+    if isinstance(cat, CappedCategory):
+        return f"  {cat.name}: {cat.filled}/{cat.total_slots} slots filled"
+    return f"  {cat.name}: {cat.filled} slots filled (uncapped)"
 
 
 def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
@@ -272,11 +281,9 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     # Uncapped so imported quantities are taken at face value (including
     # duplicate non-land cards). Uncapped categories also skip the singleton
     # exclusivity check, letting cards later move to capped categories freely.
-    uncategorized_cat = Category(
+    uncategorized_cat = UncappedCategory(
         name="Uncategorized",
-        total_slots=0,
         fixed=True,
-        capped=False,
         user_addable=False,
     )
     deck.categories["uncategorized"] = uncategorized_cat
@@ -308,29 +315,26 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
     card, target_key = resolved
     target_cat = session.decklist.categories[target_key]
 
+    # UX-level policy: Uncategorized is not a valid move target (use 'card remove')
     if not target_cat.user_addable:
         return f"Cannot move cards to '{target_cat.name}'. Use 'card remove' instead."
-    source_key = session.decklist.find_card(card)
-    if source_key is None:
-        return f"Card '{card}' not found in the decklist."
-    source_cat = session.decklist.categories[source_key]
-
-    if source_key == target_key or card in target_cat.cards:
-        return f"'{card}' is already in '{target_cat.name}'. Nothing to do."
-    if target_cat.is_full:
-        return f"Category '{target_cat.name}' is full (no available slots)."
-    if target_cat.allowed_cards is not None and card not in target_cat.allowed_cards:
-        return f"'{card}' is not allowed in '{target_cat.name}'."
+    # UX-level policy: basic lands must stay in Basic Lands
     if card in BASIC_LAND_NAMES and target_cat.name != "Basic Lands":
         return "Error: Basic lands can only be added to the 'Basic Lands' category."
-    if card not in BASIC_LAND_NAMES:
-        for key, cat in session.decklist.categories.items():
-            if key != source_key and cat.capped and card in cat.cards:
-                return f"Error: '{card}' is already in the deck (in '{cat.name}')."
 
-    source_cat.cards.remove(card)
-    target_cat.cards.append(card)
-    return f"Moved '{card}' from '{source_cat.name}' to '{target_cat.name}'."
+    source_key = session.decklist.find_card(card)
+    source_name = session.decklist.categories[source_key].name if source_key else None
+    try:
+        session.decklist.move_card(card, target_cat.name)
+    except ValueError as e:
+        msg = str(e)
+        if f"'{card}' is already in '{target_cat.name}'" in msg:
+            return f"'{card}' is already in '{target_cat.name}'. Nothing to do."
+        if "already in the decklist" in msg:
+            return f"Error: {msg.replace('in the decklist', 'in the deck')}"
+        return msg
+    assert source_name is not None
+    return f"Moved '{card}' from '{source_name}' to '{target_cat.name}'."
 
 
 def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
@@ -347,19 +351,9 @@ def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
             f"'{card}' is already in Uncategorized. "
             "Use 'card delete' to permanently remove it."
         )
-    source_cat = session.decklist.categories[source_key]
-    if "uncategorized" not in session.decklist.categories:
-        session.decklist.categories["uncategorized"] = Category(
-            name="Uncategorized",
-            total_slots=0,
-            fixed=True,
-            capped=False,
-            user_addable=False,
-        )
-    uncategorized_cat = session.decklist.categories["uncategorized"]
-    source_cat.cards.remove(card)
-    uncategorized_cat.cards.append(card)
-    return f"Removed '{card}' from '{source_cat.name}'. Card is now in Uncategorized."
+    source_name = session.decklist.categories[source_key].name
+    session.decklist.remove_card(card)
+    return f"Removed '{card}' from '{source_name}'. Card is now in Uncategorized."
 
 
 def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
@@ -368,10 +362,10 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: card delete <card-name>"
     card = " ".join(cmd.args)
-    source_key = session.decklist.find_card(card)
-    if source_key is None:
-        return f"Card '{card}' not found in the decklist."
-    session.decklist.categories[source_key].cards.remove(card)
+    try:
+        session.decklist.delete_card(card)
+    except ValueError as e:
+        return str(e)
     return f"Deleted '{card}' from the decklist."
 
 
@@ -512,7 +506,7 @@ def handle_decklist_show(session: Session, cmd: ParsedCommand) -> str:
 
 def register_all_handlers(
     session: Session,
-) -> dict[tuple[str, str], Callable[[ParsedCommand], str]]:
+) -> dict[tuple[str, str], DispatchedHandler]:
     return {
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
@@ -531,7 +525,7 @@ def register_all_handlers(
 
 def dispatch(
     cmd: ParsedCommand,
-    registry: dict[tuple[str, str], Callable[[ParsedCommand], str]],
+    registry: dict[tuple[str, str], DispatchedHandler],
 ) -> str:
     key = (cmd.obj, cmd.verb)
     handler = registry.get(key)
