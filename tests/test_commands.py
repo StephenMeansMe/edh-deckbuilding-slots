@@ -1832,3 +1832,8 @@ class TestHandleCategoryRename:
         result = handle_category_rename(session, "ramp", "Combo")
         assert "already exists" in result
         assert "ramp" in session.decklist.categories  # unchanged
+
+
+class TestDispatchedHandlerProtocol:
+    def test_dispatched_handler_protocol_is_importable(self):
+        from deckslots.commands import DispatchedHandler  # noqa: F401

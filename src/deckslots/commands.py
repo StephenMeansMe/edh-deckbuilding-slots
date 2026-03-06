@@ -3,12 +3,16 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from deckslots.cli import ParsedCommand
 from deckslots.models import BASIC_LAND_NAMES, Category, Decklist
+
+
+class DispatchedHandler(Protocol):
+    def __call__(self, cmd: ParsedCommand) -> str: ...
 
 
 def _get_save_path() -> Path:
@@ -512,7 +516,7 @@ def handle_decklist_show(session: Session, cmd: ParsedCommand) -> str:
 
 def register_all_handlers(
     session: Session,
-) -> dict[tuple[str, str], Callable[[ParsedCommand], str]]:
+) -> dict[tuple[str, str], DispatchedHandler]:
     return {
         ("decklist", "create"): lambda cmd: handle_decklist_create(session, cmd),
         ("decklist", "show"): lambda cmd: handle_decklist_show(session, cmd),
@@ -531,7 +535,7 @@ def register_all_handlers(
 
 def dispatch(
     cmd: ParsedCommand,
-    registry: dict[tuple[str, str], Callable[[ParsedCommand], str]],
+    registry: dict[tuple[str, str], DispatchedHandler],
 ) -> str:
     key = (cmd.obj, cmd.verb)
     handler = registry.get(key)
