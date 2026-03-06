@@ -139,6 +139,64 @@ class Decklist:
                 return key
         return None
 
+    def move_card(self, card: str, to_category_name: str) -> None:
+        """Move card to another category. Raises ValueError on failure."""
+        source_key = self.find_card(card)
+        if source_key is None:
+            raise ValueError(f"Card '{card}' not found in the decklist.")
+        target_key = to_category_name.lower()
+        if target_key not in self.categories:
+            raise ValueError(f"Category '{to_category_name}' not found.")
+        target_cat = self.categories[target_key]
+        if source_key == target_key:
+            raise ValueError(f"'{card}' is already in '{target_cat.name}'.")
+        if target_cat.is_full:
+            raise ValueError(
+                f"Category '{target_cat.name}' is full (no available slots)."
+            )
+        if (
+            target_cat.allowed_cards is not None
+            and card not in target_cat.allowed_cards
+        ):
+            raise ValueError(f"'{card}' is not allowed in '{target_cat.name}'.")
+        # Enforce singleton exclusivity: card must not already exist in
+        # another capped category.
+        if isinstance(target_cat, CappedCategory):
+            for key, cat in self.categories.items():
+                if (
+                    key != source_key
+                    and isinstance(cat, CappedCategory)
+                    and card in cat.cards
+                ):
+                    raise ValueError(
+                        f"'{card}' is already in the decklist (in '{cat.name}')."
+                    )
+        self.categories[source_key].cards.remove(card)
+        target_cat.cards.append(card)
+
+    def remove_card(self, card: str) -> None:
+        """Move card to Uncategorized, creating it if needed.
+
+        Raises ValueError if not found.
+        """
+        source_key = self.find_card(card)
+        if source_key is None:
+            raise ValueError(f"Card '{card}' not found in the decklist.")
+        if "uncategorized" not in self.categories:
+            self.categories["uncategorized"] = UncappedCategory(
+                name="Uncategorized", fixed=True, user_addable=False
+            )
+        source_cat = self.categories[source_key]
+        source_cat.cards.remove(card)
+        self.categories["uncategorized"].cards.append(card)
+
+    def delete_card(self, card: str) -> None:
+        """Permanently remove a card. Raises ValueError if not found."""
+        source_key = self.find_card(card)
+        if source_key is None:
+            raise ValueError(f"Card '{card}' not found in the decklist.")
+        self.categories[source_key].cards.remove(card)
+
     def rename_category(self, old_name: str, new_name: str) -> None:
         old_key = old_name.lower()
         new_key = new_name.lower()
