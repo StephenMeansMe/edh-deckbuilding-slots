@@ -1,13 +1,5 @@
 # Deck Consistency Checks (US-006)
 
-## Setup: import file with Sol Ring listed twice (to exercise singleton move check)
-
-```scrut
-$ printf 'Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n1 Sol Ring\n' > "$TMPDIR/double.txt"
-```
-
----
-
 ## card move to same category is a no-op (AC 1)
 
 ```scrut
@@ -60,7 +52,7 @@ copy to Draw — which must be rejected because Sol Ring is already in the cappe
 Ramp category.
 
 ```scrut
-$ printf "decklist import $TMPDIR/double.txt\ncategory create Ramp 10\ncategory create Draw 10\ncard move Sol Ring Ramp\ncard move Sol Ring Draw\nquit\n" \
+$ printf "decklist import $TESTDIR/double.txt\ncategory create Ramp 10\ncategory create Draw 10\ncard move Sol Ring Ramp\ncard move Sol Ring Draw\nquit\n" \
 >   | XDG_STATE_HOME="$TMPDIR/singleton" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Warning: 2 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.
