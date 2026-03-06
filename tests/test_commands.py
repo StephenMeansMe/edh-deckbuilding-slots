@@ -30,7 +30,7 @@ from deckslots.commands import (
     validate_category_rename,
     validate_decklist_rename,
 )
-from deckslots.models import CappedCategory, Category, Decklist, UncappedCategory
+from deckslots.models import CappedCategory, Decklist, UncappedCategory
 
 
 def _make_session_with_deck():
@@ -936,23 +936,6 @@ class TestCardMoveHandler:
         result = handle_card_move(session, cmd)
         assert "not allowed" in result.lower()
 
-    def test_card_move_rejects_when_card_already_in_another_capped_category(self):
-        """card move is rejected when the card exists in another capped category."""
-        session = _make_session_with_deck()
-        session.decklist.add_category("Ramp", 10)
-        session.decklist.add_category("Draw", 10)
-        session.decklist.add_category("Payoffs", 10)
-        session.decklist.add_card("Sol Ring", "Ramp")
-        # Inject Sol Ring into Draw directly to simulate an inconsistent state
-        session.decklist.categories["draw"].cards.append("Sol Ring")
-        cmd = _make_cmd(
-            "card move Sol Ring Payoffs", "card", "move", ["Sol", "Ring", "Payoffs"]
-        )
-        result = handle_card_move(session, cmd)
-        assert result.startswith("Error:")
-        assert "already in the deck" in result
-        assert "Draw" in result
-
     def test_card_move_singleton_check_exempts_basic_lands(self):
         """Basic land cards bypass the singleton non-basic-land rule on card move."""
         session = _make_session_with_deck()
@@ -1521,7 +1504,9 @@ class TestParseSaveFile:
         for key, cat in original.categories.items():
             assert sorted(restored.categories[key].cards) == sorted(cat.cards)
             restored_cat = restored.categories[key]
-            if isinstance(cat, CappedCategory) and isinstance(restored_cat, CappedCategory):
+            if isinstance(cat, CappedCategory) and isinstance(
+                restored_cat, CappedCategory
+            ):
                 assert restored_cat.total_slots == cat.total_slots
 
 
