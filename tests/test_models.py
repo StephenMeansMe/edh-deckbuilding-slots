@@ -424,3 +424,113 @@ class TestDecklistRename:
         deck = Decklist.create("Old Name")
         deck.rename("New Name")
         assert deck.name == "New Name"
+
+
+class TestDecklistMoveCard:
+    """Decklist.move_card moves a card between categories."""
+
+    def test_move_card_raises_when_card_not_found(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        with pytest.raises(ValueError, match="not found"):
+            deck.move_card("Sol Ring", "Ramp")
+
+    def test_move_card_raises_when_target_not_found(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        with pytest.raises(ValueError, match="not found"):
+            deck.move_card("Sol Ring", "Nonexistent")
+
+    def test_move_card_raises_when_target_is_full(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 1)
+        deck.add_category("Draw", 1)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.add_card("Rhystic Study", "Draw")
+        with pytest.raises(ValueError, match="full"):
+            deck.move_card("Sol Ring", "Draw")
+
+    def test_move_card_raises_when_already_in_target(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        with pytest.raises(ValueError, match="already in"):
+            deck.move_card("Sol Ring", "Ramp")
+
+    def test_move_card_raises_when_card_not_allowed(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        with pytest.raises(ValueError, match="not allowed"):
+            deck.move_card("Sol Ring", "Basic Lands")
+
+    def test_move_card_raises_when_card_in_another_capped_category(self):
+        """move_card rejects if the card already exists in another capped category."""
+        deck = Decklist.create("Test")
+        # Inject Uncategorized first so find_card finds Sol Ring here before Ramp.
+        # This matches the real import scenario where Uncategorized is created
+        # before user categories are added.
+        deck.categories["uncategorized"] = UncappedCategory(
+            name="Uncategorized", fixed=True, user_addable=False
+        )
+        deck.categories["uncategorized"].cards.append("Sol Ring")
+        deck.add_category("Ramp", 10)
+        deck.add_category("Draw", 10)
+        # Sol Ring is also in Ramp (simulating it was already moved there).
+        # add_card allows this because Uncategorized is UncappedCategory.
+        deck.add_card("Sol Ring", "Ramp")
+        with pytest.raises(ValueError, match="already in the decklist"):
+            deck.move_card("Sol Ring", "Draw")  # Sol Ring in Ramp should block this
+
+    def test_move_card_moves_card_to_target(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        deck.add_category("Draw", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.move_card("Sol Ring", "Draw")
+        assert "Sol Ring" not in deck.categories["ramp"].cards
+        assert "Sol Ring" in deck.categories["draw"].cards
+
+
+class TestDecklistRemoveCard:
+    """Decklist.remove_card moves a card to Uncategorized."""
+
+    def test_remove_card_raises_when_card_not_found(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(ValueError, match="not found"):
+            deck.remove_card("Sol Ring")
+
+    def test_remove_card_moves_card_to_uncategorized(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.remove_card("Sol Ring")
+        assert "Sol Ring" not in deck.categories["ramp"].cards
+        assert "Sol Ring" in deck.categories["uncategorized"].cards
+
+    def test_remove_card_creates_uncategorized_if_missing(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        assert "uncategorized" not in deck.categories
+        deck.remove_card("Sol Ring")
+        assert "uncategorized" in deck.categories
+        assert isinstance(deck.categories["uncategorized"], UncappedCategory)
+
+
+class TestDecklistDeleteCard:
+    """Decklist.delete_card permanently removes a card."""
+
+    def test_delete_card_raises_when_card_not_found(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(ValueError, match="not found"):
+            deck.delete_card("Sol Ring")
+
+    def test_delete_card_removes_card_from_decklist(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.delete_card("Sol Ring")
+        assert "Sol Ring" not in deck.categories["ramp"].cards
+        assert deck.find_card("Sol Ring") is None
