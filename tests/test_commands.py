@@ -1814,6 +1814,41 @@ class TestHandleCategoryRename:
         assert "ramp" in session.decklist.categories  # unchanged
 
 
+class TestFormatExportFilePartners:
+    """_format_export_file lists both commanders when partners is enabled."""
+
+    def test_export_with_two_commanders_lists_both(self):
+        """Both partner commanders appear in the Commander export section."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        content = _format_export_file(deck)
+        assert "1 Malcolm, Keen-Eyed Navigator" in content
+        assert "1 Tana, the Bloodsower" in content
+
+    def test_export_two_commanders_not_in_maindeck(self):
+        """Partner commanders do not appear in the Maindeck export section."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        content = _format_export_file(deck)
+        maindeck_start = content.index("Maindeck")
+        maindeck_section = content[maindeck_start:]
+        assert "Malcolm" not in maindeck_section
+        assert "Tana" not in maindeck_section
+
+    def test_export_single_commander_unchanged(self):
+        """A single-commander decklist still exports the commander as before."""
+        deck = Decklist.create("Solo Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        content = _format_export_file(deck)
+        assert "1 Atraxa, Praetors' Voice" in content
+        commander_section = content[: content.index("Maindeck")]
+        assert commander_section.count("1 ") == 1
+
+
 class TestFormatSaveFilePartners:
     """_format_save_file writes partners flag; _parse_save_file restores it."""
 
