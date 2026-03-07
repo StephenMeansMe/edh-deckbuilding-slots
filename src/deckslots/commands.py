@@ -40,7 +40,9 @@ def _format_save_file(decklist: Decklist) -> str:
     sections: list[str] = [f"# {decklist.name}"]
     for cat in decklist.categories.values():
         if cat.name == "Commander":
-            heading = "Commander [partners]" if decklist.partners_enabled else "Commander"
+            heading = (
+                "Commander [partners]" if decklist.partners_enabled else "Commander"
+            )
         elif cat.name == "Basic Lands":
             heading = "Basic Lands"
         elif cat.name == "Uncategorized":
@@ -491,6 +493,7 @@ def handle_help() -> str:
             "  decklist save                 Save the active decklist",
             "  decklist load                 Load the last saved decklist",
             "  decklist rename               Rename the active decklist",
+            "  decklist enable-partners      Allow two commanders (partner mechanic)",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",

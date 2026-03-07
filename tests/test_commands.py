@@ -1853,7 +1853,7 @@ class TestFormatSaveFilePartners:
     """_format_save_file writes partners flag; _parse_save_file restores it."""
 
     def test_partners_enabled_uses_partners_heading(self):
-        """When partners_enabled, Commander section heading is 'Commander [partners]'."""
+        """Commander section heading is 'Commander [partners]' when partners_enabled."""
         deck = Decklist.create("My Deck")
         deck.enable_partners()
         content = _format_save_file(deck)
