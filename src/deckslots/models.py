@@ -96,6 +96,7 @@ class UncappedCategory(Category):
 class Decklist:
     name: str
     categories: dict[str, Category] = field(default_factory=dict)
+    partners_enabled: bool = False
 
     @property
     def total_slots(self) -> int:
@@ -210,6 +211,13 @@ class Decklist:
         del self.categories[old_key]
         cat.name = new_name
         self.categories[new_key] = cat
+
+    def enable_partners(self) -> None:
+        """Allow two commanders by expanding the Commander category to 2 slots."""
+        self.partners_enabled = True
+        commander = self.categories["commander"]
+        assert isinstance(commander, CappedCategory)
+        commander.total_slots = 2
 
     def rename(self, new_name: str) -> None:
         self.name = new_name
