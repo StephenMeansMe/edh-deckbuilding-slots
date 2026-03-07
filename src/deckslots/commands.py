@@ -383,8 +383,9 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
 def _format_export_file(decklist: Decklist) -> str:
     commander_cat = decklist.categories.get("commander")
     commander_lines = ["Commander"]
-    if commander_cat and commander_cat.cards:
-        commander_lines.append(f"1 {commander_cat.cards[0]}")
+    if commander_cat:
+        for card in commander_cat.cards:
+            commander_lines.append(f"1 {card}")
 
     maindeck_cards: Counter[str] = Counter()
     for key, cat in decklist.categories.items():
