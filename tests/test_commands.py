@@ -19,6 +19,7 @@ from deckslots.commands import (
     handle_category_list,
     handle_category_rename,
     handle_decklist_create,
+    handle_decklist_enable_partners,
     handle_decklist_export,
     handle_decklist_import,
     handle_decklist_load,
@@ -1811,6 +1812,49 @@ class TestHandleCategoryRename:
         result = handle_category_rename(session, "ramp", "Combo")
         assert "already exists" in result
         assert "ramp" in session.decklist.categories  # unchanged
+
+
+class TestHandleDecklistEnablePartners:
+    """handle_decklist_enable_partners enables partner commanders."""
+
+    def _cmd(self) -> ParsedCommand:
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist enable-partners",
+            obj="decklist",
+            verb="enable-partners",
+            args=[],
+        )
+
+    def test_returns_error_when_no_active_decklist(self):
+        """Returns an error message when no decklist exists."""
+        session = Session()
+        result = handle_decklist_enable_partners(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_sets_partners_enabled_on_decklist(self):
+        """Calling the handler sets partners_enabled to True."""
+        session = _make_session_with_deck()
+        handle_decklist_enable_partners(session, self._cmd())
+        assert session.decklist.partners_enabled is True
+
+    def test_commander_category_has_two_slots_after_enable(self):
+        """After the handler runs, the Commander category has 2 slots."""
+        session = _make_session_with_deck()
+        handle_decklist_enable_partners(session, self._cmd())
+        assert session.decklist.categories["commander"].total_slots == 2
+
+    def test_returns_confirmation_message(self):
+        """Handler returns a human-readable success message."""
+        session = _make_session_with_deck()
+        result = handle_decklist_enable_partners(session, self._cmd())
+        assert "partner" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        """enable-partners is registered in the dispatch registry."""
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "enable-partners") in registry
 
 
 class TestDispatchedHandlerProtocol:
