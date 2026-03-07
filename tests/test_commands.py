@@ -1814,6 +1814,56 @@ class TestHandleCategoryRename:
         assert "ramp" in session.decklist.categories  # unchanged
 
 
+class TestFormatSaveFilePartners:
+    """_format_save_file writes partners flag; _parse_save_file restores it."""
+
+    def test_partners_enabled_uses_partners_heading(self):
+        """When partners_enabled, Commander section heading is 'Commander [partners]'."""
+        deck = Decklist.create("My Deck")
+        deck.enable_partners()
+        content = _format_save_file(deck)
+        assert "Commander [partners]" in content
+
+    def test_partners_disabled_uses_plain_heading(self):
+        """When partners is off, Commander section heading is plain 'Commander'."""
+        deck = Decklist.create("My Deck")
+        content = _format_save_file(deck)
+        assert "Commander [partners]" not in content
+        assert "Commander" in content
+
+    def test_parse_save_file_restores_partners_enabled(self, tmp_path):
+        """Parsing a save file with 'Commander [partners]' sets partners_enabled."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.partners_enabled is True
+
+    def test_parse_save_file_restores_both_commanders(self, tmp_path):
+        """Both partner commanders are loaded back into the Commander category."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert "Malcolm, Keen-Eyed Navigator" in loaded.categories["commander"].cards
+        assert "Tana, the Bloodsower" in loaded.categories["commander"].cards
+
+    def test_parse_save_file_partners_disabled_stays_false(self, tmp_path):
+        """Parsing a save file without partners flag keeps partners_enabled False."""
+        deck = Decklist.create("Solo Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.partners_enabled is False
+
+
 class TestHandleDecklistEnablePartners:
     """handle_decklist_enable_partners enables partner commanders."""
 
