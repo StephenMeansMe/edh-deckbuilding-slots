@@ -40,7 +40,7 @@ def _format_save_file(decklist: Decklist) -> str:
     sections: list[str] = [f"# {decklist.name}"]
     for cat in decklist.categories.values():
         if cat.name == "Commander":
-            heading = "Commander"
+            heading = "Commander [partners]" if decklist.partners_enabled else "Commander"
         elif cat.name == "Basic Lands":
             heading = "Basic Lands"
         elif cat.name == "Uncategorized":
@@ -84,6 +84,10 @@ def _parse_save_file(path: str) -> Decklist:
         if not s:
             continue
         if s == "Commander":
+            current_category = "Commander"
+            continue
+        if s == "Commander [partners]":
+            deck.enable_partners()
             current_category = "Commander"
             continue
         if s == "Basic Lands":
