@@ -534,3 +534,14 @@ class TestDecklistDeleteCard:
         deck.delete_card("Sol Ring")
         assert "Sol Ring" not in deck.categories["ramp"].cards
         assert deck.find_card("Sol Ring") is None
+
+
+class TestDecklistPartners:
+    """Decklist.enable_partners allows two commanders."""
+
+    def test_commander_rejects_second_card_by_default(self):
+        """Commander category is full after one card, rejecting a second."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        with pytest.raises(ValueError, match="full"):
+            deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
