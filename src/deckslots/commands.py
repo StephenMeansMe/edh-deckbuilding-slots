@@ -195,6 +195,13 @@ def _resolve_card_and_category_suffix(
     return None
 
 
+def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.enable_partners()
+    return "Partners mode enabled. The Commander category now has 2 slots."
+
+
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: decklist create <name>"
@@ -514,6 +521,9 @@ def register_all_handlers(
         ("decklist", "export"): lambda cmd: handle_decklist_export(session, cmd),
         ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
         ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
+        ("decklist", "enable-partners"): lambda cmd: handle_decklist_enable_partners(
+            session, cmd
+        ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
