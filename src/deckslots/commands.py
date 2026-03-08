@@ -40,7 +40,9 @@ def _format_save_file(decklist: Decklist) -> str:
     sections: list[str] = [f"# {decklist.name}"]
     for cat in decklist.categories.values():
         if cat.name == "Commander":
-            heading = "Commander"
+            heading = (
+                "Commander [partners]" if decklist.partners_enabled else "Commander"
+            )
         elif cat.name == "Basic Lands":
             heading = "Basic Lands"
         elif cat.name == "Uncategorized":
@@ -84,6 +86,10 @@ def _parse_save_file(path: str) -> Decklist:
         if not s:
             continue
         if s == "Commander":
+            current_category = "Commander"
+            continue
+        if s == "Commander [partners]":
+            deck.enable_partners()
             current_category = "Commander"
             continue
         if s == "Basic Lands":
@@ -193,6 +199,13 @@ def _resolve_card_and_category_suffix(
         if candidate in categories:
             return (" ".join(args[:i]), candidate)
     return None
+
+
+def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.enable_partners()
+    return "Partners mode enabled. The Commander category now has 2 slots."
 
 
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
@@ -372,8 +385,9 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
 def _format_export_file(decklist: Decklist) -> str:
     commander_cat = decklist.categories.get("commander")
     commander_lines = ["Commander"]
-    if commander_cat and commander_cat.cards:
-        commander_lines.append(f"1 {commander_cat.cards[0]}")
+    if commander_cat:
+        for card in commander_cat.cards:
+            commander_lines.append(f"1 {card}")
 
     maindeck_cards: Counter[str] = Counter()
     for key, cat in decklist.categories.items():
@@ -479,6 +493,7 @@ def handle_help() -> str:
             "  decklist save                 Save the active decklist",
             "  decklist load                 Load the last saved decklist",
             "  decklist rename               Rename the active decklist",
+            "  decklist enable-partners      Allow two commanders (partner mechanic)",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",
@@ -514,6 +529,9 @@ def register_all_handlers(
         ("decklist", "export"): lambda cmd: handle_decklist_export(session, cmd),
         ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
         ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
+        ("decklist", "enable-partners"): lambda cmd: handle_decklist_enable_partners(
+            session, cmd
+        ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),

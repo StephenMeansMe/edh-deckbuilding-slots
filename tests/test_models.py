@@ -534,3 +534,47 @@ class TestDecklistDeleteCard:
         deck.delete_card("Sol Ring")
         assert "Sol Ring" not in deck.categories["ramp"].cards
         assert deck.find_card("Sol Ring") is None
+
+
+class TestDecklistPartners:
+    """Decklist.enable_partners allows two commanders."""
+
+    def test_commander_rejects_second_card_by_default(self):
+        """Commander category is full after one card, rejecting a second."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        with pytest.raises(ValueError, match="full"):
+            deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+
+    def test_new_decklist_has_partners_disabled(self):
+        """A freshly created decklist has partners_enabled set to False."""
+        deck = Decklist.create("Test Deck")
+        assert deck.partners_enabled is False
+
+    def test_enable_partners_sets_flag(self):
+        """enable_partners sets partners_enabled to True."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        assert deck.partners_enabled is True
+
+    def test_enable_partners_expands_commander_to_two_slots(self):
+        """enable_partners sets the Commander category's total_slots to 2."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        assert deck.categories["commander"].total_slots == 2
+
+    def test_enable_partners_allows_two_commanders(self):
+        """After enable_partners, two cards can be added to Commander."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        assert len(deck.categories["commander"].cards) == 2
+
+    def test_enable_partners_is_idempotent(self):
+        """Calling enable_partners twice keeps commander at 2 slots."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.enable_partners()
+        assert deck.categories["commander"].total_slots == 2
+        assert deck.partners_enabled is True

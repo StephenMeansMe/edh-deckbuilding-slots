@@ -19,6 +19,7 @@ from deckslots.commands import (
     handle_category_list,
     handle_category_rename,
     handle_decklist_create,
+    handle_decklist_enable_partners,
     handle_decklist_export,
     handle_decklist_import,
     handle_decklist_load,
@@ -1811,6 +1812,134 @@ class TestHandleCategoryRename:
         result = handle_category_rename(session, "ramp", "Combo")
         assert "already exists" in result
         assert "ramp" in session.decklist.categories  # unchanged
+
+
+class TestFormatExportFilePartners:
+    """_format_export_file lists both commanders when partners is enabled."""
+
+    def test_export_with_two_commanders_lists_both(self):
+        """Both partner commanders appear in the Commander export section."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        content = _format_export_file(deck)
+        assert "1 Malcolm, Keen-Eyed Navigator" in content
+        assert "1 Tana, the Bloodsower" in content
+
+    def test_export_two_commanders_not_in_maindeck(self):
+        """Partner commanders do not appear in the Maindeck export section."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        content = _format_export_file(deck)
+        maindeck_start = content.index("Maindeck")
+        maindeck_section = content[maindeck_start:]
+        assert "Malcolm" not in maindeck_section
+        assert "Tana" not in maindeck_section
+
+    def test_export_single_commander_unchanged(self):
+        """A single-commander decklist still exports the commander as before."""
+        deck = Decklist.create("Solo Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        content = _format_export_file(deck)
+        assert "1 Atraxa, Praetors' Voice" in content
+        commander_section = content[: content.index("Maindeck")]
+        assert commander_section.count("1 ") == 1
+
+
+class TestFormatSaveFilePartners:
+    """_format_save_file writes partners flag; _parse_save_file restores it."""
+
+    def test_partners_enabled_uses_partners_heading(self):
+        """Commander section heading is 'Commander [partners]' when partners_enabled."""
+        deck = Decklist.create("My Deck")
+        deck.enable_partners()
+        content = _format_save_file(deck)
+        assert "Commander [partners]" in content
+
+    def test_partners_disabled_uses_plain_heading(self):
+        """When partners is off, Commander section heading is plain 'Commander'."""
+        deck = Decklist.create("My Deck")
+        content = _format_save_file(deck)
+        assert "Commander [partners]" not in content
+        assert "Commander" in content
+
+    def test_parse_save_file_restores_partners_enabled(self, tmp_path):
+        """Parsing a save file with 'Commander [partners]' sets partners_enabled."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.partners_enabled is True
+
+    def test_parse_save_file_restores_both_commanders(self, tmp_path):
+        """Both partner commanders are loaded back into the Commander category."""
+        deck = Decklist.create("Partner Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert "Malcolm, Keen-Eyed Navigator" in loaded.categories["commander"].cards
+        assert "Tana, the Bloodsower" in loaded.categories["commander"].cards
+
+    def test_parse_save_file_partners_disabled_stays_false(self, tmp_path):
+        """Parsing a save file without partners flag keeps partners_enabled False."""
+        deck = Decklist.create("Solo Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.partners_enabled is False
+
+
+class TestHandleDecklistEnablePartners:
+    """handle_decklist_enable_partners enables partner commanders."""
+
+    def _cmd(self) -> ParsedCommand:
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist enable-partners",
+            obj="decklist",
+            verb="enable-partners",
+            args=[],
+        )
+
+    def test_returns_error_when_no_active_decklist(self):
+        """Returns an error message when no decklist exists."""
+        session = Session()
+        result = handle_decklist_enable_partners(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_sets_partners_enabled_on_decklist(self):
+        """Calling the handler sets partners_enabled to True."""
+        session = _make_session_with_deck()
+        handle_decklist_enable_partners(session, self._cmd())
+        assert session.decklist.partners_enabled is True
+
+    def test_commander_category_has_two_slots_after_enable(self):
+        """After the handler runs, the Commander category has 2 slots."""
+        session = _make_session_with_deck()
+        handle_decklist_enable_partners(session, self._cmd())
+        assert session.decklist.categories["commander"].total_slots == 2
+
+    def test_returns_confirmation_message(self):
+        """Handler returns a human-readable success message."""
+        session = _make_session_with_deck()
+        result = handle_decklist_enable_partners(session, self._cmd())
+        assert "partner" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        """enable-partners is registered in the dispatch registry."""
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "enable-partners") in registry
 
 
 class TestDispatchedHandlerProtocol:
