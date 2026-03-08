@@ -645,7 +645,7 @@ class TestDecklistDisableModes:
         assert deck.partners_enabled is False
 
     def test_disable_partners_decrements_commander_slots(self):
-        """disable_partners shrinks Commander back to 1 slot (when background is off)."""
+        """disable_partners shrinks Commander back to 1 slot (background off)."""
         deck = Decklist.create("Test Deck")
         deck.enable_partners()
         deck.disable_partners()
@@ -685,7 +685,7 @@ class TestDecklistDisableModes:
         assert deck.background_enabled is False
 
     def test_disable_background_decrements_commander_slots(self):
-        """disable_background shrinks Commander back to 1 slot (when partners is off)."""
+        """disable_background shrinks Commander back to 1 slot (partners off)."""
         deck = Decklist.create("Test Deck")
         deck.enable_background()
         deck.disable_background()
