@@ -632,3 +632,82 @@ class TestDecklistBackground:
         deck.add_card("Livaan, Cultist of Tiamat", "Commander")
         deck.add_card("Criminal Past", "Commander")
         assert len(deck.categories["commander"].cards) == 3
+
+
+class TestDecklistDisableModes:
+    """disable_partners and disable_background reverse their respective enable calls."""
+
+    def test_disable_partners_clears_flag(self):
+        """disable_partners sets partners_enabled to False."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.disable_partners()
+        assert deck.partners_enabled is False
+
+    def test_disable_partners_decrements_commander_slots(self):
+        """disable_partners shrinks Commander back to 1 slot (when background is off)."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.disable_partners()
+        assert deck.categories["commander"].total_slots == 1
+
+    def test_disable_partners_moves_all_commanders_to_uncategorized(self):
+        """disable_partners moves every Commander card to Uncategorized."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        deck.disable_partners()
+        assert deck.categories["commander"].cards == []
+        assert "Malcolm, Keen-Eyed Navigator" in deck.categories["uncategorized"].cards
+        assert "Tana, the Bloodsower" in deck.categories["uncategorized"].cards
+
+    def test_disable_partners_creates_uncategorized_if_needed(self):
+        """disable_partners creates the Uncategorized category if it does not exist."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        assert "uncategorized" not in deck.categories
+        deck.disable_partners()
+        assert "uncategorized" in deck.categories
+
+    def test_disable_partners_is_noop_when_already_disabled(self):
+        """disable_partners does nothing when partners_enabled is already False."""
+        deck = Decklist.create("Test Deck")
+        deck.disable_partners()  # should not raise
+        assert deck.categories["commander"].total_slots == 1
+
+    def test_disable_background_clears_flag(self):
+        """disable_background sets background_enabled to False."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        deck.disable_background()
+        assert deck.background_enabled is False
+
+    def test_disable_background_decrements_commander_slots(self):
+        """disable_background shrinks Commander back to 1 slot (when partners is off)."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        deck.disable_background()
+        assert deck.categories["commander"].total_slots == 1
+
+    def test_disable_background_moves_all_commanders_to_uncategorized(self):
+        """disable_background moves every Commander card to Uncategorized."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        deck.add_card("Cloakwood Hermit", "Commander")
+        deck.add_card("Criminal Past", "Commander")
+        deck.disable_background()
+        assert deck.categories["commander"].cards == []
+        assert "Cloakwood Hermit" in deck.categories["uncategorized"].cards
+        assert "Criminal Past" in deck.categories["uncategorized"].cards
+
+    def test_disable_one_mode_with_both_enabled_leaves_two_slots(self):
+        """Disabling one mode when both are on leaves Commander with 2 slots."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.enable_background()
+        deck.disable_partners()
+        assert deck.categories["commander"].total_slots == 2
+        assert deck.partners_enabled is False
+        assert deck.background_enabled is True

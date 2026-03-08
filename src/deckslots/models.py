@@ -231,6 +231,37 @@ class Decklist:
         assert isinstance(commander, CappedCategory)
         commander.total_slots += 1
 
+    def disable_partners(self) -> None:
+        """Disable partners mode, moving all Commander cards to Uncategorized."""
+        if not self.partners_enabled:
+            return
+        self.partners_enabled = False
+        commander = self.categories["commander"]
+        assert isinstance(commander, CappedCategory)
+        commander.total_slots -= 1
+        self._evacuate_commander()
+
+    def disable_background(self) -> None:
+        """Disable background mode, moving all Commander cards to Uncategorized."""
+        if not self.background_enabled:
+            return
+        self.background_enabled = False
+        commander = self.categories["commander"]
+        assert isinstance(commander, CappedCategory)
+        commander.total_slots -= 1
+        self._evacuate_commander()
+
+    def _evacuate_commander(self) -> None:
+        """Move all Commander cards to Uncategorized."""
+        if "uncategorized" not in self.categories:
+            self.categories["uncategorized"] = UncappedCategory(
+                name="Uncategorized", fixed=True, user_addable=False
+            )
+        commander = self.categories["commander"]
+        for card in list(commander.cards):
+            commander.cards.remove(card)
+            self.categories["uncategorized"].cards.append(card)
+
     def rename(self, new_name: str) -> None:
         self.name = new_name
 
