@@ -211,7 +211,30 @@ def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str
     if session.decklist is None:
         return "No active decklist. Use 'decklist create <name>' first."
     session.decklist.enable_partners()
-    return "Partners mode enabled. The Commander category now has 2 slots."
+    slots = session.decklist.categories["commander"].total_slots
+    return f"Partners mode enabled. The Commander category now has {slots} slots."
+
+
+def handle_decklist_enable_background(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.enable_background()
+    slots = session.decklist.categories["commander"].total_slots
+    return f"Background mode enabled. The Commander category now has {slots} slots."
+
+
+def handle_decklist_disable_partners(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.disable_partners()
+    return "Partners mode disabled. All commanders moved to Uncategorized."
+
+
+def handle_decklist_disable_background(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.disable_background()
+    return "Background mode disabled. All commanders moved to Uncategorized."
 
 
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
@@ -536,6 +559,15 @@ def register_all_handlers(
         ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
         ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
         ("decklist", "enable-partners"): lambda cmd: handle_decklist_enable_partners(
+            session, cmd
+        ),
+        ("decklist", "enable-background"): lambda cmd: handle_decklist_enable_background(
+            session, cmd
+        ),
+        ("decklist", "disable-partners"): lambda cmd: handle_decklist_disable_partners(
+            session, cmd
+        ),
+        ("decklist", "disable-background"): lambda cmd: handle_decklist_disable_background(
             session, cmd
         ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),

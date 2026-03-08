@@ -19,6 +19,9 @@ from deckslots.commands import (
     handle_category_list,
     handle_category_rename,
     handle_decklist_create,
+    handle_decklist_disable_background,
+    handle_decklist_disable_partners,
+    handle_decklist_enable_background,
     handle_decklist_enable_partners,
     handle_decklist_export,
     handle_decklist_import,
@@ -1973,6 +1976,132 @@ class TestHandleDecklistEnablePartners:
         session = _make_session_with_deck()
         registry = register_all_handlers(session)
         assert ("decklist", "enable-partners") in registry
+
+
+class TestHandleDecklistEnableBackground:
+    """handle_decklist_enable_background enables background commanders."""
+
+    def _cmd(self) -> ParsedCommand:
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist enable-background",
+            obj="decklist",
+            verb="enable-background",
+            args=[],
+        )
+
+    def test_returns_error_when_no_active_decklist(self):
+        session = Session()
+        result = handle_decklist_enable_background(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_sets_background_enabled_on_decklist(self):
+        session = _make_session_with_deck()
+        handle_decklist_enable_background(session, self._cmd())
+        assert session.decklist.background_enabled is True
+
+    def test_commander_category_has_two_slots_after_enable(self):
+        session = _make_session_with_deck()
+        handle_decklist_enable_background(session, self._cmd())
+        assert session.decklist.categories["commander"].total_slots == 2
+
+    def test_returns_confirmation_message(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_enable_background(session, self._cmd())
+        assert "background" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "enable-background") in registry
+
+
+class TestHandleDecklistDisablePartners:
+    """handle_decklist_disable_partners disables partner mode and evacuates commanders."""
+
+    def _cmd(self) -> ParsedCommand:
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist disable-partners",
+            obj="decklist",
+            verb="disable-partners",
+            args=[],
+        )
+
+    def test_returns_error_when_no_active_decklist(self):
+        session = Session()
+        result = handle_decklist_disable_partners(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_clears_partners_enabled(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_partners()
+        handle_decklist_disable_partners(session, self._cmd())
+        assert session.decklist.partners_enabled is False
+
+    def test_commander_cards_move_to_uncategorized(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_partners()
+        session.decklist.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        session.decklist.add_card("Tana, the Bloodsower", "Commander")
+        handle_decklist_disable_partners(session, self._cmd())
+        assert session.decklist.categories["commander"].cards == []
+        assert "Malcolm, Keen-Eyed Navigator" in session.decklist.categories["uncategorized"].cards
+
+    def test_returns_confirmation_message(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_partners()
+        result = handle_decklist_disable_partners(session, self._cmd())
+        assert "uncategorized" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "disable-partners") in registry
+
+
+class TestHandleDecklistDisableBackground:
+    """handle_decklist_disable_background disables background mode and evacuates commanders."""
+
+    def _cmd(self) -> ParsedCommand:
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist disable-background",
+            obj="decklist",
+            verb="disable-background",
+            args=[],
+        )
+
+    def test_returns_error_when_no_active_decklist(self):
+        session = Session()
+        result = handle_decklist_disable_background(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_clears_background_enabled(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_background()
+        handle_decklist_disable_background(session, self._cmd())
+        assert session.decklist.background_enabled is False
+
+    def test_commander_cards_move_to_uncategorized(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_background()
+        session.decklist.add_card("Cloakwood Hermit", "Commander")
+        session.decklist.add_card("Criminal Past", "Commander")
+        handle_decklist_disable_background(session, self._cmd())
+        assert session.decklist.categories["commander"].cards == []
+        assert "Cloakwood Hermit" in session.decklist.categories["uncategorized"].cards
+
+    def test_returns_confirmation_message(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_background()
+        result = handle_decklist_disable_background(session, self._cmd())
+        assert "uncategorized" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "disable-background") in registry
 
 
 class TestDispatchedHandlerProtocol:
