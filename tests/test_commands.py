@@ -1850,14 +1850,7 @@ class TestFormatExportFilePartners:
 
 
 class TestFormatSaveFilePartners:
-    """_format_save_file writes partners flag; _parse_save_file restores it."""
-
-    def test_partners_enabled_uses_partners_heading(self):
-        """Commander section heading is 'Commander [partners]' when partners_enabled."""
-        deck = Decklist.create("My Deck")
-        deck.enable_partners()
-        content = _format_save_file(deck)
-        assert "Commander [partners]" in content
+    """_format_save_file always writes plain Commander; load sets slots dynamically."""
 
     def test_partners_disabled_uses_plain_heading(self):
         """When partners is off, Commander section heading is plain 'Commander'."""
@@ -1866,16 +1859,56 @@ class TestFormatSaveFilePartners:
         assert "Commander [partners]" not in content
         assert "Commander" in content
 
-    def test_parse_save_file_restores_partners_enabled(self, tmp_path):
-        """Parsing a save file with 'Commander [partners]' sets partners_enabled."""
-        deck = Decklist.create("Partner Deck")
-        deck.enable_partners()
-        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
-        deck.add_card("Tana, the Bloodsower", "Commander")
+    def test_save_always_uses_plain_commander_heading(self):
+        """Commander section heading is always plain 'Commander' regardless of mode."""
+        deck_partners = Decklist.create("Partner Deck")
+        deck_partners.enable_partners()
+        assert "Commander" in _format_save_file(deck_partners)
+        assert "Commander [partners]" not in _format_save_file(deck_partners)
+
+    def test_load_ignores_partners_tag_and_dynamically_allocates_slots(
+        self, tmp_path
+    ):
+        """Loading a file with 'Commander [partners]' ignores the tag;
+        Commander slots are set from the number of loaded cards."""
+        content = (
+            "# Partner Deck\n\n"
+            "Commander [partners]\n"
+            "1 Malcolm, Keen-Eyed Navigator\n"
+            "1 Tana, the Bloodsower\n\n"
+            "Basic Lands\n"
+        )
+        path = tmp_path / "deck.bak"
+        path.write_text(content)
+        loaded = _parse_save_file(str(path))
+        assert loaded.partners_enabled is False  # tag is ignored
+        assert loaded.categories["commander"].total_slots == 2  # dynamic
+        assert "Malcolm, Keen-Eyed Navigator" in loaded.categories["commander"].cards
+        assert "Tana, the Bloodsower" in loaded.categories["commander"].cards
+
+    def test_load_sets_commander_slots_from_card_count(self, tmp_path):
+        """Loading a plain Commander section with 2 cards sets total_slots to 2."""
+        content = (
+            "# My Deck\n\n"
+            "Commander\n"
+            "1 Malcolm, Keen-Eyed Navigator\n"
+            "1 Tana, the Bloodsower\n\n"
+            "Basic Lands\n"
+        )
+        path = tmp_path / "deck.bak"
+        path.write_text(content)
+        loaded = _parse_save_file(str(path))
+        assert loaded.categories["commander"].total_slots == 2
+        assert loaded.partners_enabled is False
+
+    def test_load_with_one_commander_keeps_one_slot(self, tmp_path):
+        """Loading a Commander section with 1 card keeps total_slots at 1."""
+        deck = Decklist.create("Solo Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
         path = tmp_path / "deck.bak"
         path.write_text(_format_save_file(deck))
         loaded = _parse_save_file(str(path))
-        assert loaded.partners_enabled is True
+        assert loaded.categories["commander"].total_slots == 1
 
     def test_parse_save_file_restores_both_commanders(self, tmp_path):
         """Both partner commanders are loaded back into the Commander category."""
