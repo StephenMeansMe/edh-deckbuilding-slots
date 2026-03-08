@@ -94,6 +94,16 @@ def run_repl():
                         "your decklist."
                     )
                     result = f"{warning}\n{result}"
+                if (
+                    session.decklist is not None
+                    and session.decklist.commander_overcrowded
+                ):
+                    warning = (
+                        "Warning: Commander has more cards than enabled modes allow. "
+                        "Run 'decklist enable-partners' or 'decklist enable-background', "
+                        "or use 'card move' to reassign the extra cards."
+                    )
+                    result = f"{warning}\n{result}"
                 print(result)
                 continue
             if parsed.kind == "unknown":
