@@ -40,9 +40,7 @@ def _format_save_file(decklist: Decklist) -> str:
     sections: list[str] = [f"# {decklist.name}"]
     for cat in decklist.categories.values():
         if cat.name == "Commander":
-            heading = (
-                "Commander [partners]" if decklist.partners_enabled else "Commander"
-            )
+            heading = "Commander"
         elif cat.name == "Basic Lands":
             heading = "Basic Lands"
         elif cat.name == "Uncategorized":
@@ -79,17 +77,18 @@ def _parse_save_file(path: str) -> Decklist:
         raise ValueError("Save file missing '# <name>' header line.")
 
     deck = Decklist.create(name)
+    # Temporarily expand Commander to accept any number of cards during load;
+    # the correct slot count is set after all cards are read.
+    commander_cat = deck.categories["commander"]
+    assert isinstance(commander_cat, CappedCategory)
+    commander_cat.total_slots = 99
     current_category: str | None = None
 
     for line in stripped[start:]:
         s = line.strip()
         if not s:
             continue
-        if s == "Commander":
-            current_category = "Commander"
-            continue
-        if s == "Commander [partners]":
-            deck.enable_partners()
+        if s == "Commander" or s.startswith("Commander ["):
             current_category = "Commander"
             continue
         if s == "Basic Lands":
@@ -117,6 +116,13 @@ def _parse_save_file(path: str) -> Decklist:
             card = m_card.group(2).strip()
             for _ in range(qty):
                 deck.add_card(card, current_category)
+
+    # Set Commander slot count from the number of loaded cards
+    loaded_commander_cat = deck.categories.get("commander")
+    if loaded_commander_cat is not None and isinstance(
+        loaded_commander_cat, CappedCategory
+    ):
+        loaded_commander_cat.total_slots = max(1, len(loaded_commander_cat.cards))
 
     return deck
 
@@ -205,7 +211,30 @@ def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str
     if session.decklist is None:
         return "No active decklist. Use 'decklist create <name>' first."
     session.decklist.enable_partners()
-    return "Partners mode enabled. The Commander category now has 2 slots."
+    slots = session.decklist.categories["commander"].total_slots
+    return f"Partners mode enabled. The Commander category now has {slots} slots."
+
+
+def handle_decklist_enable_background(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.enable_background()
+    slots = session.decklist.categories["commander"].total_slots
+    return f"Background mode enabled. The Commander category now has {slots} slots."
+
+
+def handle_decklist_disable_partners(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.disable_partners()
+    return "Partners mode disabled. All commanders moved to Uncategorized."
+
+
+def handle_decklist_disable_background(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.disable_background()
+    return "Background mode disabled. All commanders moved to Uncategorized."
 
 
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
@@ -494,6 +523,9 @@ def handle_help() -> str:
             "  decklist load                 Load the last saved decklist",
             "  decklist rename               Rename the active decklist",
             "  decklist enable-partners      Allow two commanders (partner mechanic)",
+            "  decklist enable-background    Allow a Background co-commander",
+            "  decklist disable-partners     Disable partners; move commanders out",
+            "  decklist disable-background   Disable background; move commanders out",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",
@@ -531,6 +563,15 @@ def register_all_handlers(
         ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
         ("decklist", "enable-partners"): lambda cmd: handle_decklist_enable_partners(
             session, cmd
+        ),
+        ("decklist", "enable-background"): (
+            lambda cmd: handle_decklist_enable_background(session, cmd)
+        ),
+        ("decklist", "disable-partners"): (
+            lambda cmd: handle_decklist_disable_partners(session, cmd)
+        ),
+        ("decklist", "disable-background"): (
+            lambda cmd: handle_decklist_disable_background(session, cmd)
         ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),

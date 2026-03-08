@@ -97,6 +97,7 @@ class Decklist:
     name: str
     categories: dict[str, Category] = field(default_factory=dict)
     partners_enabled: bool = False
+    background_enabled: bool = False
 
     @property
     def total_slots(self) -> int:
@@ -213,11 +214,62 @@ class Decklist:
         self.categories[new_key] = cat
 
     def enable_partners(self) -> None:
-        """Allow two commanders by expanding the Commander category to 2 slots."""
+        """Allow two commanders by expanding the Commander category by 1 slot."""
+        if self.partners_enabled:
+            return
         self.partners_enabled = True
         commander = self.categories["commander"]
         assert isinstance(commander, CappedCategory)
-        commander.total_slots = 2
+        commander.total_slots += 1
+
+    def enable_background(self) -> None:
+        """Allow a Background alongside the commander, expanding Commander by 1 slot."""
+        if self.background_enabled:
+            return
+        self.background_enabled = True
+        commander = self.categories["commander"]
+        assert isinstance(commander, CappedCategory)
+        commander.total_slots += 1
+
+    def disable_partners(self) -> None:
+        """Disable partners mode, moving all Commander cards to Uncategorized."""
+        if not self.partners_enabled:
+            return
+        self.partners_enabled = False
+        commander = self.categories["commander"]
+        assert isinstance(commander, CappedCategory)
+        commander.total_slots -= 1
+        self._evacuate_commander()
+
+    def disable_background(self) -> None:
+        """Disable background mode, moving all Commander cards to Uncategorized."""
+        if not self.background_enabled:
+            return
+        self.background_enabled = False
+        commander = self.categories["commander"]
+        assert isinstance(commander, CappedCategory)
+        commander.total_slots -= 1
+        self._evacuate_commander()
+
+    def _evacuate_commander(self) -> None:
+        """Move all Commander cards to Uncategorized."""
+        if "uncategorized" not in self.categories:
+            self.categories["uncategorized"] = UncappedCategory(
+                name="Uncategorized", fixed=True, user_addable=False
+            )
+        commander = self.categories["commander"]
+        for card in list(commander.cards):
+            commander.cards.remove(card)
+            self.categories["uncategorized"].cards.append(card)
+
+    @property
+    def commander_overcrowded(self) -> bool:
+        """True when Commander holds more cards than enabled modes allow."""
+        commander = self.categories.get("commander")
+        if commander is None:
+            return False
+        max_allowed = 1 + self.partners_enabled + self.background_enabled
+        return len(commander.cards) > max_allowed
 
     def rename(self, new_name: str) -> None:
         self.name = new_name

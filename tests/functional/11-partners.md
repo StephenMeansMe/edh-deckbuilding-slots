@@ -45,7 +45,8 @@ deckslots> Goodbye.
 $ printf 'decklist show\nquit\n' | XDG_STATE_HOME="$TMPDIR/state" uv run deckslots
 Resumed 'PartnerDeck'.
 deckslots> Welcome to deckslots.
-deckslots> Decklist: PartnerDeck
+deckslots> Warning: Commander has more cards than enabled modes allow. Run 'decklist enable-partners' or 'decklist enable-background', or use 'card move' to reassign the extra cards.
+Decklist: PartnerDeck
 Total slots: 2 (2 filled)
 Categories:
   Commander: 2/2 slots filled
