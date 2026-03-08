@@ -578,3 +578,57 @@ class TestDecklistPartners:
         deck.enable_partners()
         assert deck.categories["commander"].total_slots == 2
         assert deck.partners_enabled is True
+
+
+class TestDecklistBackground:
+    """Decklist.enable_background allows a Background alongside the commander."""
+
+    def test_new_decklist_has_background_disabled(self):
+        """A freshly created decklist has background_enabled set to False."""
+        deck = Decklist.create("Test Deck")
+        assert deck.background_enabled is False
+
+    def test_enable_background_sets_flag(self):
+        """enable_background sets background_enabled to True."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        assert deck.background_enabled is True
+
+    def test_enable_background_expands_commander_to_two_slots(self):
+        """enable_background sets the Commander category's total_slots to 2."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        assert deck.categories["commander"].total_slots == 2
+
+    def test_enable_background_allows_two_commanders(self):
+        """After enable_background, two cards can be added to Commander."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        deck.add_card("Cloakwood Hermit", "Commander")
+        deck.add_card("Criminal Past", "Commander")
+        assert len(deck.categories["commander"].cards) == 2
+
+    def test_enable_background_is_idempotent(self):
+        """Calling enable_background twice keeps Commander at 2 slots."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        deck.enable_background()
+        assert deck.categories["commander"].total_slots == 2
+        assert deck.background_enabled is True
+
+    def test_both_modes_enabled_gives_three_slots(self):
+        """Enabling partners and background gives Commander 3 slots."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.enable_background()
+        assert deck.categories["commander"].total_slots == 3
+
+    def test_both_modes_allows_three_commanders(self):
+        """With both modes enabled, three cards can be added to Commander."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.enable_background()
+        deck.add_card("Cloakwood Hermit", "Commander")
+        deck.add_card("Livaan, Cultist of Tiamat", "Commander")
+        deck.add_card("Criminal Past", "Commander")
+        assert len(deck.categories["commander"].cards) == 3

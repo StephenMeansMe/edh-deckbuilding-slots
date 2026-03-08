@@ -97,6 +97,7 @@ class Decklist:
     name: str
     categories: dict[str, Category] = field(default_factory=dict)
     partners_enabled: bool = False
+    background_enabled: bool = False
 
     @property
     def total_slots(self) -> int:
@@ -213,11 +214,22 @@ class Decklist:
         self.categories[new_key] = cat
 
     def enable_partners(self) -> None:
-        """Allow two commanders by expanding the Commander category to 2 slots."""
+        """Allow two commanders by expanding the Commander category by 1 slot."""
+        if self.partners_enabled:
+            return
         self.partners_enabled = True
         commander = self.categories["commander"]
         assert isinstance(commander, CappedCategory)
-        commander.total_slots = 2
+        commander.total_slots += 1
+
+    def enable_background(self) -> None:
+        """Allow a Background alongside the commander by expanding Commander by 1 slot."""
+        if self.background_enabled:
+            return
+        self.background_enabled = True
+        commander = self.categories["commander"]
+        assert isinstance(commander, CappedCategory)
+        commander.total_slots += 1
 
     def rename(self, new_name: str) -> None:
         self.name = new_name
