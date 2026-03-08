@@ -223,7 +223,7 @@ class Decklist:
         commander.total_slots += 1
 
     def enable_background(self) -> None:
-        """Allow a Background alongside the commander by expanding Commander by 1 slot."""
+        """Allow a Background alongside the commander, expanding Commander by 1 slot."""
         if self.background_enabled:
             return
         self.background_enabled = True
