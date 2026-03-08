@@ -523,9 +523,9 @@ def handle_help() -> str:
             "  decklist load                 Load the last saved decklist",
             "  decklist rename               Rename the active decklist",
             "  decklist enable-partners      Allow two commanders (partner mechanic)",
-            "  decklist enable-background    Allow a Background commander (Choose a Background)",
-            "  decklist disable-partners     Disable partner mode; moves all commanders to Uncategorized",
-            "  decklist disable-background   Disable background mode; moves all commanders to Uncategorized",
+            "  decklist enable-background    Allow a Background co-commander",
+            "  decklist disable-partners     Disable partners; move commanders out",
+            "  decklist disable-background   Disable background; move commanders out",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",
@@ -564,14 +564,14 @@ def register_all_handlers(
         ("decklist", "enable-partners"): lambda cmd: handle_decklist_enable_partners(
             session, cmd
         ),
-        ("decklist", "enable-background"): lambda cmd: handle_decklist_enable_background(
-            session, cmd
+        ("decklist", "enable-background"): (
+            lambda cmd: handle_decklist_enable_background(session, cmd)
         ),
-        ("decklist", "disable-partners"): lambda cmd: handle_decklist_disable_partners(
-            session, cmd
+        ("decklist", "disable-partners"): (
+            lambda cmd: handle_decklist_disable_partners(session, cmd)
         ),
-        ("decklist", "disable-background"): lambda cmd: handle_decklist_disable_background(
-            session, cmd
+        ("decklist", "disable-background"): (
+            lambda cmd: handle_decklist_disable_background(session, cmd)
         ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),

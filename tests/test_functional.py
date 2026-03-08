@@ -272,11 +272,12 @@ class TestExport:
 
 class TestCommanderOvercrowdedWarning:
     def test_overcrowded_warning_appears_after_load(self, tmp_path):
-        """Warning appears when a loaded save has 2 Commander cards but no mode enabled."""
-        _write_save(
-            tmp_path,
-            "# My Deck\n\nCommander\n1 Cloakwood Hermit\n1 Criminal Past\n\nBasic Lands\n",
+        """Warning appears when a loaded save has 2 commanders but no mode enabled."""
+        save_content = (
+            "# My Deck\n\nCommander\n"
+            "1 Cloakwood Hermit\n1 Criminal Past\n\nBasic Lands\n"
         )
+        _write_save(tmp_path, save_content)
         out = _run("decklist show\nquit\n", tmp_path)
         assert "Warning" in out
         assert "Commander" in out

@@ -1884,9 +1884,7 @@ class TestFormatSaveFilePartners:
         assert "Commander" in _format_save_file(deck_partners)
         assert "Commander [partners]" not in _format_save_file(deck_partners)
 
-    def test_load_ignores_partners_tag_and_dynamically_allocates_slots(
-        self, tmp_path
-    ):
+    def test_load_ignores_partners_tag_and_dynamically_allocates_slots(self, tmp_path):
         """Loading a file with 'Commander [partners]' ignores the tag;
         Commander slots are set from the number of loaded cards."""
         content = (
@@ -2032,7 +2030,7 @@ class TestHandleDecklistEnableBackground:
 
 
 class TestHandleDecklistDisablePartners:
-    """handle_decklist_disable_partners disables partner mode and evacuates commanders."""
+    """handle_decklist_disable_partners disables partner mode and evacuates them."""
 
     def _cmd(self) -> ParsedCommand:
         return ParsedCommand(
@@ -2061,7 +2059,8 @@ class TestHandleDecklistDisablePartners:
         session.decklist.add_card("Tana, the Bloodsower", "Commander")
         handle_decklist_disable_partners(session, self._cmd())
         assert session.decklist.categories["commander"].cards == []
-        assert "Malcolm, Keen-Eyed Navigator" in session.decklist.categories["uncategorized"].cards
+        uncat = session.decklist.categories["uncategorized"].cards
+        assert "Malcolm, Keen-Eyed Navigator" in uncat
 
     def test_returns_confirmation_message(self):
         session = _make_session_with_deck()
@@ -2076,7 +2075,8 @@ class TestHandleDecklistDisablePartners:
 
 
 class TestHandleDecklistDisableBackground:
-    """handle_decklist_disable_background disables background mode and evacuates commanders."""
+    """handle_decklist_disable_background disables background mode and evacuates
+    commanders."""
 
     def _cmd(self) -> ParsedCommand:
         return ParsedCommand(
