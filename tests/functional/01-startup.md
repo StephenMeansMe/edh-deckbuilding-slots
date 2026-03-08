@@ -65,6 +65,10 @@ deckslots> Available commands:
   decklist save                 Save the active decklist
   decklist load                 Load the last saved decklist
   decklist rename               Rename the active decklist
+  decklist enable-partners      Allow two commanders (partner mechanic)
+  decklist enable-background    Allow a Background commander (Choose a Background)
+  decklist disable-partners     Disable partner mode; moves all commanders to Uncategorized
+  decklist disable-background   Disable background mode; moves all commanders to Uncategorized
   category create <n> <s>       Add a category with <s> slots
   category list                 List all categories
   category rename <name>        Rename a user-created category
