@@ -643,6 +643,21 @@ class TestHelpHandler:
         result = handle_help()
         assert "decklist load" in result
 
+    def test_help_includes_enable_background(self):
+        """The help output includes the enable-background command."""
+        result = handle_help()
+        assert "enable-background" in result
+
+    def test_help_includes_disable_partners(self):
+        """The help output includes the disable-partners command."""
+        result = handle_help()
+        assert "disable-partners" in result
+
+    def test_help_includes_disable_background(self):
+        """The help output includes the disable-background command."""
+        result = handle_help()
+        assert "disable-background" in result
+
 
 class TestDispatch:
     """dispatch routes parsed commands to the correct handler."""
