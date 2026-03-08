@@ -711,3 +711,63 @@ class TestDecklistDisableModes:
         assert deck.categories["commander"].total_slots == 2
         assert deck.partners_enabled is False
         assert deck.background_enabled is True
+
+
+class TestCommanderOvercrowded:
+    """Decklist.commander_overcrowded detects too many cards for enabled modes."""
+
+    def test_empty_commander_not_overcrowded(self):
+        """Commander with no cards is never overcrowded."""
+        deck = Decklist.create("Test Deck")
+        assert deck.commander_overcrowded is False
+
+    def test_one_card_no_modes_not_overcrowded(self):
+        """One Commander card with no modes enabled is normal."""
+        deck = Decklist.create("Test Deck")
+        deck.add_card("Atraxa, Praetors' Voice", "Commander")
+        assert deck.commander_overcrowded is False
+
+    def test_two_cards_no_modes_is_overcrowded(self):
+        """Two Commander cards with no modes enabled is overcrowded."""
+        deck = Decklist.create("Test Deck")
+        # Bypass add_card to force the overcrowded state (e.g. after a load)
+        deck.categories["commander"].total_slots = 2
+        deck.categories["commander"].cards = [
+            "Cloakwood Hermit",
+            "Criminal Past",
+        ]
+        assert deck.commander_overcrowded is True
+
+    def test_two_cards_partners_enabled_not_overcrowded(self):
+        """Two Commander cards with partners enabled is fine."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.add_card("Malcolm, Keen-Eyed Navigator", "Commander")
+        deck.add_card("Tana, the Bloodsower", "Commander")
+        assert deck.commander_overcrowded is False
+
+    def test_two_cards_background_enabled_not_overcrowded(self):
+        """Two Commander cards with background enabled is fine."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_background()
+        deck.add_card("Cloakwood Hermit", "Commander")
+        deck.add_card("Criminal Past", "Commander")
+        assert deck.commander_overcrowded is False
+
+    def test_three_cards_one_mode_is_overcrowded(self):
+        """Three Commander cards with only one mode enabled is overcrowded."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.categories["commander"].total_slots = 3
+        deck.categories["commander"].cards = ["A", "B", "C"]
+        assert deck.commander_overcrowded is True
+
+    def test_three_cards_both_modes_not_overcrowded(self):
+        """Three Commander cards with both modes enabled is fine."""
+        deck = Decklist.create("Test Deck")
+        deck.enable_partners()
+        deck.enable_background()
+        deck.add_card("Cloakwood Hermit", "Commander")
+        deck.add_card("Livaan, Cultist of Tiamat", "Commander")
+        deck.add_card("Criminal Past", "Commander")
+        assert deck.commander_overcrowded is False

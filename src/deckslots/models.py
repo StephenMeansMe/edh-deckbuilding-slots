@@ -262,6 +262,15 @@ class Decklist:
             commander.cards.remove(card)
             self.categories["uncategorized"].cards.append(card)
 
+    @property
+    def commander_overcrowded(self) -> bool:
+        """True when Commander holds more cards than enabled modes allow."""
+        commander = self.categories.get("commander")
+        if commander is None:
+            return False
+        max_allowed = 1 + self.partners_enabled + self.background_enabled
+        return len(commander.cards) > max_allowed
+
     def rename(self, new_name: str) -> None:
         self.name = new_name
 
