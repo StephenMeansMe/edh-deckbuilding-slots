@@ -20,8 +20,10 @@ from deckslots.commands import (
     handle_category_rename,
     handle_decklist_create,
     handle_decklist_disable_background,
+    handle_decklist_disable_companion,
     handle_decklist_disable_partners,
     handle_decklist_enable_background,
+    handle_decklist_enable_companion,
     handle_decklist_enable_partners,
     handle_decklist_export,
     handle_decklist_import,
@@ -2117,6 +2119,92 @@ class TestHandleDecklistDisableBackground:
         session = _make_session_with_deck()
         registry = register_all_handlers(session)
         assert ("decklist", "disable-background") in registry
+
+
+class TestHandleDecklistEnableCompanion:
+    """handle_decklist_enable_companion enables a separate Companion slot."""
+
+    def _cmd(self):
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist enable-companion",
+            obj="decklist",
+            verb="enable-companion",
+            args=[],
+        )
+
+    def test_no_active_decklist_returns_error(self):
+        session = Session()
+        result = handle_decklist_enable_companion(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_sets_companion_enabled(self):
+        session = _make_session_with_deck()
+        handle_decklist_enable_companion(session, self._cmd())
+        assert session.decklist.companion_enabled is True
+
+    def test_companion_category_has_one_slot(self):
+        session = _make_session_with_deck()
+        handle_decklist_enable_companion(session, self._cmd())
+        assert session.decklist.categories["companion"].total_slots == 1
+
+    def test_returns_confirmation_containing_companion(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_enable_companion(session, self._cmd())
+        assert "companion" in result.lower()
+        assert "card add" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "enable-companion") in registry
+
+
+class TestHandleDecklistDisableCompanion:
+    """handle_decklist_disable_companion removes the Companion slot."""
+
+    def _cmd(self):
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist disable-companion",
+            obj="decklist",
+            verb="disable-companion",
+            args=[],
+        )
+
+    def test_no_active_decklist_returns_error(self):
+        session = Session()
+        result = handle_decklist_disable_companion(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_clears_companion_enabled(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_companion()
+        handle_decklist_disable_companion(session, self._cmd())
+        assert session.decklist.companion_enabled is False
+
+    def test_companion_card_moves_to_uncategorized(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_companion()
+        session.decklist.add_card("Lurrus of the Dream-Den", "Companion")
+        handle_decklist_disable_companion(session, self._cmd())
+        assert "companion" not in session.decklist.categories
+        assert (
+            "Lurrus of the Dream-Den"
+            in session.decklist.categories["uncategorized"].cards
+        )
+
+    def test_returns_confirmation_containing_companion_and_uncategorized(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_companion()
+        result = handle_decklist_disable_companion(session, self._cmd())
+        assert "companion" in result.lower()
+        assert "uncategorized" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "disable-companion") in registry
 
 
 class TestDispatchedHandlerProtocol:
