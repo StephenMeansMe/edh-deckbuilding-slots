@@ -270,6 +270,45 @@ class TestExport:
 # ---------------------------------------------------------------------------
 
 
+class TestCompanionSlotEmptyWarning:
+    """REPL warns when companion mode is enabled but the slot is empty."""
+
+    def test_warning_shown_when_companion_enabled_and_empty(self, tmp_path):
+        """After enabling companion with no card added, the next command shows a warning."""
+        out = _run(
+            "decklist create MyDeck\n"
+            "decklist enable-companion\n"
+            "decklist show\n"
+            "quit\n",
+            tmp_path,
+        )
+        assert "Warning" in out
+        assert "Companion" in out
+        assert "empty" in out
+
+    def test_warning_not_shown_when_companion_disabled(self, tmp_path):
+        """No companion warning appears when companion mode is off."""
+        out = _run(
+            "decklist create MyDeck\n"
+            "decklist show\n"
+            "quit\n",
+            tmp_path,
+        )
+        assert "Companion slot is empty" not in out
+
+    def test_warning_not_shown_when_companion_filled(self, tmp_path):
+        """No companion warning appears when the companion card is present."""
+        out = _run(
+            "decklist create MyDeck\n"
+            "decklist enable-companion\n"
+            "card add Companion Lurrus of the Dream-Den\n"
+            "decklist show\n"
+            "quit\n",
+            tmp_path,
+        )
+        assert "Companion slot is empty" not in out
+
+
 class TestCommanderOvercrowdedWarning:
     def test_overcrowded_warning_appears_after_load(self, tmp_path):
         """Warning appears when a loaded save has 2 commanders but no mode enabled."""
