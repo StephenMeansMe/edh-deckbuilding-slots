@@ -287,6 +287,14 @@ class Decklist:
             self.categories["uncategorized"].cards.append(card)
 
     @property
+    def companion_slot_empty(self) -> bool:
+        """True when companion mode is on but no companion card has been added."""
+        if not self.companion_enabled:
+            return False
+        companion = self.categories.get("companion")
+        return companion is None or companion.filled == 0
+
+    @property
     def commander_overcrowded(self) -> bool:
         """True when Commander holds more cards than enabled modes allow."""
         commander = self.categories.get("commander")
