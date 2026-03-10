@@ -771,3 +771,99 @@ class TestCommanderOvercrowded:
         deck.add_card("Livaan, Cultist of Tiamat", "Commander")
         deck.add_card("Criminal Past", "Commander")
         assert deck.commander_overcrowded is False
+
+
+class TestDecklistCompanion:
+    """Decklist supports an optional, separate Companion zone."""
+
+    def test_new_decklist_has_companion_disabled(self):
+        """A freshly created decklist has companion_enabled set to False."""
+        deck = Decklist.create("Test")
+        assert deck.companion_enabled is False
+
+    def test_enable_companion_sets_flag(self):
+        """enable_companion sets companion_enabled to True."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert deck.companion_enabled is True
+
+    def test_enable_companion_creates_companion_category(self):
+        """enable_companion adds a CappedCategory named 'Companion' with 1 slot."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert "companion" in deck.categories
+        cat = deck.categories["companion"]
+        assert isinstance(cat, CappedCategory)
+        assert cat.total_slots == 1
+        assert cat.fixed is True
+
+    def test_enable_companion_is_idempotent(self):
+        """Calling enable_companion twice keeps exactly 1 slot."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.enable_companion()
+        assert deck.categories["companion"].total_slots == 1
+        assert deck.companion_enabled is True
+
+    def test_enable_companion_does_not_change_commander_slots(self):
+        """enable_companion leaves Commander's slot count unchanged."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert deck.categories["commander"].total_slots == 1
+
+    def test_disable_companion_clears_flag(self):
+        """disable_companion sets companion_enabled to False."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.disable_companion()
+        assert deck.companion_enabled is False
+
+    def test_disable_companion_removes_companion_category(self):
+        """disable_companion removes the companion category from the decklist."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.disable_companion()
+        assert "companion" not in deck.categories
+
+    def test_disable_companion_moves_card_to_uncategorized(self):
+        """disable_companion evacuates the companion card to Uncategorized."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        deck.disable_companion()
+        assert "companion" not in deck.categories
+        assert "Lurrus of the Dream-Den" in deck.categories["uncategorized"].cards
+
+    def test_disable_companion_creates_uncategorized_if_needed(self):
+        """disable_companion creates Uncategorized if it doesn't exist yet."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        assert "uncategorized" not in deck.categories
+        deck.disable_companion()
+        assert "uncategorized" in deck.categories
+
+    def test_disable_companion_is_noop_when_already_disabled(self):
+        """disable_companion is a no-op when companion is not enabled."""
+        deck = Decklist.create("Test")
+        deck.disable_companion()
+        assert deck.companion_enabled is False
+        assert "companion" not in deck.categories
+
+    def test_companion_slot_empty_false_when_disabled(self):
+        """companion_slot_empty is False when companion mode is off."""
+        deck = Decklist.create("Test")
+        assert deck.companion_slot_empty is False
+
+    def test_companion_slot_empty_true_when_enabled_and_no_card(self):
+        """companion_slot_empty is True when enabled but no card added."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert deck.companion_slot_empty is True
+
+    def test_companion_slot_empty_false_when_companion_filled(self):
+        """companion_slot_empty is False when the companion card is present."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        assert deck.companion_slot_empty is False

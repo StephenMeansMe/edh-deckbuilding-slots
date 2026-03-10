@@ -105,6 +105,15 @@ def run_repl():
                         "or use 'card move' to reassign the extra cards."
                     )
                     result = f"{warning}\n{result}"
+                if (
+                    session.decklist is not None
+                    and session.decklist.companion_slot_empty
+                ):
+                    warning = (
+                        "Warning: Companion slot is empty. "
+                        "Add a companion with 'card add Companion <card name>'."
+                    )
+                    result = f"{warning}\n{result}"
                 print(result)
                 continue
             if parsed.kind == "unknown":

@@ -20,8 +20,10 @@ from deckslots.commands import (
     handle_category_rename,
     handle_decklist_create,
     handle_decklist_disable_background,
+    handle_decklist_disable_companion,
     handle_decklist_disable_partners,
     handle_decklist_enable_background,
+    handle_decklist_enable_companion,
     handle_decklist_enable_partners,
     handle_decklist_export,
     handle_decklist_import,
@@ -449,6 +451,35 @@ class TestParseImportFile:
         assert result.uncategorized == ["Sol Ring"]
         assert result.basic_lands == ["Forest"] * 4
 
+    def test_parse_import_recognizes_companion_heading(self, tmp_path):
+        """A Companion section card is returned as companion."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        result = _parse_import_file(str(f))
+        assert result.companion == "Lurrus of the Dream-Den"
+
+    def test_parse_import_companion_not_in_uncategorized(self, tmp_path):
+        """The companion card does NOT appear in the uncategorized list."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        result = _parse_import_file(str(f))
+        assert "Lurrus of the Dream-Den" not in result.uncategorized
+
+    def test_parse_import_no_companion_heading_leaves_companion_none(self, tmp_path):
+        """When no Companion section is present, companion is None."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        result = _parse_import_file(str(f))
+        assert result.companion is None
+
 
 class TestDecklistImportHandler:
     """handle_decklist_import reads a file and builds a Decklist."""
@@ -593,6 +624,45 @@ class TestDecklistImportHandler:
         result = handle_decklist_import(session, cmd)
         assert "0 commander" in result
         assert "no commander" in result.lower()
+
+    def test_import_enables_companion_when_companion_card_present(self, tmp_path):
+        """After importing with a Companion section, companion_enabled is True."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist.companion_enabled is True
+
+    def test_import_adds_companion_card_to_companion_category(self, tmp_path):
+        """The imported companion card lands in the Companion category."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        companion_cards = session.decklist.categories["companion"].cards
+        assert "Lurrus of the Dream-Den" in companion_cards
 
 
 class TestHelpHandler:
@@ -1867,6 +1937,43 @@ class TestFormatExportFilePartners:
         assert commander_section.count("1 ") == 1
 
 
+class TestFormatExportFileCompanion:
+    """_format_export_file emits a Companion section when a companion is present."""
+
+    def test_export_includes_companion_section(self):
+        """Export output contains a 'Companion' heading when companion is enabled."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_export_file(deck)
+        assert "Companion\n" in content
+
+    def test_export_companion_card_appears_under_companion_heading(self):
+        """The companion card appears in the Companion section, not Maindeck."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_export_file(deck)
+        assert "Companion\n1 Lurrus of the Dream-Den" in content
+
+    def test_export_companion_card_excluded_from_maindeck(self):
+        """The companion card does NOT appear in the Maindeck section."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_export_file(deck)
+        maindeck_start = content.index("Maindeck")
+        maindeck_section = content[maindeck_start:]
+        assert "Lurrus" not in maindeck_section
+
+    def test_export_empty_companion_has_no_companion_section(self):
+        """An enabled but empty companion slot produces no Companion section."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        content = _format_export_file(deck)
+        assert "Companion\n" not in content
+
+
 class TestFormatSaveFilePartners:
     """_format_save_file always writes plain Commander; load sets slots dynamically."""
 
@@ -1946,6 +2053,79 @@ class TestFormatSaveFilePartners:
         path.write_text(_format_save_file(deck))
         loaded = _parse_save_file(str(path))
         assert loaded.partners_enabled is False
+
+
+class TestFormatSaveFileCompanion:
+    """_format_save_file writes Companion with a plain heading."""
+
+    def test_companion_section_uses_plain_heading(self, tmp_path):
+        """Companion section heading is plain 'Companion', not 'Companion [1 slots]'."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        content = _format_save_file(deck)
+        lines = content.splitlines()
+        assert "Companion" in lines
+        assert "Companion [1 slots]" not in lines
+
+    def test_companion_card_written_under_companion_heading(self, tmp_path):
+        """The companion card appears under the Companion heading."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_save_file(deck)
+        assert "Companion\n1 Lurrus of the Dream-Den" in content
+
+
+class TestParseSaveFileCompanion:
+    """_parse_save_file recognises the Companion heading and enables companion mode."""
+
+    def test_parse_companion_heading_enables_companion(self, tmp_path):
+        """Parsing a Companion section sets companion_enabled to True."""
+        content = (
+            "# My Deck\n\n"
+            "Commander\n\n"
+            "Basic Lands\n\n"
+            "Companion\n"
+            "1 Lurrus of the Dream-Den\n"
+        )
+        path = tmp_path / "deck.bak"
+        path.write_text(content)
+        loaded = _parse_save_file(str(path))
+        assert loaded.companion_enabled is True
+        assert "companion" in loaded.categories
+
+    def test_parse_companion_card_placed_in_companion_category(self, tmp_path):
+        """The companion card is placed in the Companion category, not Commander."""
+        content = (
+            "# My Deck\n\n"
+            "Commander\n\n"
+            "Basic Lands\n\n"
+            "Companion\n"
+            "1 Lurrus of the Dream-Den\n"
+        )
+        path = tmp_path / "deck.bak"
+        path.write_text(content)
+        loaded = _parse_save_file(str(path))
+        assert "Lurrus of the Dream-Den" in loaded.categories["companion"].cards
+
+    def test_round_trip_preserves_companion(self, tmp_path):
+        """save then load preserves companion_enabled and the companion card."""
+        deck = Decklist.create("Round Trip Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.companion_enabled is True
+        assert "Lurrus of the Dream-Den" in loaded.categories["companion"].cards
+
+    def test_no_companion_heading_leaves_companion_disabled(self, tmp_path):
+        """Parsing a file without a Companion section leaves companion_enabled False."""
+        deck = Decklist.create("Solo Deck")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.companion_enabled is False
 
 
 class TestHandleDecklistEnablePartners:
@@ -2117,6 +2297,92 @@ class TestHandleDecklistDisableBackground:
         session = _make_session_with_deck()
         registry = register_all_handlers(session)
         assert ("decklist", "disable-background") in registry
+
+
+class TestHandleDecklistEnableCompanion:
+    """handle_decklist_enable_companion enables a separate Companion slot."""
+
+    def _cmd(self):
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist enable-companion",
+            obj="decklist",
+            verb="enable-companion",
+            args=[],
+        )
+
+    def test_no_active_decklist_returns_error(self):
+        session = Session()
+        result = handle_decklist_enable_companion(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_sets_companion_enabled(self):
+        session = _make_session_with_deck()
+        handle_decklist_enable_companion(session, self._cmd())
+        assert session.decklist.companion_enabled is True
+
+    def test_companion_category_has_one_slot(self):
+        session = _make_session_with_deck()
+        handle_decklist_enable_companion(session, self._cmd())
+        assert session.decklist.categories["companion"].total_slots == 1
+
+    def test_returns_confirmation_containing_companion(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_enable_companion(session, self._cmd())
+        assert "companion" in result.lower()
+        assert "card add" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "enable-companion") in registry
+
+
+class TestHandleDecklistDisableCompanion:
+    """handle_decklist_disable_companion removes the Companion slot."""
+
+    def _cmd(self):
+        return ParsedCommand(
+            kind="object_verb",
+            raw="decklist disable-companion",
+            obj="decklist",
+            verb="disable-companion",
+            args=[],
+        )
+
+    def test_no_active_decklist_returns_error(self):
+        session = Session()
+        result = handle_decklist_disable_companion(session, self._cmd())
+        assert "No active decklist" in result
+
+    def test_clears_companion_enabled(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_companion()
+        handle_decklist_disable_companion(session, self._cmd())
+        assert session.decklist.companion_enabled is False
+
+    def test_companion_card_moves_to_uncategorized(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_companion()
+        session.decklist.add_card("Lurrus of the Dream-Den", "Companion")
+        handle_decklist_disable_companion(session, self._cmd())
+        assert "companion" not in session.decklist.categories
+        assert (
+            "Lurrus of the Dream-Den"
+            in session.decklist.categories["uncategorized"].cards
+        )
+
+    def test_returns_confirmation_containing_companion_and_uncategorized(self):
+        session = _make_session_with_deck()
+        session.decklist.enable_companion()
+        result = handle_decklist_disable_companion(session, self._cmd())
+        assert "companion" in result.lower()
+        assert "uncategorized" in result.lower()
+
+    def test_registered_in_dispatch_table(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "disable-companion") in registry
 
 
 class TestDispatchedHandlerProtocol:

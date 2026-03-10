@@ -98,6 +98,7 @@ class Decklist:
     categories: dict[str, Category] = field(default_factory=dict)
     partners_enabled: bool = False
     background_enabled: bool = False
+    companion_enabled: bool = False
 
     @property
     def total_slots(self) -> int:
@@ -213,6 +214,29 @@ class Decklist:
         cat.name = new_name
         self.categories[new_key] = cat
 
+    def enable_companion(self) -> None:
+        """Create a separate Companion zone (1 slot, does not expand Commander)."""
+        if self.companion_enabled:
+            return
+        self.companion_enabled = True
+        self.categories["companion"] = CappedCategory(
+            name="Companion", total_slots=1, fixed=True
+        )
+
+    def disable_companion(self) -> None:
+        """Remove the Companion zone, moving any card to Uncategorized."""
+        if not self.companion_enabled:
+            return
+        self.companion_enabled = False
+        companion = self.categories.pop("companion", None)
+        if companion and companion.cards:
+            if "uncategorized" not in self.categories:
+                self.categories["uncategorized"] = UncappedCategory(
+                    name="Uncategorized", fixed=True, user_addable=False
+                )
+            for card in companion.cards:
+                self.categories["uncategorized"].cards.append(card)
+
     def enable_partners(self) -> None:
         """Allow two commanders by expanding the Commander category by 1 slot."""
         if self.partners_enabled:
@@ -261,6 +285,14 @@ class Decklist:
         for card in list(commander.cards):
             commander.cards.remove(card)
             self.categories["uncategorized"].cards.append(card)
+
+    @property
+    def companion_slot_empty(self) -> bool:
+        """True when companion mode is on but no companion card has been added."""
+        if not self.companion_enabled:
+            return False
+        companion = self.categories.get("companion")
+        return companion is None or companion.filled == 0
 
     @property
     def commander_overcrowded(self) -> bool:

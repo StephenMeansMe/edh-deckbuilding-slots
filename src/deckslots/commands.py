@@ -45,6 +45,8 @@ def _format_save_file(decklist: Decklist) -> str:
             heading = "Basic Lands"
         elif cat.name == "Uncategorized":
             heading = "Uncategorized"
+        elif cat.name == "Companion":
+            heading = "Companion"
         else:
             assert isinstance(cat, CappedCategory)
             heading = f"{cat.name} [{cat.total_slots} slots]"
@@ -103,6 +105,10 @@ def _parse_save_file(path: str) -> Decklist:
                 )
             current_category = "Uncategorized"
             continue
+        if s == "Companion":
+            deck.enable_companion()
+            current_category = "Companion"
+            continue
         m_cat = _SAVE_CAT_RE.match(s)
         if m_cat:
             cat_name = m_cat.group(1)
@@ -132,6 +138,7 @@ class ParsedImport:
     commander: str | None
     basic_lands: list[str]
     uncategorized: list[str]
+    companion: str | None = None
 
 
 def _parse_import_file(path: str) -> ParsedImport:
@@ -145,6 +152,7 @@ def _parse_import_file(path: str) -> ParsedImport:
 
     section: str | None = None
     commander: str | None = None
+    companion: str | None = None
     basic_lands: list[str] = []
     uncategorized: list[str] = []
     any_card_found = False
@@ -156,6 +164,9 @@ def _parse_import_file(path: str) -> ParsedImport:
         if stripped.lower() == "commander":
             section = "commander"
             continue
+        if stripped.lower() == "companion":
+            section = "companion"
+            continue
         if stripped.lower() == "maindeck":
             section = "maindeck"
             continue
@@ -166,6 +177,8 @@ def _parse_import_file(path: str) -> ParsedImport:
             any_card_found = True
             if section == "commander":
                 commander = card
+            elif section == "companion":
+                companion = card  # only one companion allowed
             elif section == "maindeck":
                 if card in BASIC_LAND_NAMES:
                     basic_lands.extend([card] * qty)
@@ -179,6 +192,7 @@ def _parse_import_file(path: str) -> ParsedImport:
         commander=commander,
         basic_lands=basic_lands,
         uncategorized=uncategorized,
+        companion=companion,
     )
 
 
@@ -205,6 +219,22 @@ def _resolve_card_and_category_suffix(
         if candidate in categories:
             return (" ".join(args[:i]), candidate)
     return None
+
+
+def handle_decklist_enable_companion(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.enable_companion()
+    return (
+        "Companion slot enabled. Add a companion with 'card add Companion <card name>'."
+    )
+
+
+def handle_decklist_disable_companion(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.disable_companion()
+    return "Companion mode disabled. All companion cards moved to Uncategorized."
 
 
 def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str:
@@ -317,6 +347,10 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     if parsed.commander is not None:
         deck.add_card(parsed.commander, "Commander")
 
+    if parsed.companion is not None:
+        deck.enable_companion()
+        deck.add_card(parsed.companion, "Companion")
+
     for card in parsed.basic_lands:
         deck.add_card(card, "Basic Lands")
 
@@ -418,9 +452,16 @@ def _format_export_file(decklist: Decklist) -> str:
         for card in commander_cat.cards:
             commander_lines.append(f"1 {card}")
 
+    companion_cat = decklist.categories.get("companion")
+    companion_lines: list[str] = []
+    if companion_cat and companion_cat.cards:
+        companion_lines = ["Companion"]
+        for card in companion_cat.cards:
+            companion_lines.append(f"1 {card}")
+
     maindeck_cards: Counter[str] = Counter()
     for key, cat in decklist.categories.items():
-        if key == "commander":
+        if key in ("commander", "companion"):
             continue
         maindeck_cards.update(cat.cards)
 
@@ -428,7 +469,11 @@ def _format_export_file(decklist: Decklist) -> str:
     for card, qty in sorted(maindeck_cards.items()):
         maindeck_lines.append(f"{qty} {card}")
 
-    return "\n".join(commander_lines) + "\n\n" + "\n".join(maindeck_lines) + "\n"
+    sections = ["\n".join(commander_lines)]
+    if companion_lines:
+        sections.append("\n".join(companion_lines))
+    sections.append("\n".join(maindeck_lines))
+    return "\n\n".join(sections) + "\n"
 
 
 def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
@@ -526,6 +571,8 @@ def handle_help() -> str:
             "  decklist enable-background    Allow a Background co-commander",
             "  decklist disable-partners     Disable partners; move commanders out",
             "  decklist disable-background   Disable background; move commanders out",
+            "  decklist enable-companion     Enable a companion (separate zone)",
+            "  decklist disable-companion    Disable companion; move to Uncategorized",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",
@@ -572,6 +619,12 @@ def register_all_handlers(
         ),
         ("decklist", "disable-background"): (
             lambda cmd: handle_decklist_disable_background(session, cmd)
+        ),
+        ("decklist", "enable-companion"): (
+            lambda cmd: handle_decklist_enable_companion(session, cmd)
+        ),
+        ("decklist", "disable-companion"): (
+            lambda cmd: handle_decklist_disable_companion(session, cmd)
         ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
