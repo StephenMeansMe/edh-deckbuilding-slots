@@ -69,6 +69,8 @@ deckslots> Available commands:
   decklist enable-background    Allow a Background co-commander
   decklist disable-partners     Disable partners; move commanders out
   decklist disable-background   Disable background; move commanders out
+  decklist enable-companion     Enable a companion (separate zone)
+  decklist disable-companion    Disable companion; move to Uncategorized
   category create <n> <s>       Add a category with <s> slots
   category list                 List all categories
   category rename <name>        Rename a user-created category
