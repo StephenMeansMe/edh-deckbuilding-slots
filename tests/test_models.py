@@ -771,3 +771,12 @@ class TestCommanderOvercrowded:
         deck.add_card("Livaan, Cultist of Tiamat", "Commander")
         deck.add_card("Criminal Past", "Commander")
         assert deck.commander_overcrowded is False
+
+
+class TestDecklistCompanion:
+    """Decklist supports an optional, separate Companion zone."""
+
+    def test_new_decklist_has_companion_disabled(self):
+        """A freshly created decklist has companion_enabled set to False."""
+        deck = Decklist.create("Test")
+        assert deck.companion_enabled is False
