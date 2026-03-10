@@ -138,6 +138,7 @@ class ParsedImport:
     commander: str | None
     basic_lands: list[str]
     uncategorized: list[str]
+    companion: str | None = None
 
 
 def _parse_import_file(path: str) -> ParsedImport:
@@ -151,6 +152,7 @@ def _parse_import_file(path: str) -> ParsedImport:
 
     section: str | None = None
     commander: str | None = None
+    companion: str | None = None
     basic_lands: list[str] = []
     uncategorized: list[str] = []
     any_card_found = False
@@ -162,6 +164,9 @@ def _parse_import_file(path: str) -> ParsedImport:
         if stripped.lower() == "commander":
             section = "commander"
             continue
+        if stripped.lower() == "companion":
+            section = "companion"
+            continue
         if stripped.lower() == "maindeck":
             section = "maindeck"
             continue
@@ -172,6 +177,8 @@ def _parse_import_file(path: str) -> ParsedImport:
             any_card_found = True
             if section == "commander":
                 commander = card
+            elif section == "companion":
+                companion = card  # only one companion allowed
             elif section == "maindeck":
                 if card in BASIC_LAND_NAMES:
                     basic_lands.extend([card] * qty)
@@ -185,6 +192,7 @@ def _parse_import_file(path: str) -> ParsedImport:
         commander=commander,
         basic_lands=basic_lands,
         uncategorized=uncategorized,
+        companion=companion,
     )
 
 
@@ -339,6 +347,10 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
 
     if parsed.commander is not None:
         deck.add_card(parsed.commander, "Commander")
+
+    if parsed.companion is not None:
+        deck.enable_companion()
+        deck.add_card(parsed.companion, "Companion")
 
     for card in parsed.basic_lands:
         deck.add_card(card, "Basic Lands")
