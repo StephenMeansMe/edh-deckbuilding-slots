@@ -45,6 +45,8 @@ def _format_save_file(decklist: Decklist) -> str:
             heading = "Basic Lands"
         elif cat.name == "Uncategorized":
             heading = "Uncategorized"
+        elif cat.name == "Companion":
+            heading = "Companion"
         else:
             assert isinstance(cat, CappedCategory)
             heading = f"{cat.name} [{cat.total_slots} slots]"
@@ -102,6 +104,10 @@ def _parse_save_file(path: str) -> Decklist:
                     user_addable=False,
                 )
             current_category = "Uncategorized"
+            continue
+        if s == "Companion":
+            deck.enable_companion()
+            current_category = "Companion"
             continue
         m_cat = _SAVE_CAT_RE.match(s)
         if m_cat:

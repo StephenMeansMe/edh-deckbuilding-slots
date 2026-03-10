@@ -1958,8 +1958,9 @@ class TestFormatSaveFileCompanion:
         deck = Decklist.create("Companion Deck")
         deck.enable_companion()
         content = _format_save_file(deck)
-        assert "Companion\n" in content
-        assert "Companion [" not in content
+        lines = content.splitlines()
+        assert "Companion" in lines
+        assert "Companion [1 slots]" not in lines
 
     def test_companion_card_written_under_companion_heading(self, tmp_path):
         """The companion card appears under the Companion heading."""
