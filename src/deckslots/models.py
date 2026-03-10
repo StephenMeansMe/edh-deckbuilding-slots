@@ -214,6 +214,15 @@ class Decklist:
         cat.name = new_name
         self.categories[new_key] = cat
 
+    def enable_companion(self) -> None:
+        """Create a separate Companion zone (1 slot, does not expand Commander)."""
+        if self.companion_enabled:
+            return
+        self.companion_enabled = True
+        self.categories["companion"] = CappedCategory(
+            name="Companion", total_slots=1, fixed=True
+        )
+
     def enable_partners(self) -> None:
         """Allow two commanders by expanding the Commander category by 1 slot."""
         if self.partners_enabled:
