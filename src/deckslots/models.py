@@ -223,6 +223,20 @@ class Decklist:
             name="Companion", total_slots=1, fixed=True
         )
 
+    def disable_companion(self) -> None:
+        """Remove the Companion zone, moving any card to Uncategorized."""
+        if not self.companion_enabled:
+            return
+        self.companion_enabled = False
+        companion = self.categories.pop("companion", None)
+        if companion and companion.cards:
+            if "uncategorized" not in self.categories:
+                self.categories["uncategorized"] = UncappedCategory(
+                    name="Uncategorized", fixed=True, user_addable=False
+                )
+            for card in companion.cards:
+                self.categories["uncategorized"].cards.append(card)
+
     def enable_partners(self) -> None:
         """Allow two commanders by expanding the Commander category by 1 slot."""
         if self.partners_enabled:
