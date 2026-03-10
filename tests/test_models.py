@@ -810,3 +810,42 @@ class TestDecklistCompanion:
         deck = Decklist.create("Test")
         deck.enable_companion()
         assert deck.categories["commander"].total_slots == 1
+
+    def test_disable_companion_clears_flag(self):
+        """disable_companion sets companion_enabled to False."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.disable_companion()
+        assert deck.companion_enabled is False
+
+    def test_disable_companion_removes_companion_category(self):
+        """disable_companion removes the companion category from the decklist."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.disable_companion()
+        assert "companion" not in deck.categories
+
+    def test_disable_companion_moves_card_to_uncategorized(self):
+        """disable_companion evacuates the companion card to Uncategorized."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        deck.disable_companion()
+        assert "companion" not in deck.categories
+        assert "Lurrus of the Dream-Den" in deck.categories["uncategorized"].cards
+
+    def test_disable_companion_creates_uncategorized_if_needed(self):
+        """disable_companion creates Uncategorized if it doesn't exist yet."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        assert "uncategorized" not in deck.categories
+        deck.disable_companion()
+        assert "uncategorized" in deck.categories
+
+    def test_disable_companion_is_noop_when_already_disabled(self):
+        """disable_companion is a no-op when companion is not enabled."""
+        deck = Decklist.create("Test")
+        deck.disable_companion()
+        assert deck.companion_enabled is False
+        assert "companion" not in deck.categories
