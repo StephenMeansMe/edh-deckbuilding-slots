@@ -274,12 +274,9 @@ class TestCompanionSlotEmptyWarning:
     """REPL warns when companion mode is enabled but the slot is empty."""
 
     def test_warning_shown_when_companion_enabled_and_empty(self, tmp_path):
-        """After enabling companion with no card added, the next command shows a warning."""
+        """Warning shown after enabling companion with no card added."""
         out = _run(
-            "decklist create MyDeck\n"
-            "decklist enable-companion\n"
-            "decklist show\n"
-            "quit\n",
+            "decklist create MyDeck\ndecklist enable-companion\ndecklist show\nquit\n",
             tmp_path,
         )
         assert "Warning" in out
@@ -289,9 +286,7 @@ class TestCompanionSlotEmptyWarning:
     def test_warning_not_shown_when_companion_disabled(self, tmp_path):
         """No companion warning appears when companion mode is off."""
         out = _run(
-            "decklist create MyDeck\n"
-            "decklist show\n"
-            "quit\n",
+            "decklist create MyDeck\ndecklist show\nquit\n",
             tmp_path,
         )
         assert "Companion slot is empty" not in out

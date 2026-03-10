@@ -2,7 +2,6 @@ import pytest
 
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
-    ParsedImport,
     Session,
     _format_export_file,
     _format_save_file,
@@ -627,7 +626,7 @@ class TestDecklistImportHandler:
         assert "no commander" in result.lower()
 
     def test_import_enables_companion_when_companion_card_present(self, tmp_path):
-        """After importing a file with a Companion section, companion_enabled is True."""
+        """After importing with a Companion section, companion_enabled is True."""
         f = tmp_path / "deck.txt"
         f.write_text(
             "Commander\n1 Atraxa\n\n"
@@ -662,7 +661,8 @@ class TestDecklistImportHandler:
             args=[str(f)],
         )
         handle_decklist_import(session, cmd)
-        assert "Lurrus of the Dream-Den" in session.decklist.categories["companion"].cards
+        companion_cards = session.decklist.categories["companion"].cards
+        assert "Lurrus of the Dream-Den" in companion_cards
 
 
 class TestHelpHandler:

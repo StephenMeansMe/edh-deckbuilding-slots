@@ -226,8 +226,7 @@ def handle_decklist_enable_companion(session: Session, cmd: ParsedCommand) -> st
         return "No active decklist. Use 'decklist create <name>' first."
     session.decklist.enable_companion()
     return (
-        "Companion slot enabled. "
-        "Add a companion with 'card add Companion <card name>'."
+        "Companion slot enabled. Add a companion with 'card add Companion <card name>'."
     )
 
 
@@ -573,7 +572,7 @@ def handle_help() -> str:
             "  decklist disable-partners     Disable partners; move commanders out",
             "  decklist disable-background   Disable background; move commanders out",
             "  decklist enable-companion     Enable a companion (separate zone)",
-            "  decklist disable-companion    Disable companion; move card to Uncategorized",
+            "  decklist disable-companion    Disable companion; move to Uncategorized",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",
