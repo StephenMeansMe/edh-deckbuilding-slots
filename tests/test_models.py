@@ -849,3 +849,21 @@ class TestDecklistCompanion:
         deck.disable_companion()
         assert deck.companion_enabled is False
         assert "companion" not in deck.categories
+
+    def test_companion_slot_empty_false_when_disabled(self):
+        """companion_slot_empty is False when companion mode is off."""
+        deck = Decklist.create("Test")
+        assert deck.companion_slot_empty is False
+
+    def test_companion_slot_empty_true_when_enabled_and_no_card(self):
+        """companion_slot_empty is True when enabled but no card added."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert deck.companion_slot_empty is True
+
+    def test_companion_slot_empty_false_when_companion_filled(self):
+        """companion_slot_empty is False when the companion card is present."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        assert deck.companion_slot_empty is False
