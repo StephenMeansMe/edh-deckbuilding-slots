@@ -441,9 +441,16 @@ def _format_export_file(decklist: Decklist) -> str:
         for card in commander_cat.cards:
             commander_lines.append(f"1 {card}")
 
+    companion_cat = decklist.categories.get("companion")
+    companion_lines: list[str] = []
+    if companion_cat and companion_cat.cards:
+        companion_lines = ["Companion"]
+        for card in companion_cat.cards:
+            companion_lines.append(f"1 {card}")
+
     maindeck_cards: Counter[str] = Counter()
     for key, cat in decklist.categories.items():
-        if key == "commander":
+        if key in ("commander", "companion"):
             continue
         maindeck_cards.update(cat.cards)
 
@@ -451,7 +458,11 @@ def _format_export_file(decklist: Decklist) -> str:
     for card, qty in sorted(maindeck_cards.items()):
         maindeck_lines.append(f"{qty} {card}")
 
-    return "\n".join(commander_lines) + "\n\n" + "\n".join(maindeck_lines) + "\n"
+    sections = ["\n".join(commander_lines)]
+    if companion_lines:
+        sections.append("\n".join(companion_lines))
+    sections.append("\n".join(maindeck_lines))
+    return "\n\n".join(sections) + "\n"
 
 
 def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
