@@ -1950,6 +1950,78 @@ class TestFormatSaveFilePartners:
         assert loaded.partners_enabled is False
 
 
+class TestFormatSaveFileCompanion:
+    """_format_save_file writes Companion with a plain heading."""
+
+    def test_companion_section_uses_plain_heading(self, tmp_path):
+        """Companion section heading is plain 'Companion', not 'Companion [1 slots]'."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        content = _format_save_file(deck)
+        assert "Companion\n" in content
+        assert "Companion [" not in content
+
+    def test_companion_card_written_under_companion_heading(self, tmp_path):
+        """The companion card appears under the Companion heading."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_save_file(deck)
+        assert "Companion\n1 Lurrus of the Dream-Den" in content
+
+
+class TestParseSaveFileCompanion:
+    """_parse_save_file recognises the Companion heading and enables companion mode."""
+
+    def test_parse_companion_heading_enables_companion(self, tmp_path):
+        """Parsing a Companion section sets companion_enabled to True."""
+        content = (
+            "# My Deck\n\n"
+            "Commander\n\n"
+            "Basic Lands\n\n"
+            "Companion\n"
+            "1 Lurrus of the Dream-Den\n"
+        )
+        path = tmp_path / "deck.bak"
+        path.write_text(content)
+        loaded = _parse_save_file(str(path))
+        assert loaded.companion_enabled is True
+        assert "companion" in loaded.categories
+
+    def test_parse_companion_card_placed_in_companion_category(self, tmp_path):
+        """The companion card is placed in the Companion category, not Commander."""
+        content = (
+            "# My Deck\n\n"
+            "Commander\n\n"
+            "Basic Lands\n\n"
+            "Companion\n"
+            "1 Lurrus of the Dream-Den\n"
+        )
+        path = tmp_path / "deck.bak"
+        path.write_text(content)
+        loaded = _parse_save_file(str(path))
+        assert "Lurrus of the Dream-Den" in loaded.categories["companion"].cards
+
+    def test_round_trip_preserves_companion(self, tmp_path):
+        """save then load preserves companion_enabled and the companion card."""
+        deck = Decklist.create("Round Trip Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.companion_enabled is True
+        assert "Lurrus of the Dream-Den" in loaded.categories["companion"].cards
+
+    def test_no_companion_heading_leaves_companion_disabled(self, tmp_path):
+        """Parsing a file without a Companion section leaves companion_enabled False."""
+        deck = Decklist.create("Solo Deck")
+        path = tmp_path / "deck.bak"
+        path.write_text(_format_save_file(deck))
+        loaded = _parse_save_file(str(path))
+        assert loaded.companion_enabled is False
+
+
 class TestHandleDecklistEnablePartners:
     """handle_decklist_enable_partners enables partner commanders."""
 
