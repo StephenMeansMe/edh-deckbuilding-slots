@@ -780,3 +780,33 @@ class TestDecklistCompanion:
         """A freshly created decklist has companion_enabled set to False."""
         deck = Decklist.create("Test")
         assert deck.companion_enabled is False
+
+    def test_enable_companion_sets_flag(self):
+        """enable_companion sets companion_enabled to True."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert deck.companion_enabled is True
+
+    def test_enable_companion_creates_companion_category(self):
+        """enable_companion adds a CappedCategory named 'Companion' with 1 slot."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert "companion" in deck.categories
+        cat = deck.categories["companion"]
+        assert isinstance(cat, CappedCategory)
+        assert cat.total_slots == 1
+        assert cat.fixed is True
+
+    def test_enable_companion_is_idempotent(self):
+        """Calling enable_companion twice keeps exactly 1 slot."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        deck.enable_companion()
+        assert deck.categories["companion"].total_slots == 1
+        assert deck.companion_enabled is True
+
+    def test_enable_companion_does_not_change_commander_slots(self):
+        """enable_companion leaves Commander's slot count unchanged."""
+        deck = Decklist.create("Test")
+        deck.enable_companion()
+        assert deck.categories["commander"].total_slots == 1
