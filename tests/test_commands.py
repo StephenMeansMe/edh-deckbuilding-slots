@@ -1869,6 +1869,43 @@ class TestFormatExportFilePartners:
         assert commander_section.count("1 ") == 1
 
 
+class TestFormatExportFileCompanion:
+    """_format_export_file emits a Companion section when a companion is present."""
+
+    def test_export_includes_companion_section(self):
+        """Export output contains a 'Companion' heading when companion is enabled."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_export_file(deck)
+        assert "Companion\n" in content
+
+    def test_export_companion_card_appears_under_companion_heading(self):
+        """The companion card appears in the Companion section, not Maindeck."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_export_file(deck)
+        assert "Companion\n1 Lurrus of the Dream-Den" in content
+
+    def test_export_companion_card_excluded_from_maindeck(self):
+        """The companion card does NOT appear in the Maindeck section."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        deck.add_card("Lurrus of the Dream-Den", "Companion")
+        content = _format_export_file(deck)
+        maindeck_start = content.index("Maindeck")
+        maindeck_section = content[maindeck_start:]
+        assert "Lurrus" not in maindeck_section
+
+    def test_export_empty_companion_has_no_companion_section(self):
+        """An enabled but empty companion slot produces no Companion section."""
+        deck = Decklist.create("Companion Deck")
+        deck.enable_companion()
+        content = _format_export_file(deck)
+        assert "Companion\n" not in content
+
+
 class TestFormatSaveFilePartners:
     """_format_save_file always writes plain Commander; load sets slots dynamically."""
 
