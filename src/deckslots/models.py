@@ -98,6 +98,7 @@ class Decklist:
     categories: dict[str, Category] = field(default_factory=dict)
     partners_enabled: bool = False
     background_enabled: bool = False
+    companion_enabled: bool = False
 
     @property
     def total_slots(self) -> int:
