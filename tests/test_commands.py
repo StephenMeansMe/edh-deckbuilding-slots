@@ -2,6 +2,7 @@ import pytest
 
 from deckslots.cli import ParsedCommand
 from deckslots.commands import (
+    ParsedImport,
     Session,
     _format_export_file,
     _format_save_file,
@@ -451,6 +452,35 @@ class TestParseImportFile:
         assert result.uncategorized == ["Sol Ring"]
         assert result.basic_lands == ["Forest"] * 4
 
+    def test_parse_import_recognizes_companion_heading(self, tmp_path):
+        """A Companion section card is returned as companion."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        result = _parse_import_file(str(f))
+        assert result.companion == "Lurrus of the Dream-Den"
+
+    def test_parse_import_companion_not_in_uncategorized(self, tmp_path):
+        """The companion card does NOT appear in the uncategorized list."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        result = _parse_import_file(str(f))
+        assert "Lurrus of the Dream-Den" not in result.uncategorized
+
+    def test_parse_import_no_companion_heading_leaves_companion_none(self, tmp_path):
+        """When no Companion section is present, companion is None."""
+        f = tmp_path / "deck.txt"
+        f.write_text("Commander\n1 Atraxa\n\nMaindeck\n1 Sol Ring\n")
+        result = _parse_import_file(str(f))
+        assert result.companion is None
+
 
 class TestDecklistImportHandler:
     """handle_decklist_import reads a file and builds a Decklist."""
@@ -595,6 +625,44 @@ class TestDecklistImportHandler:
         result = handle_decklist_import(session, cmd)
         assert "0 commander" in result
         assert "no commander" in result.lower()
+
+    def test_import_enables_companion_when_companion_card_present(self, tmp_path):
+        """After importing a file with a Companion section, companion_enabled is True."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert session.decklist.companion_enabled is True
+
+    def test_import_adds_companion_card_to_companion_category(self, tmp_path):
+        """The imported companion card lands in the Companion category."""
+        f = tmp_path / "deck.txt"
+        f.write_text(
+            "Commander\n1 Atraxa\n\n"
+            "Companion\n1 Lurrus of the Dream-Den\n\n"
+            "Maindeck\n1 Sol Ring\n"
+        )
+        session = Session()
+        cmd = ParsedCommand(
+            kind="object_verb",
+            raw=f"decklist import {f}",
+            obj="decklist",
+            verb="import",
+            args=[str(f)],
+        )
+        handle_decklist_import(session, cmd)
+        assert "Lurrus of the Dream-Den" in session.decklist.categories["companion"].cards
 
 
 class TestHelpHandler:
