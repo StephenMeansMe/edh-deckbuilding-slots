@@ -207,6 +207,23 @@ def _resolve_card_and_category_suffix(
     return None
 
 
+def handle_decklist_enable_companion(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.enable_companion()
+    return (
+        "Companion slot enabled. "
+        "Add a companion with 'card add Companion <card name>'."
+    )
+
+
+def handle_decklist_disable_companion(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return "No active decklist. Use 'decklist create <name>' first."
+    session.decklist.disable_companion()
+    return "Companion mode disabled. All companion cards moved to Uncategorized."
+
+
 def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return "No active decklist. Use 'decklist create <name>' first."
@@ -526,6 +543,8 @@ def handle_help() -> str:
             "  decklist enable-background    Allow a Background co-commander",
             "  decklist disable-partners     Disable partners; move commanders out",
             "  decklist disable-background   Disable background; move commanders out",
+            "  decklist enable-companion     Enable a companion (separate zone)",
+            "  decklist disable-companion    Disable companion; move card to Uncategorized",
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",
@@ -572,6 +591,12 @@ def register_all_handlers(
         ),
         ("decklist", "disable-background"): (
             lambda cmd: handle_decklist_disable_background(session, cmd)
+        ),
+        ("decklist", "enable-companion"): (
+            lambda cmd: handle_decklist_enable_companion(session, cmd)
+        ),
+        ("decklist", "disable-companion"): (
+            lambda cmd: handle_decklist_disable_companion(session, cmd)
         ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
