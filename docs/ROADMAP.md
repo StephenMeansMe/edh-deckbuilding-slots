@@ -11,6 +11,9 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 ### Core features
 
 - **Commander slot** — Every decklist has exactly one mandatory fixed slot in its own category for the commander.
+- **Partner commanders** — `decklist enable-partner` expands the Commander slot to two cards for the partner mechanic. `decklist disable-partner` reverts to a single commander. *(#53)*
+- **Background** — `decklist enable-background` adds a fixed Background slot (one card) alongside the commander for the "choose a Background" mechanic. `decklist disable-background` removes it and moves the card to Uncategorized. *(#54)*
+- **Companion** — `decklist enable-companion` adds a separate fixed Companion slot (one card) representing the companion zone outside the main 100. `decklist disable-companion` removes it and moves the card to Uncategorized. *(#55)*
 - **User-defined categories** — Users create named categories (e.g., "Ramp," "Removal," "Draw") with 1--99 slots each.
 - **Exclusive slot assignment** — Each card occupies exactly one slot in one category. The total slot count across all categories equals 100.
 - **Pre-configured starter categories** — The app ships with optional category suggestions (Lands, Ramp, Removal, Draw, Enablers, Payoffs) that the user can adopt, modify, or ignore.
@@ -18,8 +21,8 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 ### Interface and I/O
 
 - **Linux CLI** — The only supported interface is a command-line application running on Linux.
-- **Decklist import** — `decklist import <file>` reads a plain text file in `$QUANTITY $CARDNAME` format with `Commander` and `Maindeck` section headings. The commander is routed to the Commander slot, basic lands to the Basic Lands category, and all other cards to a temporary **Uncategorized** category. The app persistently warns until Uncategorized is empty. *(User Story 002)*
-- **Plain text export** — `decklist export <filepath>` writes a Moxfield/Archidekt-compatible file with two sections: `Commander` (the assigned commander, if any) and `Maindeck` (all other cards, quantities aggregated, sorted alphabetically by card name). Category structure is intentionally discarded; external tools apply their own grouping and display logic. The export format is also compatible with `decklist import` (User Story 005).
+- **Decklist import** — `decklist import <file>` reads a plain text file in `$QUANTITY $CARDNAME` format with `Commander` and `Maindeck` section headings. The commander is routed to the Commander slot, basic lands to the Basic Lands category, and all other cards to a temporary **Uncategorized** category. The app persistently warns until Uncategorized is empty. *(#47)*
+- **Plain text export** — `decklist export <filepath>` writes a Moxfield/Archidekt-compatible file with up to three sections: `Commander` (the assigned commander(s), if any), `Companion` (the companion card, if any — only present when a companion is assigned), and `Maindeck` (all other cards, quantities aggregated, sorted alphabetically by card name). Category structure is intentionally discarded; external tools apply their own grouping and display logic. The export format is also compatible with `decklist import` *(#50)*.
 
 ### Intentional omissions
 
@@ -30,12 +33,6 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 ## Future Releases
 
 Features below are organized by theme. No specific release schedule is attached; they will be prioritized as the project matures.
-
-### Additional fixed slots
-
-- **Partner commanders** — Support for the partner mechanic, allowing two commanders.
-- **Background** — A fixed slot for the Background enchantment (paired with a "choose a Background" commander).
-- **Companion** — A fixed slot for a companion creature that lives outside the main 100.
 
 ### Non-exclusive categories
 
