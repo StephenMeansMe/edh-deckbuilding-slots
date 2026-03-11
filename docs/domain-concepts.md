@@ -21,14 +21,31 @@ A **category** is a named grouping of slots (e.g., "Ramp," "Removal," "Draw"). C
 
 ## Fixed Category
 
-A **fixed category** is created automatically by `Decklist.create()` and cannot be renamed or deleted by the user. Two fixed categories exist in the MVP:
+A **fixed category** cannot be renamed or deleted by the user. Fixed categories either come pre-created (`Decklist.create()` always adds Commander and Basic Lands) or are added by enabling an optional mode.
 
-| Category | Slots | Capped | Notes |
+| Category | Capped | Auto-created | Notes |
 |---|---|---|---|
-| Commander | 1 | Yes | Exactly 1 slot; holds the deck's commander |
-| Basic Lands | 0 (initial) | No | Uncapped; restricted to 12 basic land names |
+| Commander | Yes (1–3 slots) | Always | 1 slot by default; expands when partner or background mode is enabled |
+| Basic Lands | No | Always | Uncapped; restricted to 12 basic land names |
+| Companion | Yes (1 slot) | `enable-companion` | Separate zone outside the main 100; disabled by default |
+| Uncategorized | No | On first use | Landing zone for displaced or removed cards |
 
-*(Roadmap: partner, background, and companion are optional pre-configured fixed slots.)*
+## Commander Modes
+
+The Commander category starts with **1 slot** and can expand by enabling optional modes:
+
+- **Partner mode** (`decklist enable-partner`) — adds 1 slot, allowing two partner commanders. `decklist disable-partner` removes the slot and moves all Commander cards to Uncategorized.
+- **Background mode** (`decklist enable-background`) — adds 1 slot for a Background enchantment alongside a "choose a Background" commander. `decklist disable-background` similarly shrinks the slot and evacuates.
+
+Both modes can be active simultaneously (Commander slot grows to 3). The `commander_overcrowded` property returns `True` when the Commander category holds more cards than the currently enabled modes allow; the REPL warns the user until resolved.
+
+## Companion
+
+**Companion** is an optional fixed zone for a companion creature that lives **outside the main 100-card deck**. It is a separate `CappedCategory` (1 slot) and does **not** expand the Commander category.
+
+Enabling companion mode (`decklist enable-companion`) creates the Companion category. Disabling it (`decklist disable-companion`) removes the category and moves any companion card to Uncategorized.
+
+When companion mode is enabled but the slot is empty, the REPL warns the user (`companion_slot_empty` property). The companion card appears in its own `Companion` section in both exported files and saved files, between the `Commander` section and `Maindeck`.
 
 ## Basic Lands
 
@@ -42,7 +59,13 @@ The whitelist is stored as `BASIC_LAND_NAMES`, a module-level `frozenset[str]` i
 
 ## Uncategorized
 
-**Uncategorized** is a fixed, uncapped category that is auto-created when a decklist is imported from a file. It acts as the landing zone for cards that have not yet been placed in a user-defined category. The app **persistently warns** the user until Uncategorized is empty. Users cannot manually add cards to Uncategorized directly; they reach it via `card remove` (which moves a card from its current category back to Uncategorized) or via `decklist import`.
+**Uncategorized** is a fixed, uncapped category that acts as a landing zone for cards not yet placed in a user-defined category. It is created on first use — not at decklist creation — and appears in the following situations:
+
+- `decklist import` — cards that aren't the commander or a basic land land here
+- `card remove` — moves a card from its current category to Uncategorized
+- `decklist disable-partner` / `disable-background` / `disable-companion` — evacuates cards from the disabled fixed slot here
+
+The app **persistently warns** the user until Uncategorized is empty. Users cannot target Uncategorized with `card add` or `card move`; `user_addable` is `False` on the Uncategorized category.
 
 ## Exclusivity
 
@@ -61,4 +84,4 @@ The exclusivity rule is enforced by `Decklist.add_card()`: before adding a card 
 3. **Fullness** — capped categories reject cards when `is_full` is `True`.
 4. **Singleton exclusivity** — for capped categories, the card must not already exist in any other capped category.
 
-Card **move** and **remove** operations (`card move`, `card remove`) manipulate `category.cards` directly in the command handlers, bypassing `Decklist.add_card()`, so the exclusivity check is **not** re-run during a move.
+`Decklist.move_card()` is a model method that performs its own exclusivity check (it cannot call `add_card` internally, because the card is still in the source category at validation time, which would cause a spurious "already in decklist" failure). `Decklist.remove_card()` moves a card to the Uncategorized `UncappedCategory`, so exclusivity does not apply. `Decklist.delete_card()` removes permanently without any exclusivity concern.
