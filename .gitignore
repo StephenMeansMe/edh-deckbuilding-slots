@@ -208,3 +208,6 @@ __marimo__/
 
 # Git worktrees
 .worktrees/
+
+# Local Claude notes
+.claude.local.md
