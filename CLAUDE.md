@@ -7,7 +7,7 @@
 ## Repository Structure
 
 - `bin/` — Standalone CLI entrypoint
-- `docs/` — ROADMAP, user stories, domain-concepts.md, implementation plans
+- `docs/` — ROADMAP, domain-concepts.md, implementation plans
 - `src/deckslots/` — Source modules (cli.py, models.py, commands.py, repl.py) + CLAUDE.md (architecture notes)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`)
 
@@ -71,7 +71,7 @@ uv run pytest && scrut test --work-directory . tests/functional/  # Full suite
 
 ## Conventions
 
-- **Branch naming**: Feature branches use `claude/` prefix for AI-assisted work.
+- **Branch naming**: New features, fixes, and docs changes **must always be implemented on a new feature branch** — never directly on `main`. Branch names use the `claude/` prefix (e.g. `claude/companion-slot`, `claude/export-encoding`).
 - **Commits**: Use clear, descriptive commit messages. Prefix with `test:`, `feat:`, `fix:`, or `refactor:` to reflect the TDD phase.
 - **Merging PRs**: Use squash merge (`gh pr merge <n> --squash --delete-branch`). After merging, reset local `main` to the pre-session commit (`git reset --hard <sha>`) so feature work lives only on the squash commit.
 - **Creating PRs**: Must be on the feature branch when running `gh pr create` — running it from `main` errors with "head branch is the same as base branch."
@@ -85,10 +85,15 @@ See [`docs/domain-concepts.md`](docs/domain-concepts.md) for the full glossary (
 
 ## Notes for AI Assistants
 
-- **Read all user stories and `docs/domain-concepts.md` before planning.** Files under `docs/user-stories/` are the authoritative spec; new stories are added as the project grows.
+- **User stories live as GitHub Issues** (label: `user-story`) on `StephenMeansMe/edh-deckbuilding-slots`. Before planning any feature, fetch the relevant stories:
+  ```bash
+  gh issue list --label user-story --state all   # list all stories
+  gh issue view <N>                               # read a specific story
+  ```
+  `docs/domain-concepts.md` remains the authoritative domain glossary; read it before planning any feature that touches business logic. New user stories must be created as GitHub Issues before implementation begins — see `.claude/skills/new-user-story.md` for the format.
 - **TDD is mandatory.** Do not skip the Red phase. Always start by writing the failing test before implementing production code.
 - **Test split**: pytest covers unit and integration tests (parser, models, handlers). scrut covers functional/black-box CLI tests (`tests/functional/*.md`). New REPL behaviors should get a scrut test; new handler/model behaviors get a pytest test.
-- **scrut test format**: Each ` ```scrut ` block has exactly one `$ ` command (the first line); all subsequent lines are expected stdout. Use `$TMPDIR` subdirectories to isolate test cases that write save files. Run with `scrut test --work-directory . tests/functional/`.
+- **scrut test format**: Each ` ```scrut ` block has exactly one `$ ` command (the first line); all subsequent lines are expected stdout. Use `$TMPDIR` subdirectories to isolate test cases that write save files. Run with `scrut test --work-directory . tests/functional/`. When adding new commands, also update `tests/functional/01-startup.md` (it asserts the full `help` output). `$TMPDIR` is not expanded in scrut expected output — use `| grep -v "pattern"` to filter variable-path lines (e.g. `Exported '...' to '...'`).
 - **Test file imports**: Only import names that already exist in production code. A top-level `ImportError` fails the *entire* test file.
 - Use `uv run` to execute commands; `uv add` / `uv add --dev` to manage dependencies.
 - Keep this file updated as the project evolves.
