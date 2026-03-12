@@ -2438,14 +2438,16 @@ class TestHandleTemplateSave:
     def test_no_active_deck_returns_error(self, monkeypatch, tmp_path):
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
         session = Session()
-        result = handle_template_save(session, _cmd("template", "save", "My", "Template"))
+        save_cmd = _cmd("template", "save", "My", "Template")
+        result = handle_template_save(session, save_cmd)
         assert "No active decklist" in result
 
     def test_saves_user_categories_as_template(self, monkeypatch, tmp_path):
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
         session = _make_session_with_deck()
         session.decklist.add_category("Ramp", 10)
-        result = handle_template_save(session, _cmd("template", "save", "My", "Template"))
+        save_cmd = _cmd("template", "save", "My", "Template")
+        result = handle_template_save(session, save_cmd)
         assert "Saved template" in result
         assert "My Template" in result
 
@@ -2532,17 +2534,20 @@ class TestHandleDecklistApplyTemplate:
 
 
 class TestHandleDecklistCreateWithTemplate:
+    def _gf_cmd(self):
+        return _cmd(
+            "decklist", "create", "MyDeck", "--template", "Goldfish", "Fundamentals"
+        )
+
     def test_create_with_valid_template(self):
         session = Session()
-        cmd = _cmd("decklist", "create", "MyDeck", "--template", "Goldfish", "Fundamentals")
-        result = handle_decklist_create(session, cmd)
+        result = handle_decklist_create(session, self._gf_cmd())
         assert "MyDeck" in result
         assert "Goldfish Fundamentals" in result
 
     def test_template_categories_applied_to_new_deck(self):
         session = Session()
-        cmd = _cmd("decklist", "create", "MyDeck", "--template", "Goldfish", "Fundamentals")
-        handle_decklist_create(session, cmd)
+        handle_decklist_create(session, self._gf_cmd())
         assert "ramp" in session.decklist.categories
 
     def test_unknown_template_returns_error_without_creating(self):
@@ -2679,12 +2684,13 @@ class TestCommandsLogging:
 
     def test_card_add_logs_debug(self, caplog):
         import logging
+
+        from deckslots.cli import ParsedCommand
         from deckslots.commands import (
             Session,
             handle_card_add,
             handle_decklist_create,
         )
-        from deckslots.cli import ParsedCommand
 
         def _make_cmd(raw, obj, verb, args):
             return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
@@ -2697,12 +2703,13 @@ class TestCommandsLogging:
 
     def test_save_logs_debug(self, caplog, tmp_path, monkeypatch):
         import logging
+
+        from deckslots.cli import ParsedCommand
         from deckslots.commands import (
             Session,
             handle_decklist_create,
             handle_decklist_save,
         )
-        from deckslots.cli import ParsedCommand
 
         def _make_cmd(raw, obj, verb, args):
             return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)

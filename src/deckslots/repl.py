@@ -1,7 +1,6 @@
 import logging
 
 from deckslots.cli import parse_command
-from deckslots.logging_config import setup_logging
 from deckslots.commands import (
     Session,
     _get_save_path,
@@ -15,8 +14,8 @@ from deckslots.commands import (
     validate_decklist_rename,
     validate_template_save,
 )
+from deckslots.logging_config import setup_logging
 from deckslots.templates import user_template_exists
-
 
 _logger = logging.getLogger("deckslots.repl")
 

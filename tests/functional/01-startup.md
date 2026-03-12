@@ -65,6 +65,7 @@ deckslots> Available commands:
   decklist save                 Save the active decklist
   decklist load                 Load the last saved decklist
   decklist rename               Rename the active decklist
+  decklist apply-template <n>   Apply a template to the active decklist
   decklist enable-partners      Allow two commanders (partner mechanic)
   decklist enable-background    Allow a Background co-commander
   decklist disable-partners     Disable partners; move commanders out
@@ -78,6 +79,10 @@ deckslots> Available commands:
   card move <name> <cat>        Move a card to a different category
   card remove <name>            Move a card to Uncategorized
   card delete <name>            Permanently remove a card
+  template list                 List all available templates
+  template save <name>          Save current categories as a template
+  template export <n> <file>    Export a named template to a file
+  template import <file>        Import a template from a file
   help                          Show this help message
   quit / exit                   Exit the program
 deckslots> Goodbye.

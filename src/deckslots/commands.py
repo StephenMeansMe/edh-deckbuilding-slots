@@ -26,9 +26,7 @@ from deckslots.templates import (
     find_template,
     load_all_templates,
     save_user_template,
-    user_template_exists,
 )
-
 
 NO_ACTIVE_DECK = "No active decklist. Use 'decklist create <name>' first."
 

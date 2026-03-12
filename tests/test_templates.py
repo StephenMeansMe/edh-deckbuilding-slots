@@ -1,6 +1,5 @@
 """Tests for src/deckslots/templates.py"""
 
-import os
 from pathlib import Path
 
 from deckslots.templates import (

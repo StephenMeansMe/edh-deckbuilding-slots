@@ -92,7 +92,10 @@ def _format_template(template: Template) -> str:
 
 
 def _parse_template_content(text: str) -> Template:
-    """Deserialise a template from plain-text content. Raises ParseError on bad input."""
+    """Deserialise a template from plain-text content.
+
+    Raises ParseError if the header line is missing.
+    """
     lines = [line.rstrip("\n") for line in text.splitlines()]
     name: str | None = None
     categories: list[tuple[str, int]] = []
