@@ -33,6 +33,25 @@ def _load_builtin_templates() -> list[Template]:
     return sorted(templates, key=lambda t: t.name)
 
 
+def _template_filename(name: str) -> str:
+    """Convert a template name to a slug filename (e.g. 'My Name' → 'my-name.tmpl')."""
+    return name.lower().replace(" ", "-") + ".tmpl"
+
+
+def save_user_template(template: Template) -> None:
+    """Write a template to the user template directory, creating it if needed."""
+    user_dir = _get_user_template_dir()
+    user_dir.mkdir(parents=True, exist_ok=True)
+    path = user_dir / _template_filename(template.name)
+    path.write_text(_format_template(template), encoding="utf-8")
+
+
+def user_template_exists(name: str) -> bool:
+    """Return True if a user template with this name already exists on disk."""
+    path = _get_user_template_dir() / _template_filename(name)
+    return path.exists()
+
+
 def load_all_templates() -> list[Template]:
     """Return all templates (built-in + user), sorted by name."""
     templates: list[Template] = list(_load_builtin_templates())
