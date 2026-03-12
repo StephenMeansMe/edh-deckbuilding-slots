@@ -33,6 +33,30 @@ def _load_builtin_templates() -> list[Template]:
     return sorted(templates, key=lambda t: t.name)
 
 
+def load_all_templates() -> list[Template]:
+    """Return all templates (built-in + user), sorted by name."""
+    templates: list[Template] = list(_load_builtin_templates())
+    user_dir = _get_user_template_dir()
+    if user_dir.exists():
+        for path in sorted(user_dir.glob("*.tmpl")):
+            try:
+                content = path.read_text("utf-8")
+                t = _parse_template_content(content)
+                t.builtin = False
+                templates.append(t)
+            except Exception:
+                pass  # skip malformed user templates silently
+    return sorted(templates, key=lambda t: t.name)
+
+
+def find_template(name: str) -> Template | None:
+    """Look up a template by exact name across all templates."""
+    for t in load_all_templates():
+        if t.name == name:
+            return t
+    return None
+
+
 def _get_user_template_dir() -> Path:
     """Return the XDG-compliant user template directory."""
     data_home = os.environ.get("XDG_DATA_HOME", "")
