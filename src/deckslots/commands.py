@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
+
+logger = logging.getLogger("deckslots.commands")
 
 from deckslots.cli import ParsedCommand
 from deckslots.exceptions import DecklistError, ParseError
@@ -295,6 +298,7 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
         session.decklist.add_card(card, category_name)
     except DecklistError as e:
         return str(e)
+    logger.debug("Card added: %s to %s", card, category_name)
     return f"Added '{card}' to '{category_name}'."
 
 
@@ -369,6 +373,7 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
         deck.add_card(card, "Uncategorized")
 
     session.decklist = deck
+    logger.debug("Imported deck from %s", path)
 
     commander_count = 1 if parsed.commander is not None else 0
     summary = (
@@ -430,6 +435,7 @@ def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
         )
     source_name = session.decklist.categories[source_key].name
     session.decklist.remove_card(card)
+    logger.debug("Card removed: %s", card)
     return f"Removed '{card}' from '{source_name}'. Card is now in Uncategorized."
 
 
@@ -443,6 +449,7 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
         session.decklist.delete_card(card)
     except DecklistError as e:
         return str(e)
+    logger.debug("Card deleted: %s", card)
     return f"Deleted '{card}' from the decklist."
 
 
@@ -488,6 +495,7 @@ def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
         filepath.write_text(_format_export_file(session.decklist))
     except OSError as e:
         return f"Error exporting decklist: {e}"
+    logger.debug("Exported deck to %s", filepath)
     return f"Exported '{session.decklist.name}' to '{filepath}'."
 
 
@@ -496,10 +504,13 @@ def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
     try:
         deck = _parse_save_file(str(path))
     except FileNotFoundError:
+        logger.warning("Save file not found: %s", path)
         return "No saved decklist found."
     except (DecklistError, OSError) as e:
+        logger.warning("Handler error: %s", e)
         return f"Error loading save file: {e}"
     session.decklist = deck
+    logger.debug("Deck loaded from %s", path)
     return f"Loaded '{deck.name}'."
 
 
@@ -509,6 +520,7 @@ def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
     path = _get_save_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_format_save_file(session.decklist))
+    logger.debug("Deck saved to %s", path)
     return f"Saved '{session.decklist.name}'."
 
 
