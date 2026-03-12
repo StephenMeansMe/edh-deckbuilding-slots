@@ -30,7 +30,7 @@ def run_repl() -> None:
         try:
             session.decklist = _parse_save_file(str(save_path))
             print(f"Resumed '{session.decklist.name}'.")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             _logger.warning("Save file load failed, entering recovery: %s", e)
             print(f"Warning: could not load save file: {e}.")
             print("Options:")
