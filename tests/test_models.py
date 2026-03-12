@@ -1,5 +1,6 @@
 import pytest
 
+from deckslots.exceptions import CardError, CategoryError, SlotError
 from deckslots.models import (
     BASIC_LAND_NAMES,
     CappedCategory,
@@ -867,3 +868,64 @@ class TestDecklistCompanion:
         deck.enable_companion()
         deck.add_card("Lurrus of the Dream-Den", "Companion")
         assert deck.companion_slot_empty is False
+
+
+class TestDomainExceptions:
+    """models.py raises domain-specific exception types, not raw ValueError."""
+
+    def test_add_duplicate_card_raises_card_error(self):
+        deck = Decklist.create("Test")
+        deck.add_card("Sol Ring", "Commander")
+        with pytest.raises(CardError):
+            deck.add_card("Sol Ring", "Commander")
+
+    def test_add_card_to_nonexistent_category_raises_category_error(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(CategoryError):
+            deck.add_card("Sol Ring", "Nonexistent")
+
+    def test_add_card_to_full_slot_raises_slot_error(self):
+        deck = Decklist.create("Test")
+        deck.add_card("Sol Ring", "Commander")
+        with pytest.raises(SlotError):
+            deck.add_card("Swiftfoot Boots", "Commander")
+
+    def test_add_disallowed_card_raises_category_error(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(CategoryError):
+            deck.add_card("Sol Ring", "Basic Lands")
+
+    def test_invalid_slot_count_raises_slot_error(self):
+        with pytest.raises(SlotError):
+            CappedCategory(name="Ramp", total_slots=0)
+
+    def test_add_category_duplicate_raises_category_error(self):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        with pytest.raises(CategoryError):
+            deck.add_category("Ramp", 5)
+
+    def test_move_card_not_found_raises_card_error(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(CardError):
+            deck.move_card("Nonexistent", "Basic Lands")
+
+    def test_remove_card_not_found_raises_card_error(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(CardError):
+            deck.remove_card("Nonexistent")
+
+    def test_delete_card_not_found_raises_card_error(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(CardError):
+            deck.delete_card("Nonexistent")
+
+    def test_rename_nonexistent_category_raises_category_error(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(CategoryError):
+            deck.rename_category("Nonexistent", "New Name")
+
+    def test_rename_fixed_category_raises_category_error(self):
+        deck = Decklist.create("Test")
+        with pytest.raises(CategoryError):
+            deck.rename_category("Commander", "Leader")
