@@ -108,6 +108,10 @@ def run_repl():
                 if (
                     session.decklist is not None
                     and session.decklist.companion_slot_empty
+                    and not (
+                        parsed.obj == "decklist"
+                        and parsed.verb == "enable-companion"
+                    )
                 ):
                     warning = (
                         "Warning: Companion slot is empty. "
