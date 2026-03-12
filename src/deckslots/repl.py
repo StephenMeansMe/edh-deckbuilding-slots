@@ -13,7 +13,9 @@ from deckslots.commands import (
     register_all_handlers,
     validate_category_rename,
     validate_decklist_rename,
+    validate_template_save,
 )
+from deckslots.templates import user_template_exists
 
 
 _logger = logging.getLogger("deckslots.repl")
@@ -88,6 +90,20 @@ def run_repl() -> None:
                         result = handle_category_rename(session, old_name, new_name)
                     else:
                         result = dispatch(parsed, registry)
+                elif parsed.verb == "save" and parsed.obj == "template":
+                    name = " ".join(parsed.args)
+                    error = validate_template_save(session, name)
+                    if error:
+                        print(error)
+                        continue
+                    if user_template_exists(name):
+                        confirm = input(
+                            f"Template '{name}' already exists. Overwrite? [y/N]: "
+                        ).strip().lower()
+                        if confirm != "y":
+                            print("Aborted.")
+                            continue
+                    result = dispatch(parsed, registry)
                 else:
                     result = dispatch(parsed, registry)
                 if (
