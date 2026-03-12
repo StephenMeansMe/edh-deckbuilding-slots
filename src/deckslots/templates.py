@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from deckslots.exceptions import ParseError
 
@@ -15,6 +17,13 @@ class Template:
     name: str
     categories: list[tuple[str, int]]
     builtin: bool = False
+
+
+def _get_user_template_dir() -> Path:
+    """Return the XDG-compliant user template directory."""
+    data_home = os.environ.get("XDG_DATA_HOME", "")
+    base = Path(data_home) if data_home else Path.home() / ".local" / "share"
+    return base / "deckslots" / "templates"
 
 
 def _format_template(template: Template) -> str:
