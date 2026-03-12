@@ -245,7 +245,8 @@ class Decklist:
             return
         self.partners_enabled = True
         commander = self.categories["commander"]
-        assert isinstance(commander, CappedCategory)
+        if not isinstance(commander, CappedCategory):
+            raise SlotError("Commander category must be a CappedCategory")
         commander.total_slots += 1
 
     def enable_background(self) -> None:
@@ -254,7 +255,8 @@ class Decklist:
             return
         self.background_enabled = True
         commander = self.categories["commander"]
-        assert isinstance(commander, CappedCategory)
+        if not isinstance(commander, CappedCategory):
+            raise SlotError("Commander category must be a CappedCategory")
         commander.total_slots += 1
 
     def disable_partners(self) -> None:
@@ -263,7 +265,8 @@ class Decklist:
             return
         self.partners_enabled = False
         commander = self.categories["commander"]
-        assert isinstance(commander, CappedCategory)
+        if not isinstance(commander, CappedCategory):
+            raise SlotError("Commander category must be a CappedCategory")
         commander.total_slots -= 1
         self._evacuate_commander()
 
@@ -273,7 +276,8 @@ class Decklist:
             return
         self.background_enabled = False
         commander = self.categories["commander"]
-        assert isinstance(commander, CappedCategory)
+        if not isinstance(commander, CappedCategory):
+            raise SlotError("Commander category must be a CappedCategory")
         commander.total_slots -= 1
         self._evacuate_commander()
 
