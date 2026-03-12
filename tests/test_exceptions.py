@@ -14,4 +14,5 @@ def test_exception_hierarchy():
     assert issubclass(CategoryError, DecklistError)
     assert issubclass(FileError, DecklistError)
     assert issubclass(ParseError, DecklistError)
+    assert issubclass(DecklistError, ValueError)
     assert issubclass(DecklistError, Exception)

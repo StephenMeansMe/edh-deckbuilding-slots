@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+from deckslots.exceptions import CardError, CategoryError, SlotError
+
 BASIC_LAND_NAMES: frozenset[str] = frozenset(
     {
         "Plains",
@@ -54,7 +56,7 @@ class CappedCategory(Category):
 
     def __post_init__(self) -> None:
         if not (1 <= self.total_slots <= 99):
-            raise ValueError("total_slots must be between 1 and 99")
+            raise SlotError("total_slots must be between 1 and 99")
 
     @property
     def filled(self) -> int:
@@ -115,24 +117,24 @@ class Decklist:
     def add_category(self, name: str, slots: int) -> None:
         key = name.lower()
         if key in self.categories:
-            raise ValueError(f"Category '{name}' already exists")
+            raise CategoryError(f"Category '{name}' already exists")
         self.categories[key] = CappedCategory(name=name, total_slots=slots)
 
     def add_card(self, card: str, category_name: str) -> None:
         key = category_name.lower()
         if key not in self.categories:
-            raise ValueError(f"Category '{category_name}' not found.")
+            raise CategoryError(f"Category '{category_name}' not found.")
         cat = self.categories[key]
         if cat.allowed_cards is not None and card not in cat.allowed_cards:
-            raise ValueError(f"'{card}' is not allowed in '{category_name}'.")
-        if cat.is_full:
-            raise ValueError(
-                f"Category '{category_name}' is full (no available slots)."
-            )
+            raise CategoryError(f"'{card}' is not allowed in '{category_name}'.")
         if isinstance(cat, CappedCategory):
             for other in self.categories.values():
                 if isinstance(other, CappedCategory) and card in other.cards:
-                    raise ValueError(f"'{card}' is already in the decklist.")
+                    raise CardError(f"'{card}' is already in the decklist.")
+        if cat.is_full:
+            raise SlotError(
+                f"Category '{category_name}' is full (no available slots)."
+            )
         cat.cards.append(card)
 
     def find_card(self, card: str) -> str | None:
@@ -143,25 +145,25 @@ class Decklist:
         return None
 
     def move_card(self, card: str, to_category_name: str) -> None:
-        """Move card to another category. Raises ValueError on failure."""
+        """Move card to another category. Raises DecklistError on failure."""
         source_key = self.find_card(card)
         if source_key is None:
-            raise ValueError(f"Card '{card}' not found in the decklist.")
+            raise CardError(f"Card '{card}' not found in the decklist.")
         target_key = to_category_name.lower()
         if target_key not in self.categories:
-            raise ValueError(f"Category '{to_category_name}' not found.")
+            raise CategoryError(f"Category '{to_category_name}' not found.")
         target_cat = self.categories[target_key]
         if source_key == target_key:
-            raise ValueError(f"'{card}' is already in '{target_cat.name}'.")
+            raise CardError(f"'{card}' is already in '{target_cat.name}'.")
         if target_cat.is_full:
-            raise ValueError(
+            raise SlotError(
                 f"Category '{target_cat.name}' is full (no available slots)."
             )
         if (
             target_cat.allowed_cards is not None
             and card not in target_cat.allowed_cards
         ):
-            raise ValueError(f"'{card}' is not allowed in '{target_cat.name}'.")
+            raise CategoryError(f"'{card}' is not allowed in '{target_cat.name}'.")
         # Enforce singleton exclusivity: card must not already exist in
         # another capped category.
         if isinstance(target_cat, CappedCategory):
@@ -171,7 +173,7 @@ class Decklist:
                     and isinstance(cat, CappedCategory)
                     and card in cat.cards
                 ):
-                    raise ValueError(
+                    raise CardError(
                         f"'{card}' is already in the decklist (in '{cat.name}')."
                     )
         self.categories[source_key].cards.remove(card)
@@ -180,11 +182,11 @@ class Decklist:
     def remove_card(self, card: str) -> None:
         """Move card to Uncategorized, creating it if needed.
 
-        Raises ValueError if not found.
+        Raises CardError if not found.
         """
         source_key = self.find_card(card)
         if source_key is None:
-            raise ValueError(f"Card '{card}' not found in the decklist.")
+            raise CardError(f"Card '{card}' not found in the decklist.")
         if "uncategorized" not in self.categories:
             self.categories["uncategorized"] = UncappedCategory(
                 name="Uncategorized", fixed=True, user_addable=False
@@ -194,22 +196,22 @@ class Decklist:
         self.categories["uncategorized"].cards.append(card)
 
     def delete_card(self, card: str) -> None:
-        """Permanently remove a card. Raises ValueError if not found."""
+        """Permanently remove a card. Raises CardError if not found."""
         source_key = self.find_card(card)
         if source_key is None:
-            raise ValueError(f"Card '{card}' not found in the decklist.")
+            raise CardError(f"Card '{card}' not found in the decklist.")
         self.categories[source_key].cards.remove(card)
 
     def rename_category(self, old_name: str, new_name: str) -> None:
         old_key = old_name.lower()
         new_key = new_name.lower()
         if old_key not in self.categories:
-            raise ValueError(f"Category '{old_name}' not found.")
+            raise CategoryError(f"Category '{old_name}' not found.")
         cat = self.categories[old_key]
         if cat.fixed:
-            raise ValueError(f"Cannot rename fixed category '{cat.name}'.")
+            raise CategoryError(f"Cannot rename fixed category '{cat.name}'.")
         if new_key in self.categories and new_key != old_key:
-            raise ValueError(f"Category '{new_name}' already exists.")
+            raise CategoryError(f"Category '{new_name}' already exists.")
         del self.categories[old_key]
         cat.name = new_name
         self.categories[new_key] = cat
