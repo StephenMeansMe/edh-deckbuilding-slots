@@ -1,4 +1,5 @@
 from deckslots.cli import parse_command
+from deckslots.logging_config import setup_logging
 from deckslots.commands import (
     Session,
     _get_save_path,
@@ -13,8 +14,9 @@ from deckslots.commands import (
 )
 
 
-def run_repl():
+def run_repl() -> None:
     """Start the deckslots interactive REPL."""
+    setup_logging()
     session = Session()
     registry = register_all_handlers(session)
 
