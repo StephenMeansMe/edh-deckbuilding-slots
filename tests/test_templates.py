@@ -9,6 +9,8 @@ from deckslots.templates import (
     _get_user_template_dir,
     _load_builtin_templates,
     _parse_template_content,
+    find_template,
+    load_all_templates,
 )
 
 
@@ -111,3 +113,56 @@ class TestLoadBuiltinTemplates:
         templates = _load_builtin_templates()
         gf = next(t for t in templates if t.name == "Goldfish Fundamentals")
         assert len(gf.categories) >= 1
+
+
+class TestLoadAllTemplates:
+    def test_includes_builtins(self):
+        templates = load_all_templates()
+        assert any(t.builtin for t in templates)
+
+    def test_user_templates_are_included(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        user_dir = tmp_path / "deckslots" / "templates"
+        user_dir.mkdir(parents=True)
+        (user_dir / "my-template.tmpl").write_text(
+            "# My Template\nRamp [10 slots]\n"
+        )
+        templates = load_all_templates()
+        names = [t.name for t in templates]
+        assert "My Template" in names
+
+    def test_user_templates_are_not_builtin(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        user_dir = tmp_path / "deckslots" / "templates"
+        user_dir.mkdir(parents=True)
+        (user_dir / "custom.tmpl").write_text("# Custom\nRamp [5 slots]\n")
+        templates = load_all_templates()
+        custom = next((t for t in templates if t.name == "Custom"), None)
+        assert custom is not None
+        assert custom.builtin is False
+
+    def test_returns_sorted_by_name(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "empty"))
+        templates = load_all_templates()
+        names = [t.name for t in templates]
+        assert names == sorted(names)
+
+
+class TestFindTemplate:
+    def test_finds_builtin_by_name(self):
+        t = find_template("Goldfish Fundamentals")
+        assert t is not None
+        assert t.name == "Goldfish Fundamentals"
+
+    def test_returns_none_for_unknown_name(self):
+        t = find_template("Nonexistent Template XYZ")
+        assert t is None
+
+    def test_finds_user_template(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        user_dir = tmp_path / "deckslots" / "templates"
+        user_dir.mkdir(parents=True)
+        (user_dir / "custom.tmpl").write_text("# Custom\nRamp [5 slots]\n")
+        t = find_template("Custom")
+        assert t is not None
+        assert t.name == "Custom"
