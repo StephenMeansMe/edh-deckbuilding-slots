@@ -1,6 +1,9 @@
 """Tests for src/deckslots/templates.py"""
 
-from deckslots.templates import Template, _format_template, _parse_template_content
+import os
+from pathlib import Path
+
+from deckslots.templates import Template, _format_template, _get_user_template_dir, _parse_template_content
 
 
 class TestTemplateDataclass:
@@ -66,3 +69,15 @@ class TestParseTemplateContent:
         text = "# T\nRamp [5 slots]\n"
         t = _parse_template_content(text)
         assert t.builtin is False
+
+
+class TestGetUserTemplateDir:
+    def test_default_path_is_xdg_local_share(self, monkeypatch):
+        monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+        result = _get_user_template_dir()
+        assert result == Path.home() / ".local" / "share" / "deckslots" / "templates"
+
+    def test_respects_xdg_data_home(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        result = _get_user_template_dir()
+        assert result == tmp_path / "deckslots" / "templates"
