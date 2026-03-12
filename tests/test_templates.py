@@ -11,6 +11,8 @@ from deckslots.templates import (
     _parse_template_content,
     find_template,
     load_all_templates,
+    save_user_template,
+    user_template_exists,
 )
 
 
@@ -166,3 +168,39 @@ class TestFindTemplate:
         t = find_template("Custom")
         assert t is not None
         assert t.name == "Custom"
+
+
+class TestSaveUserTemplate:
+    def test_creates_file_in_user_dir(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        t = Template(name="My Template", categories=[("Ramp", 10)])
+        save_user_template(t)
+        user_dir = tmp_path / "deckslots" / "templates"
+        assert (user_dir / "my-template.tmpl").exists()
+
+    def test_file_content_round_trips(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        t = Template(name="Round Trip", categories=[("Ramp", 10), ("Draw", 8)])
+        save_user_template(t)
+        user_dir = tmp_path / "deckslots" / "templates"
+        content = (user_dir / "round-trip.tmpl").read_text()
+        parsed = _parse_template_content(content)
+        assert parsed.name == "Round Trip"
+        assert parsed.categories == [("Ramp", 10), ("Draw", 8)]
+
+    def test_creates_directory_if_missing(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "missing"))
+        t = Template(name="New", categories=[("Ramp", 5)])
+        save_user_template(t)  # should not raise
+
+
+class TestUserTemplateExists:
+    def test_returns_false_when_absent(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        assert user_template_exists("Nonexistent") is False
+
+    def test_returns_true_after_save(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        t = Template(name="Exists Now", categories=[("Ramp", 5)])
+        save_user_template(t)
+        assert user_template_exists("Exists Now") is True
