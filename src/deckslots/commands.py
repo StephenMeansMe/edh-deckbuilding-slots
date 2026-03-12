@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections import Counter
@@ -7,7 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+logger = logging.getLogger("deckslots.commands")
+
 from deckslots.cli import ParsedCommand
+from deckslots.exceptions import DecklistError, ParseError
 from deckslots.models import (
     BASIC_LAND_NAMES,
     CappedCategory,
@@ -15,6 +19,9 @@ from deckslots.models import (
     Decklist,
     UncappedCategory,
 )
+
+
+NO_ACTIVE_DECK = "No active decklist. Use 'decklist create <name>' first."
 
 
 class DispatchedHandler(Protocol):
@@ -76,7 +83,7 @@ def _parse_save_file(path: str) -> Decklist:
                 start = i + 1
             break
     if name is None:
-        raise ValueError("Save file missing '# <name>' header line.")
+        raise ParseError("Save file missing '# <name>' header line.")
 
     deck = Decklist.create(name)
     # Temporarily expand Commander to accept any number of cards during load;
@@ -186,7 +193,7 @@ def _parse_import_file(path: str) -> ParsedImport:
                     uncategorized.extend([card] * qty)
 
     if not any_card_found:
-        raise ValueError(f"No recognizable card lines found in '{path}'.")
+        raise ParseError(f"No recognizable card lines found in '{path}'.")
 
     return ParsedImport(
         commander=commander,
@@ -223,7 +230,7 @@ def _resolve_card_and_category_suffix(
 
 def handle_decklist_enable_companion(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     session.decklist.enable_companion()
     return (
         "Companion slot enabled. Add a companion with 'card add Companion <card name>'."
@@ -232,14 +239,14 @@ def handle_decklist_enable_companion(session: Session, cmd: ParsedCommand) -> st
 
 def handle_decklist_disable_companion(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     session.decklist.disable_companion()
     return "Companion mode disabled. All companion cards moved to Uncategorized."
 
 
 def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     session.decklist.enable_partners()
     slots = session.decklist.categories["commander"].total_slots
     return f"Partners mode enabled. The Commander category now has {slots} slots."
@@ -247,7 +254,7 @@ def handle_decklist_enable_partners(session: Session, cmd: ParsedCommand) -> str
 
 def handle_decklist_enable_background(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     session.decklist.enable_background()
     slots = session.decklist.categories["commander"].total_slots
     return f"Background mode enabled. The Commander category now has {slots} slots."
@@ -255,14 +262,14 @@ def handle_decklist_enable_background(session: Session, cmd: ParsedCommand) -> s
 
 def handle_decklist_disable_partners(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     session.decklist.disable_partners()
     return "Partners mode disabled. All commanders moved to Uncategorized."
 
 
 def handle_decklist_disable_background(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     session.decklist.disable_background()
     return "Background mode disabled. All commanders moved to Uncategorized."
 
@@ -277,7 +284,7 @@ def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
 
 def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     if len(cmd.args) < 2:
         return "Usage: card add <category> <card-name>"
     resolved = _resolve_category_and_card(cmd.args, session.decklist.categories)
@@ -292,14 +299,15 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
         return "Error: Basic lands can only be added to the 'Basic Lands' category."
     try:
         session.decklist.add_card(card, category_name)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
+    logger.debug("Card added: %s to %s", card, category_name)
     return f"Added '{card}' to '{category_name}'."
 
 
 def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     if len(cmd.args) < 2:
         return "Usage: category create <name> <slots>"
     *name_parts, slots_str = cmd.args
@@ -310,7 +318,7 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
         return f"Invalid slot count: '{slots_str}'. Must be a number."
     try:
         session.decklist.add_category(name, slots)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
     return f"Created category '{name}' with {slots} slots."
 
@@ -323,7 +331,7 @@ def _format_category_line(cat: Category) -> str:
 
 def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     lines = ["Categories:"]
     for cat in session.decklist.categories.values():
         lines.append(_format_category_line(cat))
@@ -368,6 +376,7 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
         deck.add_card(card, "Uncategorized")
 
     session.decklist = deck
+    logger.debug("Imported deck from %s", path)
 
     commander_count = 1 if parsed.commander is not None else 0
     summary = (
@@ -382,7 +391,7 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
 
 def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     if len(cmd.args) < 2:
         return "Usage: card move <card-name> <to-category>"
     resolved = _resolve_card_and_category_suffix(cmd.args, session.decklist.categories)
@@ -402,7 +411,7 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
     source_name = session.decklist.categories[source_key].name if source_key else None
     try:
         session.decklist.move_card(card, target_cat.name)
-    except ValueError as e:
+    except DecklistError as e:
         msg = str(e)
         if f"'{card}' is already in '{target_cat.name}'" in msg:
             return f"'{card}' is already in '{target_cat.name}'. Nothing to do."
@@ -415,7 +424,7 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
 
 def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     if not cmd.args:
         return "Usage: card remove <card-name>"
     card = " ".join(cmd.args)
@@ -429,19 +438,21 @@ def handle_card_remove(session: Session, cmd: ParsedCommand) -> str:
         )
     source_name = session.decklist.categories[source_key].name
     session.decklist.remove_card(card)
+    logger.debug("Card removed: %s", card)
     return f"Removed '{card}' from '{source_name}'. Card is now in Uncategorized."
 
 
 def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     if not cmd.args:
         return "Usage: card delete <card-name>"
     card = " ".join(cmd.args)
     try:
         session.decklist.delete_card(card)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
+    logger.debug("Card deleted: %s", card)
     return f"Deleted '{card}' from the decklist."
 
 
@@ -478,7 +489,7 @@ def _format_export_file(decklist: Decklist) -> str:
 
 def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     if not cmd.args:
         return "Usage: decklist export <filepath>"
     filepath = Path(" ".join(cmd.args))
@@ -487,6 +498,7 @@ def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
         filepath.write_text(_format_export_file(session.decklist))
     except OSError as e:
         return f"Error exporting decklist: {e}"
+    logger.debug("Exported deck to %s", filepath)
     return f"Exported '{session.decklist.name}' to '{filepath}'."
 
 
@@ -495,33 +507,37 @@ def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
     try:
         deck = _parse_save_file(str(path))
     except FileNotFoundError:
+        logger.warning("Save file not found: %s", path)
         return "No saved decklist found."
-    except (ValueError, OSError) as e:
+    except (DecklistError, OSError) as e:
+        logger.warning("Handler error: %s", e)
         return f"Error loading save file: {e}"
     session.decklist = deck
+    logger.debug("Deck loaded from %s", path)
     return f"Loaded '{deck.name}'."
 
 
 def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     path = _get_save_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_format_save_file(session.decklist))
+    logger.debug("Deck saved to %s", path)
     return f"Saved '{session.decklist.name}'."
 
 
 def validate_decklist_rename(session: Session) -> str | None:
     """Returns an error string if rename is not possible, else None."""
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     return None
 
 
 def validate_category_rename(session: Session, old_name: str) -> str | None:
     """Returns an error string if the category cannot be renamed, else None."""
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     if not old_name:
         return "Usage: category rename <name>"
     key = old_name.lower()
@@ -551,7 +567,7 @@ def handle_category_rename(session: Session, old_name: str, new_name: str) -> st
     display_old = session.decklist.categories[old_key].name
     try:
         session.decklist.rename_category(old_name, new_name)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
     return f"Renamed category '{display_old}' to '{new_name}'."
 
@@ -588,7 +604,7 @@ def handle_help() -> str:
 
 def handle_decklist_show(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
-        return "No active decklist. Use 'decklist create <name>' first."
+        return NO_ACTIVE_DECK
     deck = session.decklist
     lines = [f"Decklist: {deck.name}"]
     lines.append(f"Total slots: {deck.total_slots} ({deck.total_filled} filled)")

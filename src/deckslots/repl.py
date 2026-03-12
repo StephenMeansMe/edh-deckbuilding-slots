@@ -1,4 +1,7 @@
+import logging
+
 from deckslots.cli import parse_command
+from deckslots.logging_config import setup_logging
 from deckslots.commands import (
     Session,
     _get_save_path,
@@ -13,8 +16,12 @@ from deckslots.commands import (
 )
 
 
-def run_repl():
+_logger = logging.getLogger("deckslots.repl")
+
+
+def run_repl() -> None:
     """Start the deckslots interactive REPL."""
+    setup_logging()
     session = Session()
     registry = register_all_handlers(session)
 
@@ -23,7 +30,8 @@ def run_repl():
         try:
             session.decklist = _parse_save_file(str(save_path))
             print(f"Resumed '{session.decklist.name}'.")
-        except Exception as e:
+        except (OSError, ValueError) as e:
+            _logger.warning("Save file load failed, entering recovery: %s", e)
             print(f"Warning: could not load save file: {e}.")
             print("Options:")
             print("  discard — delete the save file and start fresh")
@@ -108,6 +116,10 @@ def run_repl():
                 if (
                     session.decklist is not None
                     and session.decklist.companion_slot_empty
+                    and not (
+                        parsed.obj == "decklist"
+                        and parsed.verb == "enable-companion"
+                    )
                 ):
                     warning = (
                         "Warning: Companion slot is empty. "

@@ -7,8 +7,7 @@ $ printf 'decklist create LurrusDeck\ndecklist enable-companion\ndecklist show\n
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Created decklist 'LurrusDeck'.
-deckslots> Warning: Companion slot is empty. Add a companion with 'card add Companion <card name>'.
-Companion slot enabled. Add a companion with 'card add Companion <card name>'.
+deckslots> Companion slot enabled. Add a companion with 'card add Companion <card name>'.
 deckslots> Warning: Companion slot is empty. Add a companion with 'card add Companion <card name>'.
 Decklist: LurrusDeck
 Total slots: 2 (0 filled)
@@ -35,8 +34,7 @@ $ printf 'decklist create LurrusDeck\ndecklist enable-companion\ncard add Compan
 >   | XDG_STATE_HOME="$TMPDIR" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Created decklist 'LurrusDeck'.
-deckslots> Warning: Companion slot is empty. Add a companion with 'card add Companion <card name>'.
-Companion slot enabled. Add a companion with 'card add Companion <card name>'.
+deckslots> Companion slot enabled. Add a companion with 'card add Companion <card name>'.
 deckslots> Added 'Lurrus of the Dream-Den' to 'Companion'.
 deckslots> Warning: 1 card(s) in Uncategorized. Assign them to categories before finalizing your decklist.
 Companion mode disabled. All companion cards moved to Uncategorized.
@@ -57,8 +55,7 @@ $ printf 'decklist create LurrusDeck\ndecklist enable-companion\ncard add Compan
 >   | XDG_STATE_HOME="$TMPDIR/state" uv run deckslots
 deckslots> Welcome to deckslots.
 deckslots> Created decklist 'LurrusDeck'.
-deckslots> Warning: Companion slot is empty. Add a companion with 'card add Companion <card name>'.
-Companion slot enabled. Add a companion with 'card add Companion <card name>'.
+deckslots> Companion slot enabled. Add a companion with 'card add Companion <card name>'.
 deckslots> Added 'Lurrus of the Dream-Den' to 'Companion'.
 deckslots> Saved 'LurrusDeck'.
 deckslots> Goodbye.
@@ -85,8 +82,7 @@ $ printf 'decklist create LurrusDeck\ndecklist enable-companion\ncard add Compan
 >   | grep -v "^deckslots> Exported"
 deckslots> Welcome to deckslots.
 deckslots> Created decklist 'LurrusDeck'.
-deckslots> Warning: Companion slot is empty. Add a companion with 'card add Companion <card name>'.
-Companion slot enabled. Add a companion with 'card add Companion <card name>'.
+deckslots> Companion slot enabled. Add a companion with 'card add Companion <card name>'.
 deckslots> Added 'Lurrus of the Dream-Den' to 'Companion'.
 deckslots> Goodbye.
 ```
