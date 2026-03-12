@@ -18,6 +18,7 @@ from deckslots.commands import (
     handle_category_create,
     handle_category_list,
     handle_category_rename,
+    handle_decklist_apply_template,
     handle_decklist_create,
     handle_decklist_disable_background,
     handle_decklist_disable_companion,
@@ -32,9 +33,14 @@ from deckslots.commands import (
     handle_decklist_save,
     handle_decklist_show,
     handle_help,
+    handle_template_export,
+    handle_template_import,
+    handle_template_list,
+    handle_template_save,
     register_all_handlers,
     validate_category_rename,
     validate_decklist_rename,
+    validate_template_save,
 )
 from deckslots.models import CappedCategory, Decklist, UncappedCategory
 
@@ -2388,6 +2394,284 @@ class TestHandleDecklistDisableCompanion:
 class TestDispatchedHandlerProtocol:
     def test_dispatched_handler_protocol_is_importable(self):
         from deckslots.commands import DispatchedHandler  # noqa: F401
+
+
+def _cmd(obj, verb, *args):
+    return ParsedCommand(
+        kind="object_verb",
+        raw=f"{obj} {verb} {' '.join(args)}",
+        obj=obj,
+        verb=verb,
+        args=list(args),
+    )
+
+
+class TestHandleTemplateList:
+    def test_no_active_deck_still_works(self):
+        session = Session()
+        result = handle_template_list(session, _cmd("template", "list"))
+        assert "Goldfish Fundamentals" in result
+
+    def test_shows_builtin_label(self):
+        session = Session()
+        result = handle_template_list(session, _cmd("template", "list"))
+        assert "[built-in]" in result
+
+    def test_shows_user_label(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        user_dir = tmp_path / "deckslots" / "templates"
+        user_dir.mkdir(parents=True)
+        (user_dir / "custom.tmpl").write_text("# Custom\nRamp [5 slots]\n")
+        session = Session()
+        result = handle_template_list(session, _cmd("template", "list"))
+        assert "[user]" in result
+        assert "Custom" in result
+
+    def test_shows_category_summary(self):
+        session = Session()
+        result = handle_template_list(session, _cmd("template", "list"))
+        # category summary shows slot counts in parentheses, e.g. "Ramp (10)"
+        assert "Ramp (10)" in result
+
+
+class TestHandleTemplateSave:
+    def test_no_active_deck_returns_error(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        session = Session()
+        result = handle_template_save(session, _cmd("template", "save", "My", "Template"))
+        assert "No active decklist" in result
+
+    def test_saves_user_categories_as_template(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_template_save(session, _cmd("template", "save", "My", "Template"))
+        assert "Saved template" in result
+        assert "My Template" in result
+
+    def test_saved_template_excludes_fixed_categories(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        handle_template_save(session, _cmd("template", "save", "Fixed", "Check"))
+        user_dir = tmp_path / "deckslots" / "templates"
+        content = (user_dir / "fixed-check.tmpl").read_text()
+        assert "Commander" not in content
+        assert "Basic Lands" not in content
+        assert "Ramp" in content
+
+    def test_no_name_returns_usage(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        session = _make_session_with_deck()
+        result = handle_template_save(session, _cmd("template", "save"))
+        assert "Usage" in result
+
+
+class TestValidateTemplateSave:
+    def test_no_active_deck_returns_error(self):
+        session = Session()
+        error = validate_template_save(session, "Any Name")
+        assert error is not None
+
+    def test_empty_name_returns_error(self):
+        session = _make_session_with_deck()
+        error = validate_template_save(session, "")
+        assert error is not None
+
+    def test_valid_session_and_name_returns_none(self):
+        session = _make_session_with_deck()
+        error = validate_template_save(session, "My Template")
+        assert error is None
+
+
+class TestHandleDecklistApplyTemplate:
+    def test_applies_known_template(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_apply_template(
+            session, _cmd("decklist", "apply-template", "Goldfish", "Fundamentals")
+        )
+        assert "Applied template" in result
+        assert "Goldfish Fundamentals" in result
+
+    def test_creates_template_categories_in_deck(self):
+        session = _make_session_with_deck()
+        handle_decklist_apply_template(
+            session, _cmd("decklist", "apply-template", "Goldfish", "Fundamentals")
+        )
+        assert "ramp" in session.decklist.categories
+
+    def test_unknown_template_returns_error(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_apply_template(
+            session, _cmd("decklist", "apply-template", "Nonexistent", "XYZ")
+        )
+        assert "not found" in result.lower() or "unknown" in result.lower()
+
+    def test_no_active_deck_returns_error(self):
+        session = Session()
+        result = handle_decklist_apply_template(
+            session, _cmd("decklist", "apply-template", "Goldfish", "Fundamentals")
+        )
+        assert "No active decklist" in result
+
+    def test_reports_moved_card_count(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Old", 5)
+        session.decklist.add_card("Sol Ring", "Old")
+        result = handle_decklist_apply_template(
+            session, _cmd("decklist", "apply-template", "Goldfish", "Fundamentals")
+        )
+        assert "1 card(s) moved" in result
+
+    def test_no_args_returns_usage(self):
+        session = _make_session_with_deck()
+        result = handle_decklist_apply_template(
+            session, _cmd("decklist", "apply-template")
+        )
+        assert "Usage" in result
+
+
+class TestHandleDecklistCreateWithTemplate:
+    def test_create_with_valid_template(self):
+        session = Session()
+        cmd = _cmd("decklist", "create", "MyDeck", "--template", "Goldfish", "Fundamentals")
+        result = handle_decklist_create(session, cmd)
+        assert "MyDeck" in result
+        assert "Goldfish Fundamentals" in result
+
+    def test_template_categories_applied_to_new_deck(self):
+        session = Session()
+        cmd = _cmd("decklist", "create", "MyDeck", "--template", "Goldfish", "Fundamentals")
+        handle_decklist_create(session, cmd)
+        assert "ramp" in session.decklist.categories
+
+    def test_unknown_template_returns_error_without_creating(self):
+        session = Session()
+        cmd = _cmd("decklist", "create", "MyDeck", "--template", "NoSuchTemplate")
+        result = handle_decklist_create(session, cmd)
+        assert "not found" in result.lower() or "unknown" in result.lower()
+        assert session.decklist is None
+
+    def test_create_without_template_unchanged(self):
+        session = Session()
+        cmd = _cmd("decklist", "create", "MyDeck")
+        result = handle_decklist_create(session, cmd)
+        assert "Created decklist 'MyDeck'" in result
+        assert session.decklist is not None
+
+
+class TestHandleTemplateExport:
+    def test_exports_known_template_to_file(self, tmp_path):
+        session = Session()
+        filepath = str(tmp_path / "out.tmpl")
+        result = handle_template_export(
+            session, _cmd("template", "export", "Goldfish", "Fundamentals", filepath)
+        )
+        assert "Exported" in result
+        assert (tmp_path / "out.tmpl").exists()
+
+    def test_exported_file_is_parseable(self, tmp_path):
+        from deckslots.templates import _parse_template_content
+
+        session = Session()
+        filepath = str(tmp_path / "out.tmpl")
+        handle_template_export(
+            session, _cmd("template", "export", "Goldfish", "Fundamentals", filepath)
+        )
+        content = (tmp_path / "out.tmpl").read_text()
+        t = _parse_template_content(content)
+        assert t.name == "Goldfish Fundamentals"
+
+    def test_unknown_template_returns_error(self, tmp_path):
+        session = Session()
+        filepath = str(tmp_path / "out.tmpl")
+        result = handle_template_export(
+            session, _cmd("template", "export", "NoSuchTemplate", filepath)
+        )
+        assert "not found" in result.lower() or "unknown" in result.lower()
+
+    def test_no_args_returns_usage(self):
+        session = Session()
+        result = handle_template_export(session, _cmd("template", "export"))
+        assert "Usage" in result
+
+
+class TestHandleTemplateImport:
+    def test_imports_template_from_file(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        src = tmp_path / "src.tmpl"
+        src.write_text("# New Template\nRamp [10 slots]\n")
+        session = Session()
+        result = handle_template_import(session, _cmd("template", "import", str(src)))
+        assert "Imported" in result
+        assert "New Template" in result
+
+    def test_imported_template_is_findable(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        src = tmp_path / "src.tmpl"
+        src.write_text("# Imported One\nRamp [5 slots]\n")
+        session = Session()
+        handle_template_import(session, _cmd("template", "import", str(src)))
+        from deckslots.templates import find_template
+
+        t = find_template("Imported One")
+        assert t is not None
+
+    def test_nonexistent_file_returns_error(self):
+        session = Session()
+        result = handle_template_import(
+            session, _cmd("template", "import", "/nonexistent/path.tmpl")
+        )
+        assert "not found" in result.lower() or "error" in result.lower()
+
+    def test_no_args_returns_usage(self):
+        session = Session()
+        result = handle_template_import(session, _cmd("template", "import"))
+        assert "Usage" in result
+
+
+class TestTemplateHandlersInRegistry:
+    def test_template_list_registered(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("template", "list") in registry
+
+    def test_template_save_registered(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("template", "save") in registry
+
+    def test_template_export_registered(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("template", "export") in registry
+
+    def test_template_import_registered(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("template", "import") in registry
+
+    def test_decklist_apply_template_registered(self):
+        session = _make_session_with_deck()
+        registry = register_all_handlers(session)
+        assert ("decklist", "apply-template") in registry
+
+
+class TestHelpIncludesTemplateCommands:
+    def test_help_mentions_template_list(self):
+        assert "template list" in handle_help()
+
+    def test_help_mentions_template_save(self):
+        assert "template save" in handle_help()
+
+    def test_help_mentions_template_export(self):
+        assert "template export" in handle_help()
+
+    def test_help_mentions_template_import(self):
+        assert "template import" in handle_help()
+
+    def test_help_mentions_decklist_apply_template(self):
+        assert "decklist apply-template" in handle_help()
 
 
 class TestCommandsLogging:
