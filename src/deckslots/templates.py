@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from importlib.resources import files as resource_files
 from pathlib import Path
 
 from deckslots.exceptions import ParseError
@@ -17,6 +18,19 @@ class Template:
     name: str
     categories: list[tuple[str, int]]
     builtin: bool = False
+
+
+def _load_builtin_templates() -> list[Template]:
+    """Load all built-in templates shipped with the package."""
+    templates: list[Template] = []
+    data_dir = resource_files("deckslots").joinpath("data/templates")
+    for entry in data_dir.iterdir():  # type: ignore[union-attr]
+        if entry.name.endswith(".tmpl"):
+            content = entry.read_text("utf-8")
+            t = _parse_template_content(content)
+            t.builtin = True
+            templates.append(t)
+    return sorted(templates, key=lambda t: t.name)
 
 
 def _get_user_template_dir() -> Path:
