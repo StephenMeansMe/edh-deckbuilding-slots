@@ -3,7 +3,13 @@
 import os
 from pathlib import Path
 
-from deckslots.templates import Template, _format_template, _get_user_template_dir, _parse_template_content
+from deckslots.templates import (
+    Template,
+    _format_template,
+    _get_user_template_dir,
+    _load_builtin_templates,
+    _parse_template_content,
+)
 
 
 class TestTemplateDataclass:
@@ -81,3 +87,27 @@ class TestGetUserTemplateDir:
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
         result = _get_user_template_dir()
         assert result == tmp_path / "deckslots" / "templates"
+
+
+class TestLoadBuiltinTemplates:
+    def test_returns_at_least_one_template(self):
+        templates = _load_builtin_templates()
+        assert len(templates) >= 1
+
+    def test_templates_are_marked_builtin(self):
+        templates = _load_builtin_templates()
+        assert all(t.builtin for t in templates)
+
+    def test_templates_have_non_empty_name(self):
+        templates = _load_builtin_templates()
+        assert all(t.name for t in templates)
+
+    def test_goldfish_fundamentals_is_present(self):
+        templates = _load_builtin_templates()
+        names = [t.name for t in templates]
+        assert "Goldfish Fundamentals" in names
+
+    def test_goldfish_fundamentals_has_categories(self):
+        templates = _load_builtin_templates()
+        gf = next(t for t in templates if t.name == "Goldfish Fundamentals")
+        assert len(gf.categories) >= 1
