@@ -1,3 +1,5 @@
+import logging
+
 from deckslots.cli import parse_command
 from deckslots.logging_config import setup_logging
 from deckslots.commands import (
@@ -14,6 +16,9 @@ from deckslots.commands import (
 )
 
 
+_logger = logging.getLogger("deckslots.repl")
+
+
 def run_repl() -> None:
     """Start the deckslots interactive REPL."""
     setup_logging()
@@ -26,6 +31,7 @@ def run_repl() -> None:
             session.decklist = _parse_save_file(str(save_path))
             print(f"Resumed '{session.decklist.name}'.")
         except Exception as e:
+            _logger.warning("Save file load failed, entering recovery: %s", e)
             print(f"Warning: could not load save file: {e}.")
             print("Options:")
             print("  discard — delete the save file and start fresh")
