@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from deckslots.cli import ParsedCommand
+from deckslots.exceptions import DecklistError, ParseError
 from deckslots.models import (
     BASIC_LAND_NAMES,
     CappedCategory,
@@ -76,7 +77,7 @@ def _parse_save_file(path: str) -> Decklist:
                 start = i + 1
             break
     if name is None:
-        raise ValueError("Save file missing '# <name>' header line.")
+        raise ParseError("Save file missing '# <name>' header line.")
 
     deck = Decklist.create(name)
     # Temporarily expand Commander to accept any number of cards during load;
@@ -186,7 +187,7 @@ def _parse_import_file(path: str) -> ParsedImport:
                     uncategorized.extend([card] * qty)
 
     if not any_card_found:
-        raise ValueError(f"No recognizable card lines found in '{path}'.")
+        raise ParseError(f"No recognizable card lines found in '{path}'.")
 
     return ParsedImport(
         commander=commander,
@@ -292,7 +293,7 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
         return "Error: Basic lands can only be added to the 'Basic Lands' category."
     try:
         session.decklist.add_card(card, category_name)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
     return f"Added '{card}' to '{category_name}'."
 
@@ -310,7 +311,7 @@ def handle_category_create(session: Session, cmd: ParsedCommand) -> str:
         return f"Invalid slot count: '{slots_str}'. Must be a number."
     try:
         session.decklist.add_category(name, slots)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
     return f"Created category '{name}' with {slots} slots."
 
@@ -402,7 +403,7 @@ def handle_card_move(session: Session, cmd: ParsedCommand) -> str:
     source_name = session.decklist.categories[source_key].name if source_key else None
     try:
         session.decklist.move_card(card, target_cat.name)
-    except ValueError as e:
+    except DecklistError as e:
         msg = str(e)
         if f"'{card}' is already in '{target_cat.name}'" in msg:
             return f"'{card}' is already in '{target_cat.name}'. Nothing to do."
@@ -440,7 +441,7 @@ def handle_card_delete(session: Session, cmd: ParsedCommand) -> str:
     card = " ".join(cmd.args)
     try:
         session.decklist.delete_card(card)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
     return f"Deleted '{card}' from the decklist."
 
@@ -496,7 +497,7 @@ def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
         deck = _parse_save_file(str(path))
     except FileNotFoundError:
         return "No saved decklist found."
-    except (ValueError, OSError) as e:
+    except (DecklistError, OSError) as e:
         return f"Error loading save file: {e}"
     session.decklist = deck
     return f"Loaded '{deck.name}'."
@@ -551,7 +552,7 @@ def handle_category_rename(session: Session, old_name: str, new_name: str) -> st
     display_old = session.decklist.categories[old_key].name
     try:
         session.decklist.rename_category(old_name, new_name)
-    except ValueError as e:
+    except DecklistError as e:
         return str(e)
     return f"Renamed category '{display_old}' to '{new_name}'."
 
