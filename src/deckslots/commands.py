@@ -19,7 +19,14 @@ from deckslots.models import (
     Decklist,
     UncappedCategory,
 )
-
+from deckslots.templates import (
+    Template,
+    _format_template,
+    _parse_template_content,
+    find_template,
+    load_all_templates,
+    save_user_template,
+)
 
 NO_ACTIVE_DECK = "No active decklist. Use 'decklist create <name>' first."
 
@@ -277,6 +284,18 @@ def handle_decklist_disable_background(session: Session, cmd: ParsedCommand) -> 
 def handle_decklist_create(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: decklist create <name>"
+    if "--template" in cmd.args:
+        idx = cmd.args.index("--template")
+        name = " ".join(cmd.args[:idx]) or cmd.args[0]
+        template_name = " ".join(cmd.args[idx + 1 :])
+        if not template_name:
+            return "Usage: decklist create <name> --template <template-name>"
+        template = find_template(template_name)
+        if template is None:
+            return f"Template '{template_name}' not found."
+        session.decklist = Decklist.create(name)
+        session.decklist.apply_template(template)
+        return f"Created decklist '{name}' with template '{template_name}'."
     name = cmd.args[0]
     session.decklist = Decklist.create(name)
     return f"Created decklist '{name}'."
@@ -572,6 +591,96 @@ def handle_category_rename(session: Session, old_name: str, new_name: str) -> st
     return f"Renamed category '{display_old}' to '{new_name}'."
 
 
+def handle_template_list(session: Session, cmd: ParsedCommand) -> str:
+    templates = load_all_templates()
+    if not templates:
+        return "No templates available."
+    lines = ["Templates:"]
+    for t in templates:
+        label = "[built-in]" if t.builtin else "[user]"
+        cat_summary = ", ".join(f"{name} ({slots})" for name, slots in t.categories)
+        lines.append(f"  {label} {t.name} — {cat_summary}")
+    return "\n".join(lines)
+
+
+def handle_template_save(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return NO_ACTIVE_DECK
+    if not cmd.args:
+        return "Usage: template save <name>"
+    name = " ".join(cmd.args)
+    categories = [
+        (cat.name, cat.total_slots)
+        for cat in session.decklist.categories.values()
+        if not cat.fixed and isinstance(cat, CappedCategory)
+    ]
+    template = Template(name=name, categories=categories)
+    save_user_template(template)
+    return f"Saved template '{name}'."
+
+
+def validate_template_save(session: Session, name: str) -> str | None:
+    """Return an error string if template save is not possible, else None."""
+    if session.decklist is None:
+        return NO_ACTIVE_DECK
+    if not name.strip():
+        return "Usage: template save <name>"
+    return None
+
+
+def handle_decklist_apply_template(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return NO_ACTIVE_DECK
+    if not cmd.args:
+        return "Usage: decklist apply-template <template-name>"
+    template_name = " ".join(cmd.args)
+    template = find_template(template_name)
+    if template is None:
+        return f"Template '{template_name}' not found."
+    count = session.decklist.apply_template(template)
+    deck_name = session.decklist.name
+    return (
+        f"Applied template '{template_name}' to '{deck_name}'. "
+        f"{count} card(s) moved to Uncategorized."
+    )
+
+
+def handle_template_export(session: Session, cmd: ParsedCommand) -> str:
+    if len(cmd.args) < 2:
+        return "Usage: template export <template-name> <filepath>"
+    *name_parts, filepath_str = cmd.args
+    template_name = " ".join(name_parts)
+    template = find_template(template_name)
+    if template is None:
+        return f"Template '{template_name}' not found."
+    filepath = Path(filepath_str)
+    try:
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(_format_template(template), encoding="utf-8")
+    except OSError as e:
+        return f"Error exporting template: {e}"
+    return f"Exported template '{template_name}' to '{filepath}'."
+
+
+def handle_template_import(session: Session, cmd: ParsedCommand) -> str:
+    if not cmd.args:
+        return "Usage: template import <filepath>"
+    filepath = " ".join(cmd.args)
+    try:
+        with open(filepath, encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        return f"File not found: '{filepath}'"
+    except OSError as e:
+        return f"Error reading file '{filepath}': {e}"
+    try:
+        template = _parse_template_content(content)
+    except (ParseError, Exception) as e:
+        return f"Error parsing template file: {e}"
+    save_user_template(template)
+    return f"Imported template '{template.name}'."
+
+
 def handle_help() -> str:
     return "\n".join(
         [
@@ -583,6 +692,7 @@ def handle_help() -> str:
             "  decklist save                 Save the active decklist",
             "  decklist load                 Load the last saved decklist",
             "  decklist rename               Rename the active decklist",
+            "  decklist apply-template <n>   Apply a template to the active decklist",
             "  decklist enable-partners      Allow two commanders (partner mechanic)",
             "  decklist enable-background    Allow a Background co-commander",
             "  decklist disable-partners     Disable partners; move commanders out",
@@ -596,6 +706,10 @@ def handle_help() -> str:
             "  card move <name> <cat>        Move a card to a different category",
             "  card remove <name>            Move a card to Uncategorized",
             "  card delete <name>            Permanently remove a card",
+            "  template list                 List all available templates",
+            "  template save <name>          Save current categories as a template",
+            "  template export <n> <file>    Export a named template to a file",
+            "  template import <file>        Import a template from a file",
             "  help                          Show this help message",
             "  quit / exit                   Exit the program",
         ]
@@ -648,6 +762,13 @@ def register_all_handlers(
         ("card", "move"): lambda cmd: handle_card_move(session, cmd),
         ("card", "remove"): lambda cmd: handle_card_remove(session, cmd),
         ("card", "delete"): lambda cmd: handle_card_delete(session, cmd),
+        ("decklist", "apply-template"): (
+            lambda cmd: handle_decklist_apply_template(session, cmd)
+        ),
+        ("template", "list"): lambda cmd: handle_template_list(session, cmd),
+        ("template", "save"): lambda cmd: handle_template_save(session, cmd),
+        ("template", "export"): lambda cmd: handle_template_export(session, cmd),
+        ("template", "import"): lambda cmd: handle_template_import(session, cmd),
     }
 
 

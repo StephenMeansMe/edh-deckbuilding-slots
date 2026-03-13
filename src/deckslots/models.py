@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from deckslots.exceptions import CardError, CategoryError, SlotError
+
+if TYPE_CHECKING:
+    from deckslots.templates import Template
 
 BASIC_LAND_NAMES: frozenset[str] = frozenset(
     {
@@ -308,6 +314,39 @@ class Decklist:
             return False
         max_allowed = 1 + self.partners_enabled + self.background_enabled
         return len(commander.cards) > max_allowed
+
+    def apply_template(self, template: Template) -> int:
+        """Replace user-defined categories with template categories.
+
+        Fixed categories (Commander, Basic Lands, Companion, Uncategorized) are
+        left intact. Cards from removed categories are moved to Uncategorized.
+        Returns the count of cards moved to Uncategorized.
+        """
+        # Collect keys of non-fixed (user-created) categories
+        user_keys = [k for k, cat in self.categories.items() if not cat.fixed]
+
+        # Evacuate cards from user categories to Uncategorized
+        moved = 0
+        for key in user_keys:
+            cards = list(self.categories[key].cards)
+            if cards:
+                if "uncategorized" not in self.categories:
+                    self.categories["uncategorized"] = UncappedCategory(
+                        name="Uncategorized", fixed=True, user_addable=False
+                    )
+                for card in cards:
+                    self.categories["uncategorized"].cards.append(card)
+                moved += len(cards)
+
+        # Remove user categories
+        for key in user_keys:
+            del self.categories[key]
+
+        # Add template categories
+        for cat_name, slots in template.categories:
+            self.add_category(cat_name, slots)
+
+        return moved
 
     def rename(self, new_name: str) -> None:
         self.name = new_name

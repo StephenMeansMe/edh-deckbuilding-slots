@@ -78,3 +78,23 @@ class TestParseCommand:
         """A 'card' without a verb is parsed as unknown."""
         result = parse_command("card")
         assert result.kind == "unknown"
+
+    def test_template_list_parses_as_object_verb(self):
+        """'template list' parses as an object-verb command."""
+        result = parse_command("template list")
+        assert result.kind == "object_verb"
+        assert result.obj == "template"
+        assert result.verb == "list"
+
+    def test_template_save_parses_with_args(self):
+        """'template save My Template' captures args."""
+        result = parse_command("template save My Template")
+        assert result.kind == "object_verb"
+        assert result.obj == "template"
+        assert result.verb == "save"
+        assert result.args == ["My", "Template"]
+
+    def test_template_alone_is_unknown(self):
+        """'template' alone (no verb) is parsed as unknown."""
+        result = parse_command("template")
+        assert result.kind == "unknown"

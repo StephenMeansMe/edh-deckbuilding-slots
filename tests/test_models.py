@@ -8,6 +8,7 @@ from deckslots.models import (
     Decklist,
     UncappedCategory,
 )
+from deckslots.templates import Template
 
 
 class TestCategoryIsAbstract:
@@ -929,3 +930,63 @@ class TestDomainExceptions:
         deck = Decklist.create("Test")
         with pytest.raises(CategoryError):
             deck.rename_category("Commander", "Leader")
+
+
+class TestDecklistApplyTemplate:
+    def _make_template(self) -> Template:
+        return Template(name="Test", categories=[("Ramp", 10), ("Card Draw", 8)])
+
+    def test_adds_template_categories_to_deck(self):
+        deck = Decklist.create("MyDeck")
+        deck.apply_template(self._make_template())
+        assert "ramp" in deck.categories
+        assert "card draw" in deck.categories
+
+    def test_removes_previous_user_categories(self):
+        deck = Decklist.create("MyDeck")
+        deck.add_category("Old Category", 5)
+        deck.apply_template(self._make_template())
+        assert "old category" not in deck.categories
+
+    def test_keeps_fixed_categories(self):
+        deck = Decklist.create("MyDeck")
+        deck.apply_template(self._make_template())
+        assert "commander" in deck.categories
+        assert "basic lands" in deck.categories
+
+    def test_cards_from_removed_categories_go_to_uncategorized(self):
+        deck = Decklist.create("MyDeck")
+        deck.add_category("Old", 5)
+        deck.add_card("Sol Ring", "Old")
+        deck.apply_template(self._make_template())
+        assert "uncategorized" in deck.categories
+        assert "Sol Ring" in deck.categories["uncategorized"].cards
+
+    def test_returns_count_of_moved_cards(self):
+        deck = Decklist.create("MyDeck")
+        deck.add_category("Old", 5)
+        deck.add_card("Sol Ring", "Old")
+        deck.add_card("Arcane Signet", "Old")
+        count = deck.apply_template(self._make_template())
+        assert count == 2
+
+    def test_returns_zero_when_no_cards_displaced(self):
+        deck = Decklist.create("MyDeck")
+        count = deck.apply_template(self._make_template())
+        assert count == 0
+
+    def test_cards_already_in_uncategorized_remain(self):
+        deck = Decklist.create("MyDeck")
+        # Place a card in Uncategorized before applying template
+        deck.categories["uncategorized"] = UncappedCategory(
+            name="Uncategorized", fixed=True, user_addable=False
+        )
+        deck.categories["uncategorized"].cards.append("Preexisting Card")
+        deck.apply_template(self._make_template())
+        assert "Preexisting Card" in deck.categories["uncategorized"].cards
+
+    def test_template_slot_counts_are_applied(self):
+        deck = Decklist.create("MyDeck")
+        deck.apply_template(self._make_template())
+        assert deck.categories["ramp"].total_slots == 10
+        assert deck.categories["card draw"].total_slots == 8
