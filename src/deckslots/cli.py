@@ -1,5 +1,6 @@
-import click
 from dataclasses import dataclass, field
+
+import click
 
 BUILTINS: set[str] = {"quit", "exit", "help"}
 KNOWN_OBJECTS: set[str] = {"decklist", "category", "card", "template"}
