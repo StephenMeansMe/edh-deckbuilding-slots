@@ -44,6 +44,7 @@ def _get_save_path() -> Path:
 @dataclass
 class Session:
     decklist: Decklist | None = None
+    scryfall_index: dict | None = None
 
 
 _CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
@@ -321,7 +322,16 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
     except DecklistError as e:
         return str(e)
     logger.debug("Card added: %s to %s", card, category_name)
-    return f"Added '{card}' to '{category_name}'."
+    result = f"Added '{card}' to '{category_name}'."
+    if session.scryfall_index is not None and card not in BASIC_LAND_NAMES:
+        from deckslots.scryfall import validate_card
+
+        vr = validate_card(card, session.scryfall_index)
+        if not vr.found:
+            result = f"Warning: '{card}' not found in Scryfall database.\n{result}"
+        elif not vr.commander_legal:
+            result = f"Warning: '{card}' is not legal in Commander format.\n{result}"
+    return result
 
 
 def handle_category_create(session: Session, cmd: ParsedCommand) -> str:

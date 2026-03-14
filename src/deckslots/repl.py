@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from deckslots.cli import parse_command
 from deckslots.commands import (
@@ -18,6 +19,62 @@ from deckslots.logging_config import setup_logging
 from deckslots.templates import user_template_exists
 
 _logger = logging.getLogger("deckslots.repl")
+
+
+def _load_scryfall_index(session: Session) -> None:
+    """Load the Scryfall index into *session* from the local cache if available.
+
+    If validation is disabled via config, or the cache is absent and stdin is
+    not a tty (non-interactive), silently skips.  In interactive mode with no
+    cache the user is prompted once to download it.
+    """
+    from deckslots.config import is_validation_enabled
+    from deckslots.scryfall import (
+        download_oracle_cards,
+        get_cache_path,
+        is_cache_stale,
+        load_index_from_cache,
+    )
+
+    if not is_validation_enabled():
+        return
+
+    cache_path = get_cache_path()
+
+    if not is_cache_stale(cache_path):
+        index = load_index_from_cache(cache_path)
+        if index is not None:
+            session.scryfall_index = index
+            _logger.debug("Scryfall index loaded from cache (%d entries)", len(index))
+            return
+
+    # Cache is absent or stale.  Only prompt in interactive mode.
+    if not sys.stdin.isatty():
+        return
+
+    try:
+        answer = input(
+            "Scryfall card database is missing or outdated. "
+            "Download now? [y/N]: "
+        ).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return
+
+    if answer != "y":
+        print("Skipping download. Card validation disabled for this session.")
+        return
+
+    print("Downloading Scryfall oracle_cards…", end=" ", flush=True)
+    try:
+        download_oracle_cards(cache_path)
+        index = load_index_from_cache(cache_path)
+        if index is not None:
+            session.scryfall_index = index
+            print(f"Done ({len(index)} cards loaded).")
+        else:
+            print("Download succeeded but index could not be loaded.")
+    except Exception as exc:  # noqa: BLE001
+        print(f"Download failed: {exc}")
 
 
 def run_repl() -> None:
@@ -51,6 +108,8 @@ def run_repl() -> None:
                 elif choice == "exit":
                     print("Goodbye.")
                     return
+
+    _load_scryfall_index(session)
 
     print("deckslots> Welcome to deckslots.")
     try:

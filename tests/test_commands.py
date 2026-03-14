@@ -2720,3 +2720,85 @@ class TestCommandsLogging:
         with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
             handle_decklist_save(session, _make_cmd("decklist save", "decklist", "save", []))
         assert any("saved" in r.message.lower() for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Scryfall validation integration (US-012)
+# ---------------------------------------------------------------------------
+
+_SMALL_INDEX = {
+    "sol ring": {"name": "Sol Ring", "legalities": {"commander": "legal"}},
+    "oko, thief of crowns": {
+        "name": "Oko, Thief of Crowns",
+        "legalities": {"commander": "banned"},
+    },
+}
+
+
+def _make_session_with_index():
+    """Session with an active deck and a small Scryfall index loaded."""
+    session = _make_session_with_deck()
+    session.scryfall_index = _SMALL_INDEX
+    return session
+
+
+def _card_add_cmd(category, *card_parts):
+    args = [category] + list(card_parts)
+    raw = "card add " + " ".join(args)
+    return ParsedCommand(kind="object_verb", raw=raw, obj="card", verb="add", args=args)
+
+
+class TestScryfallValidationInCardAdd:
+    def test_no_warning_for_valid_legal_card(self):
+        session = _make_session_with_index()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_card_add(session, _card_add_cmd("Ramp", "Sol", "Ring"))
+        assert "Warning" not in result
+
+    def test_warns_when_card_not_in_index(self):
+        session = _make_session_with_index()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_card_add(
+            session, _card_add_cmd("Ramp", "Gibberish", "Cardname")
+        )
+        assert "Warning" in result
+        assert "not found" in result.lower()
+
+    def test_warns_when_card_not_commander_legal(self):
+        session = _make_session_with_index()
+        session.decklist.add_category("Walkers", 10)
+        result = handle_card_add(
+            session, _card_add_cmd("Walkers", "Oko,", "Thief", "of", "Crowns")
+        )
+        assert "Warning" in result
+        assert "not legal" in result.lower() or "banned" in result.lower()
+
+    def test_card_still_added_despite_legality_warning(self):
+        session = _make_session_with_index()
+        session.decklist.add_category("Walkers", 10)
+        handle_card_add(
+            session, _card_add_cmd("Walkers", "Oko,", "Thief", "of", "Crowns")
+        )
+        assert "Oko, Thief of Crowns" in session.decklist.categories["walkers"].cards
+
+    def test_no_validation_when_index_is_none(self):
+        session = _make_session_with_deck()
+        session.scryfall_index = None
+        session.decklist.add_category("Ramp", 10)
+        # Even a card that would fail validation proceeds silently
+        result = handle_card_add(
+            session, _card_add_cmd("Ramp", "Gibberish", "Cardname")
+        )
+        # No deck error, no warning — card added
+        assert "Warning" not in result
+
+    def test_basic_lands_skip_validation(self):
+        session = _make_session_with_index()
+        result = handle_card_add(session, _card_add_cmd("Basic", "Lands", "Forest"))
+        assert "Warning" not in result
+
+
+class TestSessionHasScryfallIndex:
+    def test_session_starts_with_no_index(self):
+        session = Session()
+        assert session.scryfall_index is None
