@@ -7,14 +7,10 @@ import os
 import time
 from pathlib import Path
 
-import pytest
-
 from deckslots.scryfall import (
-    ValidationResult,
     build_name_index,
     validate_card,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
