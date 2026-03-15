@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+import click
+
 BUILTINS: set[str] = {"quit", "exit", "help"}
 KNOWN_OBJECTS: set[str] = {"decklist", "category", "card", "template"}
 
@@ -32,6 +34,7 @@ def parse_command(line: str) -> ParsedCommand:
     return ParsedCommand(kind="unknown", raw=stripped)
 
 
+@click.command()
 def main() -> None:
     """CLI entrypoint for deckslots."""
     from deckslots.logging_config import setup_logging

@@ -3,7 +3,9 @@ name = "deckslots"
 version = "0.1.0"
 description = "EDH deckbuilding through a slots system"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "click>=8.3.1",
+]
 
 [project.scripts]
 deckslots = "deckslots.cli:main"

@@ -1,31 +1,25 @@
-"""Functional/subprocess tests for file I/O CLI behaviour.
+"""Functional tests for file I/O CLI behaviour.
 
 These tests replace the scrut functional tests in 06-save-load.md,
 07-autoload.md, and 08-export.md, which required shell builtins
 (printf redirections, test -f, etc.) that scrut cannot reliably execute.
 
 Each test gets its own tmp_path fixture directory for full isolation.
+Uses click.testing.CliRunner for in-process invocation (no subprocess).
 """
 
-import os
-import subprocess
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).parent.parent
+from click.testing import CliRunner
+
+from deckslots.cli import main
 
 
 def _run(commands: str, state_home: Path) -> str:
-    """Run deckslots with piped stdin and return stdout."""
-    env = {**os.environ, "XDG_STATE_HOME": str(state_home)}
-    result = subprocess.run(
-        ["uv", "run", "deckslots"],
-        input=commands,
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=PROJECT_ROOT,
-    )
-    return result.stdout
+    """Invoke deckslots with piped stdin and return stdout."""
+    runner = CliRunner(env={"XDG_STATE_HOME": str(state_home)})
+    result = runner.invoke(main, input=commands)
+    return result.output
 
 
 # ---------------------------------------------------------------------------
@@ -92,8 +86,6 @@ class TestSaveLoad:
 # ---------------------------------------------------------------------------
 # Auto-Load and Recovery Mode  (replaces tests/functional/07-autoload.md)
 # ---------------------------------------------------------------------------
-
-_SAVE_FILE = Path("deckslots") / "decklist.bak"
 
 
 def _write_save(state_home: Path, content: str) -> None:
