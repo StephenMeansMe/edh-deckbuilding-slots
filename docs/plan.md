@@ -1,6 +1,6 @@
 # Plan: CLI CRUD Commands (`object verb` style)
 
-> **Status**: Core MVP, card management, file I/O, decklist import, Partner, Background, and Companion features are all shipped. This document reflects the current implementation.
+> **Status**: Core MVP, card management, file I/O, decklist import, Partner, Background, Companion, Template system, and Scryfall validation are all shipped. This document reflects the current implementation.
 
 ## Command Grammar
 
@@ -29,6 +29,7 @@ Three objects, each with standard CRUD verbs plus domain-specific operations:
 | `decklist disable-background` | Remove Background slot; all Commander cards move to Uncategorized |
 | `decklist enable-companion` | Add a separate Companion slot (1 card, outside the main 100) |
 | `decklist disable-companion` | Remove Companion slot; companion card moves to Uncategorized |
+| `decklist apply-template <name>` | Replace all user-created categories with the named template's layout; displaced cards move to Uncategorized |
 
 ### `category` commands
 
@@ -36,9 +37,14 @@ Three objects, each with standard CRUD verbs plus domain-specific operations:
 |---|---|
 | `category create <name> <slot-count>` | Add a new category with 1–99 slots |
 | `category list` | List all categories with filled/total slot counts |
+| `category rename <name>` | Interactively rename a category (prompts for new name; user categories only) |
+
+#### Planned (not yet implemented)
+
+| Command | Description |
+|---|---|
 | `category show <name>` | Show one category's details: slot counts and card names |
 | `category resize <name> <slot-count>` | Change a category's total slots (cannot go below current filled count) |
-| `category rename <old-name> <new-name>` | Rename a category |
 | `category delete <name>` | Delete a category (fails if it contains cards; fixed categories cannot be deleted) |
 
 ### `card` commands
@@ -50,6 +56,15 @@ Three objects, each with standard CRUD verbs plus domain-specific operations:
 | `card move <card-name> <category>` | Move a card from its current category to a different one (fails if target is full, does not exist, or the card is not user-addable to that target) |
 | `card delete <card-name>` | Hard-delete: permanently remove a card from the decklist; does not place it in Uncategorized |
 | `card list [category]` | List all cards, or only cards in the given category |
+
+### `template` commands
+
+| Command | Description |
+|---|---|
+| `template list` | List all available templates (built-in and user-saved) |
+| `template save <name>` | Save the current decklist's user-created categories as a named template |
+| `template export <name> <filepath>` | Write a template to a file |
+| `template import <filepath>` | Load a template file and save it as a user template |
 
 ### REPL built-in commands
 
@@ -161,18 +176,30 @@ class Decklist:
 
 ```
 src/deckslots/
-├── __init__.py      — package init (unchanged)
-├── cli.py           — parse_command(), ParsedCommand dataclass; known objects/builtins
-├── repl.py          — run_repl(); session loop, warning injection (Uncategorized, commander_overcrowded, companion_slot_empty)
-├── models.py        — Category ABC, CappedCategory, UncappedCategory, Decklist, BASIC_LAND_NAMES
-└── commands.py      — Session, all handler functions, dispatch registry, save/load/export/import I/O
+├── __init__.py           — package init
+├── cli.py                — parse_command(), ParsedCommand dataclass; known objects/builtins
+├── models.py             — Category ABC, CappedCategory, UncappedCategory, Decklist, BASIC_LAND_NAMES
+├── commands.py           — Session, all handler functions, dispatch registry, save/load/export/import I/O
+├── repl.py               — run_repl(); session loop, warning injection, Scryfall loading
+├── scryfall.py           — Scryfall API integration: fetch, cache, validate
+├── templates.py          — Template model, built-in/user template I/O
+├── config.py             — User config (XDG-compliant, validation_enabled flag)
+├── exceptions.py         — Custom exception hierarchy (DecklistError and subclasses)
+├── logging_config.py     — Debug logging setup (XDG-compliant)
+└── data/templates/
+    └── goldfish-fundamentals.tmpl   — built-in template
 
 tests/
 ├── __init__.py
-├── test_models.py   — unit tests for Category subclasses and Decklist
-├── test_commands.py — handler, save/load/export/import tests
-├── test_repl.py     — REPL warning injection tests
-└── functional/      — scrut black-box CLI tests (*.md)
+├── test_cli.py                — ParsedCommand parser tests
+├── test_models.py             — Category subclasses and Decklist model tests
+├── test_commands.py           — handler, save/load/export/import tests
+├── test_repl_functional.py    — REPL integration tests
+├── test_scryfall.py           — Scryfall integration tests
+├── test_templates.py          — Template I/O tests
+├── test_exceptions.py         — Exception behavior tests
+├── test_logging_config.py     — Logging setup tests
+└── functional/                — scrut black-box CLI tests (*.md)
 ```
 
 Note: `io.py` was not created; all file I/O (`_format_save_file`, `_parse_save_file`, `_format_export_file`, `_parse_import_file`) lives in `commands.py`.
@@ -254,7 +281,7 @@ Note: `io.py` was not created; all file I/O (`_format_save_file`, `_parse_save_f
 
 ## Design Decisions
 
-1. **No external CLI library** (no `click`, no `argparse` subcommands). The REPL already reads raw lines; a simple split-and-dispatch is sufficient and avoids coupling to a framework.
+1. **Custom command parser, not a CLI framework**. The REPL reads raw lines; a simple split-and-dispatch is sufficient for the `object verb args` grammar. `click` is used for output (`click.echo`, `click.style`) and interactive prompts (`click.prompt`), but not for command parsing or routing.
 2. **Case-insensitive command matching** for object and verb (`Category Create` works the same as `category create`). Card names preserve their original casing.
 3. **Multi-word category names are supported** via greedy arg parsing. `card add` uses a greedy longest-prefix match for the category; `card move` uses a greedy longest-suffix match. No quoting required.
 4. **Argument order for `card add`**: `card add <category> <card-name...>` — category first (longest-prefix match), then card name (consumes rest of line).

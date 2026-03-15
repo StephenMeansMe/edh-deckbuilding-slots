@@ -8,7 +8,7 @@
 
 - `bin/` — Standalone CLI entrypoint
 - `docs/` — ROADMAP, domain-concepts.md, implementation plans
-- `src/deckslots/` — Source modules (cli.py, models.py, commands.py, repl.py) + CLAUDE.md (architecture notes)
+- `src/deckslots/` — Source modules (cli.py, models.py, commands.py, repl.py, scryfall.py, templates.py, config.py, exceptions.py, logging_config.py) + CLAUDE.md (architecture notes) + `data/templates/` (built-in template assets)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`)
 
 ## Tech Stack
@@ -19,6 +19,7 @@
 - **Testing**: [pytest](https://docs.pytest.org/)
 - **Linting/Formatting**: [Ruff](https://docs.astral.sh/ruff/)
 - **Type checking**: [ty](https://github.com/astral-sh/ty)
+- **CLI/output**: [click](https://click.palletsprojects.com/) (output via `click.echo`/`click.style`; interactive prompts via `click.prompt`)
 - **Documentation**: GitHub repo wiki (end-user docs); Markdown files in repo (developer and AI assistant docs)
 
 ## Architecture
