@@ -16,7 +16,7 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 - **Companion** — `decklist enable-companion` adds a separate fixed Companion slot (one card) representing the companion zone outside the main 100. `decklist disable-companion` removes it and moves the card to Uncategorized. *(#55)*
 - **User-defined categories** — Users create named categories (e.g., "Ramp," "Removal," "Draw") with 1--99 slots each.
 - **Exclusive slot assignment** — Each card occupies exactly one slot in one category. The total slot count across all categories equals 100.
-- **Pre-configured starter categories** — The app ships with optional category suggestions (Lands, Ramp, Removal, Draw, Enablers, Payoffs) that the user can adopt, modify, or ignore.
+- **Template system** — `template list/save/export/import` manages reusable category configurations. The built-in `goldfish-fundamentals` template provides a standard starting layout. Users can save their own templates and apply them to a decklist with `decklist apply-template <name>`; cards displaced by the new layout move to Uncategorized.
 
 ### Interface and I/O
 
@@ -24,9 +24,9 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 - **Decklist import** — `decklist import <file>` reads a plain text file in `$QUANTITY $CARDNAME` format with `Commander` and `Maindeck` section headings. The commander is routed to the Commander slot, basic lands to the Basic Lands category, and all other cards to a temporary **Uncategorized** category. The app persistently warns until Uncategorized is empty. *(#47)*
 - **Plain text export** — `decklist export <filepath>` writes a Moxfield/Archidekt-compatible file with up to three sections: `Commander` (the assigned commander(s), if any), `Companion` (the companion card, if any — only present when a companion is assigned), and `Maindeck` (all other cards, quantities aggregated, sorted alphabetically by card name). Category structure is intentionally discarded; external tools apply their own grouping and display logic. The export format is also compatible with `decklist import` *(#50)*.
 
-### Intentional omissions
+### Optional semantic validation
 
-- **No semantic validation** — The app does not check whether a card is legal, whether a sorcery was placed in a "Lands" category, or whether the commander is actually a legendary creature. Any string can go in any slot.
+- **Scryfall card validation** — The app can optionally warn (not error) when a card name is not found in the Scryfall database, or when a card is found but is not legal in Commander. Validation is opt-in via `config.json`; core decklist operations remain fully offline-capable. Card type and placement (e.g., "sorcery in a Lands category") are still not checked — any valid card name can go in any slot.
 
 ---
 
@@ -44,15 +44,10 @@ Features below are organized by theme. No specific release schedule is attached;
 ### Export formats
 
 - **CSV export** — Export decklists as CSV files.
-- **Third-party tool compatibility** — Export in formats recognized by Archidekt, Moxfield, and other popular deckbuilding platforms.
 
-### Scryfall integration
+### Scryfall integration (extended)
 
-- Pull card data (art, oracle text, legality, pricing, etc.) from the [Scryfall API](https://scryfall.com/docs/api) as an optional enrichment layer.
-- Core decklist operations remain fully **offline-capable** — Scryfall data is never required to add or remove cards.
-- When enabled, the app **warns** (does not error) if:
-  - A card name is not found in the Scryfall database.
-  - A card is found but is not legal in the Commander format.
+- Pull richer card data (art, oracle text, pricing, etc.) from the [Scryfall API](https://scryfall.com/docs/api) beyond the current name/legality validation.
 
 ### Storage
 
