@@ -55,15 +55,13 @@ def _load_scryfall_index(session: Session) -> None:
         return
 
     try:
-        answer = input(
-            "Scryfall card database is missing or outdated. "
-            "Download now? [y/N]: "
-        ).strip().lower()
+        if not click.confirm(
+            "Scryfall card database is missing or outdated. Download now?",
+            default=False,
+        ):
+            click.echo("Skipping download. Card validation disabled for this session.")
+            return
     except (EOFError, KeyboardInterrupt):
-        return
-
-    if answer != "y":
-        click.echo("Skipping download. Card validation disabled for this session.")
         return
 
     click.echo("Downloading Scryfall oracle_cards… ", nl=False)
