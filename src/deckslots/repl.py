@@ -63,20 +63,20 @@ def _load_scryfall_index(session: Session) -> None:
         return
 
     if answer != "y":
-        print("Skipping download. Card validation disabled for this session.")
+        click.echo("Skipping download. Card validation disabled for this session.")
         return
 
-    print("Downloading Scryfall oracle_cards…", end=" ", flush=True)
+    click.echo("Downloading Scryfall oracle_cards… ", nl=False)
     try:
         download_oracle_cards(cache_path)
         index = load_index_from_cache(cache_path)
         if index is not None:
             session.scryfall_index = index
-            print(f"Done ({len(index)} cards loaded).")
+            click.echo(f"Done ({len(index)} cards loaded).")
         else:
-            print("Download succeeded but index could not be loaded.")
+            click.echo("Download succeeded but index could not be loaded.")
     except Exception as exc:  # noqa: BLE001
-        print(f"Download failed: {exc}")
+        click.echo(f"Download failed: {exc}")
 
 
 def run_repl() -> None:
@@ -89,31 +89,31 @@ def run_repl() -> None:
     if save_path.exists():
         try:
             session.decklist = _parse_save_file(str(save_path))
-            print(f"Resumed '{session.decklist.name}'.")
+            click.echo(f"Resumed '{session.decklist.name}'.")
         except (OSError, ValueError) as e:
             _logger.warning("Save file load failed, entering recovery: %s", e)
-            print(f"Warning: could not load save file: {e}.")
-            print("Options:")
-            print("  discard — delete the save file and start fresh")
-            print("  exit    — quit so you can inspect the file manually")
+            click.echo(f"Warning: could not load save file: {e}.")
+            click.echo("Options:")
+            click.echo("  discard — delete the save file and start fresh")
+            click.echo("  exit    — quit so you can inspect the file manually")
             while True:
-                print("deckslots(recovery)> ", end="", flush=True)
+                click.echo("deckslots(recovery)> ", nl=False)
                 try:
                     choice = input().strip().lower()
                 except (EOFError, KeyboardInterrupt):
-                    print("Goodbye.")
+                    click.echo("Goodbye.")
                     return
                 if choice == "discard":
                     save_path.unlink()
-                    print("Save file deleted. Starting fresh.")
+                    click.echo("Save file deleted. Starting fresh.")
                     break
                 elif choice == "exit":
-                    print("Goodbye.")
+                    click.echo("Goodbye.")
                     return
 
     _load_scryfall_index(session)
 
-    print("deckslots> Welcome to deckslots.")
+    click.echo("deckslots> Welcome to deckslots.")
     try:
         while True:
             line = input("deckslots> ")
@@ -121,7 +121,7 @@ def run_repl() -> None:
             if parsed.kind == "builtin" and parsed.builtin in ("quit", "exit"):
                 break
             if parsed.kind == "builtin" and parsed.builtin == "help":
-                print(handle_help())
+                click.echo(handle_help())
                 continue
             if parsed.kind == "empty":
                 continue
@@ -130,22 +130,22 @@ def run_repl() -> None:
                     if parsed.obj == "decklist":
                         error = validate_decklist_rename(session)
                         if error:
-                            print(error)
+                            click.echo(error)
                             continue
                         new_name = input("New name: ").strip()
                         if not new_name:
-                            print("Name cannot be empty.")
+                            click.echo("Name cannot be empty.")
                             continue
                         result = handle_decklist_rename(session, new_name)
                     elif parsed.obj == "category":
                         old_name = " ".join(parsed.args)
                         error = validate_category_rename(session, old_name)
                         if error:
-                            print(error)
+                            click.echo(error)
                             continue
                         new_name = input("New name: ").strip()
                         if not new_name:
-                            print("Name cannot be empty.")
+                            click.echo("Name cannot be empty.")
                             continue
                         result = handle_category_rename(session, old_name, new_name)
                     else:
@@ -154,14 +154,14 @@ def run_repl() -> None:
                     name = " ".join(parsed.args)
                     error = validate_template_save(session, name)
                     if error:
-                        print(error)
+                        click.echo(error)
                         continue
                     if user_template_exists(name):
                         confirm = input(
                             f"Template '{name}' already exists. Overwrite? [y/N]: "
                         ).strip().lower()
                         if confirm != "y":
-                            print("Aborted.")
+                            click.echo("Aborted.")
                             continue
                     result = dispatch(parsed, registry)
                 else:
@@ -205,7 +205,7 @@ def run_repl() -> None:
                 click.echo(result)
                 continue
             if parsed.kind == "unknown":
-                print(f"Unknown command: {parsed.raw}")
+                click.echo(f"Unknown command: {parsed.raw}")
     except (EOFError, KeyboardInterrupt):
         pass
-    print("Goodbye.")
+    click.echo("Goodbye.")
