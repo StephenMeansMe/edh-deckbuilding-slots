@@ -446,6 +446,20 @@ class TestUncategorized:
             "deckslots> Goodbye.\n"
         )
 
+    def test_uncategorized_warning_is_styled_in_color_mode(self, tmp_path):
+        """In colour-capable terminals the Uncategorized warning should carry
+        ANSI escape codes so it stands out from normal command output."""
+        runner = CliRunner(env={"XDG_STATE_HOME": str(tmp_path)})
+        result = runner.invoke(
+            main,
+            input=(
+                f"decklist import {DECK_TXT}\n"  # Sol Ring lands in Uncategorized
+                "quit\n"
+            ),
+            color=True,
+        )
+        assert "\033[" in result.output  # ANSI escape present → styled
+
 
 # ---------------------------------------------------------------------------
 # 09-consistency.md
@@ -973,6 +987,22 @@ class TestTemplates:
             data_home=tmp_path / "data",
         )
         assert "File not found: '/nonexistent/path.tmpl'" in out
+
+    def test_template_save_overwrite_prompt_accepts_full_word_yes(self, tmp_path):
+        """The overwrite confirmation should accept the full word 'yes', not
+        just the single character 'y'."""
+        data_home = tmp_path / "data"
+        out = _run(
+            "decklist create TestDeck\ncategory create Ramp 10\n"
+            "template save MyTemplate\n"   # first save — no prompt
+            "template save MyTemplate\n"   # second save — overwrite prompt fires
+            "yes\n"                        # full word; current code rejects this
+            "quit\n",
+            tmp_path,
+            data_home=data_home,
+        )
+        assert "Saved template 'MyTemplate'." in out
+        assert "Aborted." not in out
 
 
 # ---------------------------------------------------------------------------
