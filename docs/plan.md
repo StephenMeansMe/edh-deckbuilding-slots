@@ -39,6 +39,14 @@ Three objects, each with standard CRUD verbs plus domain-specific operations:
 | `category list` | List all categories with filled/total slot counts |
 | `category rename <name>` | Interactively rename a category (prompts for new name; user categories only) |
 
+#### Planned (not yet implemented)
+
+| Command | Description |
+|---|---|
+| `category show <name>` | Show one category's details: slot counts and card names |
+| `category resize <name> <slot-count>` | Change a category's total slots (cannot go below current filled count) |
+| `category delete <name>` | Delete a category (fails if it contains cards; fixed categories cannot be deleted) |
+
 ### `card` commands
 
 | Command | Description |
