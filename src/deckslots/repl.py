@@ -1,6 +1,8 @@
 import logging
 import sys
 
+import click
+
 from deckslots.cli import parse_command
 from deckslots.commands import (
     Session,
@@ -164,29 +166,28 @@ def run_repl() -> None:
                     result = dispatch(parsed, registry)
                 else:
                     result = dispatch(parsed, registry)
+                warnings: list[str] = []
                 if (
                     session.decklist is not None
                     and "uncategorized" in session.decklist.categories
                     and session.decklist.categories["uncategorized"].filled > 0
                 ):
                     n = session.decklist.categories["uncategorized"].filled
-                    warning = (
+                    warnings.append(
                         f"Warning: {n} card(s) in Uncategorized. "
                         "Assign them to categories before finalizing "
                         "your decklist."
                     )
-                    result = f"{warning}\n{result}"
                 if (
                     session.decklist is not None
                     and session.decklist.commander_overcrowded
                 ):
-                    warning = (
+                    warnings.append(
                         "Warning: Commander has more cards than enabled modes allow. "
                         "Run 'decklist enable-partners' or "
                         "'decklist enable-background', "
                         "or use 'card move' to reassign the extra cards."
                     )
-                    result = f"{warning}\n{result}"
                 if (
                     session.decklist is not None
                     and session.decklist.companion_slot_empty
@@ -195,12 +196,13 @@ def run_repl() -> None:
                         and parsed.verb == "enable-companion"
                     )
                 ):
-                    warning = (
+                    warnings.append(
                         "Warning: Companion slot is empty. "
                         "Add a companion with 'card add Companion <card name>'."
                     )
-                    result = f"{warning}\n{result}"
-                print(result)
+                for w in reversed(warnings):
+                    click.echo(click.style(w, fg="yellow", bold=True))
+                click.echo(result)
                 continue
             if parsed.kind == "unknown":
                 print(f"Unknown command: {parsed.raw}")
