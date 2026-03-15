@@ -157,10 +157,10 @@ def run_repl() -> None:
                         click.echo(error)
                         continue
                     if user_template_exists(name):
-                        confirm = input(
-                            f"Template '{name}' already exists. Overwrite? [y/N]: "
-                        ).strip().lower()
-                        if confirm != "y":
+                        if not click.confirm(
+                            f"Template '{name}' already exists. Overwrite?",
+                            default=False,
+                        ):
                             click.echo("Aborted.")
                             continue
                     result = dispatch(parsed, registry)
