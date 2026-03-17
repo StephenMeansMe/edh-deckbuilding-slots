@@ -367,6 +367,64 @@ def handle_category_list(session: Session, cmd: ParsedCommand) -> str:
     return "\n".join(lines)
 
 
+def handle_category_resize(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return NO_ACTIVE_DECK
+    if len(cmd.args) < 2:
+        return "Usage: category resize <name> <slots>"
+    *name_parts, slots_str = cmd.args
+    name = " ".join(name_parts)
+    try:
+        slots = int(slots_str)
+    except ValueError:
+        return f"Invalid slot count: '{slots_str}'. Must be a number."
+    try:
+        session.decklist.resize_category(name, slots)
+    except DecklistError as e:
+        return str(e)
+    return f"Resized '{name}' to {slots} slots."
+
+
+def handle_category_delete(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return NO_ACTIVE_DECK
+    if not cmd.args:
+        return "Usage: category delete <name>"
+    name = " ".join(cmd.args)
+    key = name.lower()
+    if key not in session.decklist.categories:
+        return f"Category '{name}' not found."
+    cards_count = len(session.decklist.categories[key].cards)
+    try:
+        session.decklist.delete_category(name)
+    except DecklistError as e:
+        return str(e)
+    if cards_count:
+        return (
+            f"Deleted category '{name}'. {cards_count} card(s) moved to Uncategorized."
+        )
+    return f"Deleted category '{name}'."
+
+
+def handle_category_show(session: Session, cmd: ParsedCommand) -> str:
+    if session.decklist is None:
+        return NO_ACTIVE_DECK
+    if not cmd.args:
+        return "Usage: category show <name>"
+    name = " ".join(cmd.args)
+    key = name.lower()
+    if key not in session.decklist.categories:
+        return f"Category '{name}' not found."
+    cat = session.decklist.categories[key]
+    line = _format_category_line(cat).strip()
+    if not cat.cards:
+        return line
+    lines = [line]
+    for card in cat.cards:
+        lines.append(f"    {card}")
+    return "\n".join(lines)
+
+
 def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     if not cmd.args:
         return "Usage: decklist import <filepath>"
@@ -712,6 +770,9 @@ def handle_help() -> str:
             "  category create <n> <s>       Add a category with <s> slots",
             "  category list                 List all categories",
             "  category rename <name>        Rename a user-created category",
+            "  category resize <name> <s>    Resize a user-created category",
+            "  category delete <name>        Delete a user-created category",
+            "  category show <name>          Show details of a category",
             "  card add <cat> <name>         Add a card to a category",
             "  card move <name> <cat>        Move a card to a different category",
             "  card remove <name>            Move a card to Uncategorized",
@@ -768,6 +829,9 @@ def register_all_handlers(
         ),
         ("category", "create"): lambda cmd: handle_category_create(session, cmd),
         ("category", "list"): lambda cmd: handle_category_list(session, cmd),
+        ("category", "resize"): lambda cmd: handle_category_resize(session, cmd),
+        ("category", "delete"): lambda cmd: handle_category_delete(session, cmd),
+        ("category", "show"): lambda cmd: handle_category_show(session, cmd),
         ("card", "add"): lambda cmd: handle_card_add(session, cmd),
         ("card", "move"): lambda cmd: handle_card_move(session, cmd),
         ("card", "remove"): lambda cmd: handle_card_remove(session, cmd),

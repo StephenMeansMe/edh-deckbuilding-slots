@@ -2852,9 +2852,7 @@ class TestCategoryResizeHandler:
     def test_resize_category_multi_word_name(self):
         session = _make_session_with_deck()
         session.decklist.add_category("Mana Ramp", 10)
-        result = handle_category_resize(
-            session, self._resize_cmd("Mana", "Ramp", "8")
-        )
+        handle_category_resize(session, self._resize_cmd("Mana", "Ramp", "8"))
         assert session.decklist.categories["mana ramp"].total_slots == 8
 
 
@@ -2910,7 +2908,7 @@ class TestCategoryDeleteHandler:
     def test_delete_category_multi_word_name(self):
         session = _make_session_with_deck()
         session.decklist.add_category("Mana Ramp", 10)
-        result = handle_category_delete(session, self._delete_cmd("Mana", "Ramp"))
+        handle_category_delete(session, self._delete_cmd("Mana", "Ramp"))
         assert "mana ramp" not in session.decklist.categories
 
 
