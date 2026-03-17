@@ -208,6 +208,40 @@ class Decklist:
             raise CardError(f"Card '{card}' not found in the decklist.")
         self.categories[source_key].cards.remove(card)
 
+    def resize_category(self, name: str, new_slots: int) -> None:
+        key = name.lower()
+        if key not in self.categories:
+            raise CategoryError(f"Category '{name}' not found.")
+        cat = self.categories[key]
+        if cat.fixed:
+            raise CategoryError(f"Cannot resize fixed category '{cat.name}'.")
+        if not (1 <= new_slots <= 99):
+            raise SlotError("total_slots must be between 1 and 99")
+        if new_slots < len(cat.cards):
+            raise SlotError(
+                f"Cannot resize: category has {len(cat.cards)} card(s); "
+                f"remove cards first or choose a size ≥ {len(cat.cards)}."
+            )
+        if not isinstance(cat, CappedCategory):
+            raise CategoryError(f"Category '{cat.name}' is not a capped category.")
+        cat.total_slots = new_slots
+
+    def delete_category(self, name: str) -> None:
+        key = name.lower()
+        if key not in self.categories:
+            raise CategoryError(f"Category '{name}' not found.")
+        cat = self.categories[key]
+        if cat.fixed:
+            raise CategoryError(f"Cannot delete fixed category '{cat.name}'.")
+        if cat.cards:
+            if "uncategorized" not in self.categories:
+                self.categories["uncategorized"] = UncappedCategory(
+                    name="Uncategorized", fixed=True, user_addable=False
+                )
+            for card in cat.cards:
+                self.categories["uncategorized"].cards.append(card)
+        del self.categories[key]
+
     def rename_category(self, old_name: str, new_name: str) -> None:
         old_key = old_name.lower()
         new_key = new_name.lower()
