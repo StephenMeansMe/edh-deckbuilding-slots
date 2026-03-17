@@ -16,8 +16,11 @@ from deckslots.commands import (
     handle_card_move,
     handle_card_remove,
     handle_category_create,
+    handle_category_delete,
     handle_category_list,
     handle_category_rename,
+    handle_category_resize,
+    handle_category_show,
     handle_decklist_apply_template,
     handle_decklist_create,
     handle_decklist_disable_background,
@@ -2796,6 +2799,171 @@ class TestScryfallValidationInCardAdd:
         session = _make_session_with_index()
         result = handle_card_add(session, _card_add_cmd("Basic", "Lands", "Forest"))
         assert "Warning" not in result
+
+
+class TestCategoryResizeHandler:
+    """handle_category_resize changes the slot count of a user-created category."""
+
+    def _resize_cmd(self, *args):
+        return ParsedCommand(
+            kind="object_verb",
+            raw="category resize " + " ".join(args),
+            obj="category",
+            verb="resize",
+            args=list(args),
+        )
+
+    def test_resize_category_changes_slots(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_category_resize(session, self._resize_cmd("Ramp", "8"))
+        assert session.decklist.categories["ramp"].total_slots == 8
+        assert "8" in result
+
+    def test_resize_category_requires_decklist(self):
+        session = Session()
+        result = handle_category_resize(session, self._resize_cmd("Ramp", "8"))
+        assert "no active decklist" in result.lower()
+
+    def test_resize_category_requires_args(self):
+        session = _make_session_with_deck()
+        result = handle_category_resize(session, self._resize_cmd())
+        assert "usage" in result.lower()
+
+    def test_resize_category_rejects_non_numeric_slots(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_category_resize(session, self._resize_cmd("Ramp", "abc"))
+        assert "invalid" in result.lower()
+
+    def test_resize_category_rejects_fixed_category(self):
+        session = _make_session_with_deck()
+        result = handle_category_resize(session, self._resize_cmd("Commander", "2"))
+        assert "cannot resize" in result.lower()
+
+    def test_resize_category_rejects_undersized_slots(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        session.decklist.add_card("Cultivate", "Ramp")
+        result = handle_category_resize(session, self._resize_cmd("Ramp", "1"))
+        assert "2" in result
+
+    def test_resize_category_multi_word_name(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Mana Ramp", 10)
+        result = handle_category_resize(
+            session, self._resize_cmd("Mana", "Ramp", "8")
+        )
+        assert session.decklist.categories["mana ramp"].total_slots == 8
+
+
+class TestCategoryDeleteHandler:
+    """handle_category_delete removes a user-created category, evacuating cards."""
+
+    def _delete_cmd(self, *args):
+        return ParsedCommand(
+            kind="object_verb",
+            raw="category delete " + " ".join(args),
+            obj="category",
+            verb="delete",
+            args=list(args),
+        )
+
+    def test_delete_category_removes_it(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_category_delete(session, self._delete_cmd("Ramp"))
+        assert "ramp" not in session.decklist.categories
+        assert "Ramp" in result
+
+    def test_delete_category_requires_decklist(self):
+        session = Session()
+        result = handle_category_delete(session, self._delete_cmd("Ramp"))
+        assert "no active decklist" in result.lower()
+
+    def test_delete_category_requires_args(self):
+        session = _make_session_with_deck()
+        result = handle_category_delete(session, self._delete_cmd())
+        assert "usage" in result.lower()
+
+    def test_delete_category_rejects_fixed_category(self):
+        session = _make_session_with_deck()
+        result = handle_category_delete(session, self._delete_cmd("Commander"))
+        assert "cannot delete" in result.lower()
+
+    def test_delete_category_moves_cards_to_uncategorized(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        result = handle_category_delete(session, self._delete_cmd("Ramp"))
+        assert "uncategorized" in session.decklist.categories
+        assert "Sol Ring" in session.decklist.categories["uncategorized"].cards
+        assert "1" in result
+
+    def test_delete_empty_category_omits_count(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_category_delete(session, self._delete_cmd("Ramp"))
+        assert "Ramp" in result
+
+    def test_delete_category_multi_word_name(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Mana Ramp", 10)
+        result = handle_category_delete(session, self._delete_cmd("Mana", "Ramp"))
+        assert "mana ramp" not in session.decklist.categories
+
+
+class TestCategoryShowHandler:
+    """handle_category_show displays a single category's details."""
+
+    def _show_cmd(self, *args):
+        return ParsedCommand(
+            kind="object_verb",
+            raw="category show " + " ".join(args),
+            obj="category",
+            verb="show",
+            args=list(args),
+        )
+
+    def test_show_category_displays_name_and_slots(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        result = handle_category_show(session, self._show_cmd("Ramp"))
+        assert "Ramp" in result
+        assert "10" in result
+
+    def test_show_category_requires_decklist(self):
+        session = Session()
+        result = handle_category_show(session, self._show_cmd("Ramp"))
+        assert "no active decklist" in result.lower()
+
+    def test_show_category_requires_args(self):
+        session = _make_session_with_deck()
+        result = handle_category_show(session, self._show_cmd())
+        assert "usage" in result.lower()
+
+    def test_show_category_raises_for_not_found(self):
+        session = _make_session_with_deck()
+        result = handle_category_show(session, self._show_cmd("Nonexistent"))
+        assert "not found" in result.lower()
+
+    def test_show_category_lists_cards(self):
+        session = _make_session_with_deck()
+        session.decklist.add_category("Ramp", 10)
+        session.decklist.add_card("Sol Ring", "Ramp")
+        result = handle_category_show(session, self._show_cmd("Ramp"))
+        assert "Sol Ring" in result
+
+    def test_show_category_works_for_fixed_categories(self):
+        session = _make_session_with_deck()
+        result = handle_category_show(session, self._show_cmd("Commander"))
+        assert "Commander" in result
+
+    def test_show_category_multi_word_name(self):
+        session = _make_session_with_deck()
+        result = handle_category_show(session, self._show_cmd("Basic", "Lands"))
+        assert "Basic Lands" in result
 
 
 class TestSessionHasScryfallIndex:
