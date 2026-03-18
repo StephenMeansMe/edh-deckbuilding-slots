@@ -421,6 +421,108 @@ class TestDecklistRenameCategory:
             deck.rename_category("Ramp", "Combo")
 
 
+class TestDecklistResizeCategory:
+    def test_resize_category_changes_total_slots(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.resize_category("Ramp", 8)
+        assert deck.categories["ramp"].total_slots == 8
+
+    def test_resize_category_case_insensitive_lookup(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.resize_category("ramp", 8)
+        assert deck.categories["ramp"].total_slots == 8
+
+    def test_resize_category_raises_for_not_found(self):
+        deck = Decklist.create("My Deck")
+        with pytest.raises(ValueError, match="not found"):
+            deck.resize_category("Nonexistent", 5)
+
+    def test_resize_category_raises_for_fixed_category(self):
+        deck = Decklist.create("My Deck")
+        with pytest.raises(ValueError, match="Cannot resize fixed category"):
+            deck.resize_category("Commander", 2)
+
+    def test_resize_category_raises_when_new_slots_less_than_filled(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.add_card("Cultivate", "Ramp")
+        with pytest.raises(ValueError, match="2 card"):
+            deck.resize_category("Ramp", 1)
+
+    def test_resize_category_rejects_zero_slots(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        with pytest.raises(ValueError):
+            deck.resize_category("Ramp", 0)
+
+    def test_resize_category_rejects_100_slots(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        with pytest.raises(ValueError):
+            deck.resize_category("Ramp", 100)
+
+    def test_resize_category_allows_resize_to_exactly_filled(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.resize_category("Ramp", 1)
+        assert deck.categories["ramp"].total_slots == 1
+
+
+class TestDecklistDeleteCategory:
+    def test_delete_category_removes_it_from_decklist(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.delete_category("Ramp")
+        assert "ramp" not in deck.categories
+
+    def test_delete_category_case_insensitive_lookup(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.delete_category("ramp")
+        assert "ramp" not in deck.categories
+
+    def test_delete_category_raises_for_not_found(self):
+        deck = Decklist.create("My Deck")
+        with pytest.raises(ValueError, match="not found"):
+            deck.delete_category("Nonexistent")
+
+    def test_delete_category_raises_for_fixed_category(self):
+        deck = Decklist.create("My Deck")
+        with pytest.raises(ValueError, match="Cannot delete fixed category"):
+            deck.delete_category("Commander")
+
+    def test_delete_category_moves_cards_to_uncategorized(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.add_card("Cultivate", "Ramp")
+        deck.delete_category("Ramp")
+        assert "uncategorized" in deck.categories
+        assert "Sol Ring" in deck.categories["uncategorized"].cards
+        assert "Cultivate" in deck.categories["uncategorized"].cards
+
+    def test_delete_empty_category_leaves_no_uncategorized(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.delete_category("Ramp")
+        assert "uncategorized" not in deck.categories
+
+    def test_delete_category_appends_to_existing_uncategorized(self):
+        deck = Decklist.create("My Deck")
+        deck.add_category("Ramp", 10)
+        deck.add_category("Draw", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        deck.add_card("Cultivate", "Draw")
+        deck.delete_category("Ramp")
+        deck.delete_category("Draw")
+        assert "Sol Ring" in deck.categories["uncategorized"].cards
+        assert "Cultivate" in deck.categories["uncategorized"].cards
+
+
 class TestDecklistRename:
     def test_rename_updates_decklist_name(self):
         deck = Decklist.create("Old Name")

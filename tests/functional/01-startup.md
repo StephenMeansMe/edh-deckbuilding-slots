@@ -75,6 +75,9 @@ deckslots> Available commands:
   category create <n> <s>       Add a category with <s> slots
   category list                 List all categories
   category rename <name>        Rename a user-created category
+  category resize <name> <s>    Resize a user-created category
+  category delete <name>        Delete a user-created category
+  category show <name>          Show details of a category
   card add <cat> <name>         Add a card to a category
   card move <name> <cat>        Move a card to a different category
   card remove <name>            Move a card to Uncategorized
