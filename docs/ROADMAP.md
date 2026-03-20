@@ -14,7 +14,13 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 - **Partner commanders** — `decklist enable-partner` expands the Commander slot to two cards for the partner mechanic. `decklist disable-partner` reverts to a single commander. *(#53)*
 - **Background** — `decklist enable-background` adds a fixed Background slot (one card) alongside the commander for the "choose a Background" mechanic. `decklist disable-background` removes it and moves the card to Uncategorized. *(#54)*
 - **Companion** — `decklist enable-companion` adds a separate fixed Companion slot (one card) representing the companion zone outside the main 100. `decklist disable-companion` removes it and moves the card to Uncategorized. *(#55)*
-- **User-defined categories** — Users create named categories (e.g., "Ramp," "Removal," "Draw") with 1--99 slots each.
+- **User-defined categories** — Users create named categories (e.g., "Ramp," "Removal," "Draw") with 1--99 slots each. Renaming is supported; the following operations are planned but not yet implemented:
+
+  | Command | Description |
+  |---|---|
+  | `category show <name>` | Show one category's details: slot counts and card names |
+  | `category resize <name> <slot-count>` | Change a category's total slots (cannot go below current filled count) |
+  | `category delete <name>` | Delete a category (fails if it contains cards; fixed categories cannot be deleted) |
 - **Exclusive slot assignment** — Each card occupies exactly one slot in one category. The total slot count across all categories equals 100.
 - **Template system** — `template list/save/export/import` manages reusable category configurations. The built-in `goldfish-fundamentals` template provides a standard starting layout. Users can save their own templates and apply them to a decklist with `decklist apply-template <name>`; cards displaced by the new layout move to Uncategorized.
 
