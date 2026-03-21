@@ -5,6 +5,7 @@ from __future__ import annotations
 import click
 
 from deckslots.commands import Session
+from deckslots.models import CappedCategory
 
 
 def render_status_line(session: Session, validation_enabled: bool) -> str:
@@ -13,6 +14,9 @@ def render_status_line(session: Session, validation_enabled: bool) -> str:
     Sections are joined with ' | '.  Warning indicators (uncategorized cards,
     overcrowded commander, empty companion slot, validation off) are styled
     yellow and bold via click.style().
+
+    The filled count reflects only CappedCategory instances so that uncapped
+    holding areas (Basic Lands, Uncategorized) don't inflate the number.
     """
     sections: list[str] = []
 
@@ -20,7 +24,12 @@ def render_status_line(session: Session, validation_enabled: bool) -> str:
         sections.append("No active decklist")
     else:
         deck = session.decklist
-        sections.append(f"{deck.name} ({deck.total_filled}/{deck.total_slots})")
+        capped_filled = sum(
+            cat.filled
+            for cat in deck.categories.values()
+            if isinstance(cat, CappedCategory)
+        )
+        sections.append(f"{deck.name} ({capped_filled}/{deck.total_slots})")
 
         uncategorized = deck.categories.get("uncategorized")
         if uncategorized is not None and uncategorized.filled > 0:
