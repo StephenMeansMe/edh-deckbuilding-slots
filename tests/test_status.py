@@ -105,14 +105,12 @@ def test_overcrowded_warning_absent_when_not_overcrowded():
 
 def test_overcrowded_warning_shown_when_commander_overcrowded():
     session = _session_with_deck()
-    # Add two commanders to a 1-slot Commander category to trigger overcrowding
-    session.decklist.enable_partners()  # now 2 slots
-    session.decklist.add_card("Meren of Clan Nel Toth", "Commander")
-    session.decklist.add_card("Tevesh Szat, Doom of Fools", "Commander")
-    session.decklist.disable_partners()  # shrinks back to 1, evacuates to Uncategorized
-    # Now Commander is empty (cards evacuated), so not overcrowded — add one back via move
-    session.decklist.move_card("Meren of Clan Nel Toth", "Commander")
-    session.decklist.move_card("Tevesh Szat, Doom of Fools", "Commander")
+    # Directly append two cards to the 1-slot Commander category to force the
+    # overcrowded state (disable_partners evacuates cards, so cannot reach it
+    # via the normal API without then moving cards back in).
+    commander = session.decklist.categories["commander"]
+    commander.cards.append("Meren of Clan Nel Toth")
+    commander.cards.append("Tevesh Szat, Doom of Fools")
     result = render_status_line(session, validation_enabled=True)
     assert "Commander overcrowded" in result
 
