@@ -34,11 +34,15 @@ def render_status_line(session: Session, validation_enabled: bool) -> str:
         uncategorized = deck.categories.get("uncategorized")
         if uncategorized is not None and uncategorized.filled > 0:
             sections.append(
-                click.style(f"Uncategorized: {uncategorized.filled}", fg="yellow", bold=True)
+                click.style(
+                    f"Uncategorized: {uncategorized.filled}", fg="yellow", bold=True
+                )
             )
 
         if deck.commander_overcrowded:
-            sections.append(click.style("Commander overcrowded", fg="yellow", bold=True))
+            sections.append(
+                click.style("Commander overcrowded", fg="yellow", bold=True)
+            )
 
         if deck.companion_slot_empty:
             sections.append(click.style("Companion: empty", fg="yellow", bold=True))

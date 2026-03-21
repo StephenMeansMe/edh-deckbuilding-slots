@@ -113,6 +113,7 @@ class TestDecklist:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -121,11 +122,13 @@ class TestDecklist:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Decklist: TestDeck\n"
             "Total slots: 1 (0 filled)\n"
             "Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
+            "TestDeck (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -134,6 +137,7 @@ class TestDecklist:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Usage: decklist create <name>\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -142,6 +146,7 @@ class TestDecklist:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -159,7 +164,9 @@ class TestCategories:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -168,6 +175,7 @@ class TestCategories:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -179,11 +187,14 @@ class TestCategories:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Ramp: 0/10 slots filled\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -203,8 +214,11 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Added 'Sol Ring' to 'Ramp'.\n"
+            "TestDeck (1/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -215,7 +229,9 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Added 'Forest' to 'Basic Lands'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -224,6 +240,7 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -244,8 +261,11 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Card 'Nonexistent' not found in the decklist.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -261,6 +281,7 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -279,7 +300,9 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Card 'Nonexistent' not found in the decklist.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -288,6 +311,7 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -300,9 +324,13 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Added 'Sol Ring' to 'Ramp'.\n"
+            "TestDeck (1/11)\n"
             "deckslots> Deleted 'Sol Ring' from the decklist.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -321,13 +349,18 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Added 'Sol Ring' to 'Ramp'.\n"
+            "TestDeck (1/11)\n"
             "deckslots> Deleted 'Sol Ring' from the decklist.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Ramp: 0/10 slots filled\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -336,6 +369,7 @@ class TestCards:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -357,12 +391,14 @@ class TestUncategorized:
             "deckslots> Warning: 1 card(s) in Uncategorized. "
             "Assign them to categories before finalizing your decklist.\n"
             "Imported 'deck': 1 commander, 0 basic lands, 1 uncategorized cards.\n"
+            "deck (1/1) | Uncategorized: 1\n"
             "deckslots> Warning: 1 card(s) in Uncategorized. "
             "Assign them to categories before finalizing your decklist.\n"
             "Categories:\n"
             "  Commander: 1/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Uncategorized: 1 slots filled (uncapped)\n"
+            "deck (1/1) | Uncategorized: 1\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -373,9 +409,11 @@ class TestUncategorized:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
+            "TestDeck (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -390,15 +428,19 @@ class TestUncategorized:
             "deckslots> Warning: 1 card(s) in Uncategorized. "
             "Assign them to categories before finalizing your decklist.\n"
             "Imported 'deck': 1 commander, 0 basic lands, 1 uncategorized cards.\n"
+            "deck (1/1) | Uncategorized: 1\n"
             "deckslots> Warning: 1 card(s) in Uncategorized. "
             "Assign them to categories before finalizing your decklist.\n"
             "Created category 'Ramp' with 10 slots.\n"
+            "deck (1/11) | Uncategorized: 1\n"
             "deckslots> Moved 'Sol Ring' from 'Uncategorized' to 'Ramp'.\n"
+            "deck (2/11)\n"
             "deckslots> Categories:\n"
             "  Commander: 1/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Uncategorized: 0 slots filled (uncapped)\n"
             "  Ramp: 1/10 slots filled\n"
+            "deck (2/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -414,11 +456,14 @@ class TestUncategorized:
             "deckslots> Warning: 1 card(s) in Uncategorized. "
             "Assign them to categories before finalizing your decklist.\n"
             "Imported 'deck': 1 commander, 0 basic lands, 1 uncategorized cards.\n"
+            "deck (1/1) | Uncategorized: 1\n"
             "deckslots> Deleted 'Sol Ring' from the decklist.\n"
+            "deck (1/1)\n"
             "deckslots> Categories:\n"
             "  Commander: 1/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Uncategorized: 0 slots filled (uncapped)\n"
+            "deck (1/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -431,11 +476,15 @@ class TestUncategorized:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Added 'Sol Ring' to 'Ramp'.\n"
+            "TestDeck (1/11)\n"
             "deckslots> Warning: 1 card(s) in Uncategorized. "
             "Assign them to categories before finalizing your decklist.\n"
             "Removed 'Sol Ring' from 'Ramp'. Card is now in Uncategorized.\n"
+            "TestDeck (0/11) | Uncategorized: 1\n"
             "deckslots> Warning: 1 card(s) in Uncategorized. "
             "Assign them to categories before finalizing your decklist.\n"
             "Categories:\n"
@@ -443,6 +492,7 @@ class TestUncategorized:
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Ramp: 0/10 slots filled\n"
             "  Uncategorized: 1 slots filled (uncapped)\n"
+            "TestDeck (0/11) | Uncategorized: 1\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -476,9 +526,13 @@ class TestConsistency:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Added 'Sol Ring' to 'Ramp'.\n"
+            "TestDeck (1/11)\n"
             "deckslots> 'Sol Ring' is already in 'Ramp'. Nothing to do.\n"
+            "TestDeck (1/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -491,8 +545,11 @@ class TestConsistency:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Error: Basic lands can only be added to the 'Basic Lands' category.\n"  # noqa: E501
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -505,9 +562,13 @@ class TestConsistency:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Added 'Forest' to 'Basic Lands'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Error: Basic lands can only be added to the 'Basic Lands' category.\n"  # noqa: E501
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -537,12 +598,15 @@ class TestRename:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> New name: Renamed decklist to 'My Commander Deck'.\n"
+            "My Commander Deck (0/1)\n"
             "deckslots> Decklist: My Commander Deck\n"
             "Total slots: 1 (0 filled)\n"
             "Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
+            "My Commander Deck (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -563,12 +627,16 @@ class TestRename:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> New name: Renamed category 'Ramp' to 'Mana Rocks'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Mana Rocks: 0/10 slots filled\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -581,12 +649,16 @@ class TestRename:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Mana Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> New name: Renamed category 'Mana Ramp' to 'Acceleration Package'.\n"  # noqa: E501
+            "TestDeck (0/11)\n"
             "deckslots> Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Acceleration Package: 0/10 slots filled\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -599,6 +671,7 @@ class TestRename:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Cannot rename fixed category 'Commander'.\n"
             "deckslots> Goodbye.\n"
         )
@@ -612,6 +685,7 @@ class TestRename:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Category 'nonexistent' not found.\n"
             "deckslots> Goodbye.\n"
         )
@@ -623,6 +697,7 @@ class TestRename:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Usage: category rename <name>\n"
             "deckslots> Goodbye.\n"
         )
@@ -637,14 +712,20 @@ class TestRename:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> New name: Renamed category 'Ramp' to 'Mana Rocks'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Saved 'TestDeck'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Loaded 'TestDeck'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Mana Rocks: 0/10 slots filled\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -665,14 +746,19 @@ class TestPartners:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'PartnerDeck'.\n"
+            "PartnerDeck (0/1)\n"
             "deckslots> Partners mode enabled. The Commander category now has 2 slots.\n"  # noqa: E501
+            "PartnerDeck (0/2)\n"
             "deckslots> Added 'Malcolm, Keen-Eyed Navigator' to 'Commander'.\n"
+            "PartnerDeck (1/2)\n"
             "deckslots> Added 'Tana, the Bloodsower' to 'Commander'.\n"
+            "PartnerDeck (2/2)\n"
             "deckslots> Decklist: PartnerDeck\n"
             "Total slots: 2 (2 filled)\n"
             "Categories:\n"
             "  Commander: 2/2 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
+            "PartnerDeck (2/2)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -681,6 +767,7 @@ class TestPartners:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -718,14 +805,19 @@ class TestBackground:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'BgDeck'.\n"
+            "BgDeck (0/1)\n"
             "deckslots> Background mode enabled. The Commander category now has 2 slots.\n"  # noqa: E501
+            "BgDeck (0/2)\n"
             "deckslots> Added 'Cloakwood Hermit' to 'Commander'.\n"
+            "BgDeck (1/2)\n"
             "deckslots> Added 'Criminal Past' to 'Commander'.\n"
+            "BgDeck (2/2)\n"
             "deckslots> Decklist: BgDeck\n"
             "Total slots: 2 (2 filled)\n"
             "Categories:\n"
             "  Commander: 2/2 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
+            "BgDeck (2/2)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -734,6 +826,7 @@ class TestBackground:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -758,13 +851,17 @@ class TestBackground:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'Hybrid'.\n"
+            "Hybrid (0/1)\n"
             "deckslots> Partners mode enabled. The Commander category now has 2 slots.\n"  # noqa: E501
+            "Hybrid (0/2)\n"
             "deckslots> Background mode enabled. The Commander category now has 3 slots.\n"  # noqa: E501
+            "Hybrid (0/3)\n"
             "deckslots> Decklist: Hybrid\n"
             "Total slots: 3 (0 filled)\n"
             "Categories:\n"
             "  Commander: 0/3 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
+            "Hybrid (0/3)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -798,8 +895,10 @@ class TestCompanion:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'LurrusDeck'.\n"
+            "LurrusDeck (0/1)\n"
             "deckslots> Companion slot enabled. "
             "Add a companion with 'card add Companion <card name>'.\n"
+            "LurrusDeck (0/2) | Companion: empty\n"
             "deckslots> Warning: Companion slot is empty. "
             "Add a companion with 'card add Companion <card name>'.\n"
             "Decklist: LurrusDeck\n"
@@ -808,6 +907,7 @@ class TestCompanion:
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Companion: 0/1 slots filled\n"
+            "LurrusDeck (0/2) | Companion: empty\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -816,6 +916,7 @@ class TestCompanion:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -1040,8 +1141,11 @@ class TestValidation:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'Test'.\n"
+            "Test (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "Test (0/11)\n"
             "deckslots> Added 'Sol Ring' to 'Ramp'.\n"
+            "Test (1/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -1077,7 +1181,9 @@ class TestValidation:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'Test'.\n"
+            "Test (0/1)\n"
             "deckslots> Added 'Forest' to 'Basic Lands'.\n"
+            "Test (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -1093,7 +1199,10 @@ class TestValidation:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'Test'.\n"
+            "Test (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "Test (0/11)\n"
             "deckslots> Added 'Gibberish Card' to 'Ramp'.\n"
+            "Test (1/11)\n"
             "deckslots> Goodbye.\n"
         )
