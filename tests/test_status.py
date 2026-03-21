@@ -62,6 +62,14 @@ def test_slot_progress_updates_after_card_added():
     assert "(1/1)" in result
 
 
+def test_slot_progress_counts_only_capped_categories():
+    session = _session_with_deck("My Deck")
+    # Basic Lands is UncappedCategory; adding to it must not affect the filled count
+    session.decklist.add_card("Plains", "Basic Lands")
+    result = render_status_line(session, validation_enabled=True)
+    assert "(0/1)" in result  # not (1/1)
+
+
 # ---------------------------------------------------------------------------
 # Warning: uncategorized cards
 # ---------------------------------------------------------------------------
