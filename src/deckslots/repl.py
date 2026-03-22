@@ -17,7 +17,9 @@ from deckslots.commands import (
     validate_decklist_rename,
     validate_template_save,
 )
+from deckslots.config import is_validation_enabled
 from deckslots.logging_config import setup_logging
+from deckslots.status import render_status_line
 from deckslots.templates import user_template_exists
 
 _logger = logging.getLogger("deckslots.repl")
@@ -30,7 +32,6 @@ def _load_scryfall_index(session: Session) -> None:
     not a tty (non-interactive), silently skips.  In interactive mode with no
     cache the user is prompted once to download it.
     """
-    from deckslots.config import is_validation_enabled
     from deckslots.scryfall import (
         download_oracle_cards,
         get_cache_path,
@@ -88,6 +89,7 @@ def run_repl() -> None:
         try:
             session.decklist = _parse_save_file(str(save_path))
             click.echo(f"Resumed '{session.decklist.name}'.")
+            click.echo(render_status_line(session, is_validation_enabled()))
         except (OSError, ValueError) as e:
             _logger.warning("Save file load failed, entering recovery: %s", e)
             click.echo(f"Warning: could not load save file: {e}.")
@@ -201,6 +203,7 @@ def run_repl() -> None:
                 for w in reversed(warnings):
                     click.echo(click.style(w, fg="yellow", bold=True))
                 click.echo(result)
+                click.echo(render_status_line(session, is_validation_enabled()))
                 continue
             if parsed.kind == "unknown":
                 click.echo(f"Unknown command: {parsed.raw}")

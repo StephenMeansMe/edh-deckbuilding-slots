@@ -36,8 +36,11 @@ class TestSaveLoad:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Saved 'TestDeck'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -54,15 +57,20 @@ class TestSaveLoad:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Created category 'Ramp' with 10 slots.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Saved 'TestDeck'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Loaded 'TestDeck'.\n"
+            "TestDeck (0/11)\n"
             "deckslots> Decklist: TestDeck\n"
             "Total slots: 11 (0 filled)\n"
             "Categories:\n"
             "  Commander: 0/1 slots filled\n"
             "  Basic Lands: 0 slots filled (uncapped)\n"
             "  Ramp: 0/10 slots filled\n"
+            "TestDeck (0/11)\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -71,6 +79,7 @@ class TestSaveLoad:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -79,6 +88,7 @@ class TestSaveLoad:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No saved decklist found.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -104,6 +114,7 @@ class TestAutoload:
         out = _run("quit\n", tmp_path)
         assert out == (
             "Resumed 'My Deck'.\n"
+            "My Deck (0/1)\n"
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Goodbye.\n"
         )
@@ -200,6 +211,7 @@ class TestExport:
             line
             for line in out.splitlines()
             if not line.startswith("deckslots> Exported")
+            and not line.startswith("TestDeck")
         ]
         assert lines == [
             "deckslots> Welcome to deckslots.",
@@ -244,6 +256,7 @@ class TestExport:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> No active decklist. Use 'decklist create <name>' first.\n"
+            "No active decklist\n"
             "deckslots> Goodbye.\n"
         )
 
@@ -252,7 +265,9 @@ class TestExport:
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
+            "TestDeck (0/1)\n"
             "deckslots> Usage: decklist export <filepath>\n"
+            "TestDeck (0/1)\n"
             "deckslots> Goodbye.\n"
         )
 
