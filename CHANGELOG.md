@@ -2,6 +2,79 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] — 2026-03-22
+
+### Added
+
+- **Companion slot** (#45)
+  - `decklist enable-companion` creates a separate, fixed 1-slot Companion zone
+    (matching the MTG companion mechanic — distinct from Commander slots).
+  - `decklist disable-companion` removes the zone.
+  - Save/load and export/import round-trip the Companion section; export emits
+    a `Companion` block between Commander and Maindeck when a card is present.
+  - The REPL warns after every command when companion mode is on but the slot
+    is empty.
+
+- **Template system** (#59)
+  - `template list` shows all available templates (built-in and user-saved).
+  - `template save <name>` captures the current deck's category structure as a
+    reusable template.
+  - `template export <name> <file>` and `template import <file>` share
+    templates across machines.
+  - `decklist create --template <name>` creates a new deck pre-populated with
+    a template's category layout. Includes a built-in "Goldfish Fundamentals"
+    template with 8 predefined categories.
+  - Templates are stored in the XDG user data directory; cards from removed
+    categories are evacuated to Uncategorized.
+
+- **Scryfall card validation** (#62)
+  - Cards added via `card add` or `card move` are validated against the
+    Scryfall database and checked for Commander format legality. Basic lands
+    are exempt.
+  - Validation data is cached locally (XDG cache dir, 7-day staleness). On
+    first use in interactive mode the app prompts to download; non-interactive
+    mode silently skips.
+  - Set `validation_enabled: false` in `config.json` to opt out globally.
+
+- **Category resize, delete, and filter** (#68)
+  - `category resize <name> <slots>` changes the slot cap of any user-created
+    category. Fixed categories (Commander, Basic Lands, Uncategorized) are
+    protected.
+  - `category delete <name>` removes a user-created category and evacuates its
+    cards to Uncategorized.
+  - `category show <name>` displays the slot summary and full card list for any
+    category.
+
+- **Status line** (#71)
+  - After every REPL command a compact one-line status is shown:
+    `<DeckName> (filled/total)` where total counts only capped slots.
+  - Status indicators surface active warnings inline: `Uncategorized: N`,
+    `Commander overcrowded`, `Companion: empty`, `Validation: OFF`.
+  - Displays `No active decklist` when no deck is loaded.
+
+### Changed
+
+- **Improved CLI output and prompts** (#65)
+  - All output now goes through `click.echo()` for consistent stream handling.
+  - Confirmation prompts use `click.confirm()`, accepting full words like
+    "yes"/"no" in addition to "y"/"n".
+  - Warning messages are styled yellow/bold via `click.style()` and are
+    collected and printed before command output.
+
+### Fixed
+
+- Companion-slot-empty warning no longer fires immediately after running
+  `decklist enable-companion` — it is suppressed for the remainder of the
+  command that enables the slot (#58).
+
+### Internal
+
+- Custom exception hierarchy (`DecklistError`, `CardError`, `SlotError`,
+  `CategoryError`, `FileError`, `ParseError`) replaces bare exception
+  handlers (#58).
+- Logging infrastructure added; controlled via `DECKSLOTS_LOG_LEVEL` env var
+  (silent by default, writes to stderr and a rotating file) (#58).
+
 ## [0.2.1] — 2026-03-08
 
 ### Added
