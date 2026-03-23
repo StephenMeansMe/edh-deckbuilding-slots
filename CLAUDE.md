@@ -73,7 +73,7 @@ See [`docs/domain-concepts.md`](docs/domain-concepts.md) for the full glossary (
   ```
   New user stories must be created as GitHub Issues before implementation begins — see `.claude/skills/new-user-story.md` for the format.
 - **TDD is mandatory.** Do not skip the Red phase. Always start by writing the failing test before implementing production code.
-- **Project skills** in `.claude/skills/`: `new-user-story` (GitHub Issue format), `implement-decklist-mode` (Partner/Background/Companion pattern), `add-repl-command` (handler + 01-startup.md update), `run-tests` (pytest + scrut invocations, worktree caveat).
+- **Project skills** in `.claude/skills/`: `new-user-story` (GitHub Issue format), `implement-decklist-mode` (Partner/Background/Companion pattern), `add-repl-command` (handler + 01-startup.md update), `run-tests` (pytest + scrut invocations, worktree caveat), `bump-version` (all locations to update when cutting a release).
 - **Testing details** (test split, scrut format, naming conventions): see [`tests/CLAUDE.md`](tests/CLAUDE.md).
 - Use `uv run` to run commands; `uv add` / `uv add --dev` to manage dependencies.
 - Keep this file and its sub-`CLAUDE.md` files updated as the project evolves.
