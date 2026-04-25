@@ -57,9 +57,13 @@ Features below are organized by theme. No specific release schedule is attached;
 
 ### Storage
 
-- **Database-backed persistence** — Replace or supplement flat text files with a local database for richer querying and history.
+- **Database-backed persistence** — Replace or supplement flat text files with a local database for richer querying and history. Design: [`plans/2026-04-25-database-storage-design.md`](plans/2026-04-25-database-storage-design.md) (stdlib `sqlite3` at `$XDG_DATA_HOME/deckslots/library.db`; opt-in via `config.json`).
 
 ### Platform and interface
 
-- **GUI** — A graphical interface (toolkit TBD).
+- **GUI** — PySide6 desktop app, opt-in extra (`pip install deckslots[gui]`), launched via `deckslots gui`. Design: [`plans/2026-04-25-gui-pyside6-design.md`](plans/2026-04-25-gui-pyside6-design.md).
 - **Non-Linux targets** — macOS and Windows support.
+
+### Roadmap for Database + GUI
+
+See [`plans/2026-04-25-db-and-gui-roadmap.md`](plans/2026-04-25-db-and-gui-roadmap.md) for the phased ordering (shared service-layer + repository refactor → SQLite → GUI MVP → QoL → hardening).
