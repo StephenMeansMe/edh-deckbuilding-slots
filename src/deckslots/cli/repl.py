@@ -16,8 +16,9 @@ from deckslots.cli.commands import (
 )
 from deckslots.cli.parser import parse_command
 from deckslots.cli.status import render_status_line
-from deckslots.config import is_validation_enabled
+from deckslots.config import get_storage_backend, is_validation_enabled
 from deckslots.logging_config import setup_logging
+from deckslots.storage import PlaintextRepository, SqliteRepository
 from deckslots.templates import user_template_exists
 
 _logger = logging.getLogger("deckslots.cli.repl")
@@ -76,10 +77,17 @@ def _load_scryfall_index(session: Session) -> None:
         click.echo(f"Download failed: {exc}")
 
 
+def _build_repository():
+    backend = get_storage_backend()
+    if backend == "sqlite":
+        return SqliteRepository()
+    return PlaintextRepository()
+
+
 def run_repl() -> None:
     """Start the deckslots interactive REPL."""
     setup_logging()
-    session = Session()
+    session = Session(repository=_build_repository())
     registry = register_all_handlers(session)
 
     summaries = session.repository.list()
