@@ -8,8 +8,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-logger = logging.getLogger("deckslots.commands")
-
 from deckslots import services
 from deckslots.cli import ParsedCommand
 from deckslots.exceptions import DecklistError, ParseError
@@ -23,9 +21,6 @@ from deckslots.models import (
 from deckslots.storage import (
     DecklistRepository,
     PlaintextRepository,
-    _format_save_file,
-    _get_save_path,
-    _parse_save_file,
 )
 from deckslots.templates import (
     Template,
@@ -35,6 +30,8 @@ from deckslots.templates import (
     load_all_templates,
     save_user_template,
 )
+
+logger = logging.getLogger("deckslots.commands")
 
 NO_ACTIVE_DECK = "No active decklist. Use 'decklist create <name>' first."
 
@@ -213,7 +210,9 @@ def handle_card_add(session: Session, cmd: ParsedCommand) -> str:
         return f"Cannot add cards to '{cat.name}' directly."
     if card in BASIC_LAND_NAMES and cat.name != "Basic Lands":
         return "Error: Basic lands can only be added to the 'Basic Lands' category."
-    result = services.add_card(session.decklist, card, category_key, session.scryfall_index)
+    result = services.add_card(
+        session.decklist, card, category_key, session.scryfall_index
+    )
     if not result.ok:
         return result.message
     logger.debug("Card added: %s to %s", card, cat.name)
@@ -680,7 +679,7 @@ def dispatch(
     registry: dict[tuple[str, str], DispatchedHandler],
 ) -> str:
     key = (cmd.obj, cmd.verb)
-    handler = registry.get(key)
+    handler = registry.get(key)  # type: ignore[arg-type]
     if handler is None:
         return f"Unknown command: {cmd.raw}"
     return handler(cmd)

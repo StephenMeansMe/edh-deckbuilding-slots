@@ -1,8 +1,7 @@
 """Tests for the DecklistRepository protocol and PlaintextRepository."""
 
-import pytest
 
-from deckslots.models import CappedCategory, Decklist, UncappedCategory
+from deckslots.models import Decklist
 from deckslots.storage import PlaintextRepository, _format_save_file, _get_save_path
 
 

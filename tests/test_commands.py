@@ -2694,12 +2694,25 @@ class TestCommandsLogging:
         )
 
         def _make_cmd(raw, obj, verb, args):
-            return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
+            return ParsedCommand(
+                kind="object_verb", raw=raw, obj=obj, verb=verb, args=args
+            )
 
         session = Session()
-        handle_decklist_create(session, _make_cmd("decklist create Test", "decklist", "create", ["Test"]))
+        handle_decklist_create(
+            session,
+            _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
+        )
         with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
-            handle_card_add(session, _make_cmd("card add Commander Sol Ring", "card", "add", ["Commander", "Sol", "Ring"]))
+            handle_card_add(
+                session,
+                _make_cmd(
+                    "card add Commander Sol Ring",
+                    "card",
+                    "add",
+                    ["Commander", "Sol", "Ring"],
+                ),
+            )
         assert any("Sol Ring" in r.message for r in caplog.records)
 
     def test_save_logs_debug(self, caplog, tmp_path, monkeypatch):
@@ -2713,13 +2726,21 @@ class TestCommandsLogging:
         )
 
         def _make_cmd(raw, obj, verb, args):
-            return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
+            return ParsedCommand(
+                kind="object_verb", raw=raw, obj=obj, verb=verb, args=args
+            )
 
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
         session = Session()
-        handle_decklist_create(session, _make_cmd("decklist create Test", "decklist", "create", ["Test"]))
+        handle_decklist_create(
+            session,
+            _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
+        )
         with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
-            handle_decklist_save(session, _make_cmd("decklist save", "decklist", "save", []))
+            handle_decklist_save(
+                session,
+                _make_cmd("decklist save", "decklist", "save", []),
+            )
         assert any("saved" in r.message.lower() for r in caplog.records)
 
 

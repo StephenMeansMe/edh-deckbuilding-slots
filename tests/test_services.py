@@ -1,6 +1,5 @@
 """Tests for the service layer (services.py + events.py)."""
 
-import pytest
 
 from deckslots.events import (
     CardAdded,
@@ -16,7 +15,7 @@ from deckslots.events import (
     ModeEnabled,
     TemplateApplied,
 )
-from deckslots.models import CappedCategory, Decklist
+from deckslots.models import Decklist
 from deckslots.services import (
     CommandResult,
     add_card,
@@ -493,7 +492,8 @@ class TestModeServices:
         assert result.ok
         assert not deck.background_enabled
         assert any(
-            isinstance(e, ModeDisabled) and e.mode == "background" for e in result.events
+            isinstance(e, ModeDisabled) and e.mode == "background"
+            for e in result.events
         )
 
     def test_enable_companion(self):
@@ -524,7 +524,9 @@ class TestModeServices:
         deck = Decklist.create("Deck")
         deck.enable_partners()
         result = disable_partners(deck)
-        assert "partners" in result.message.lower() or "disabled" in result.message.lower()
+        assert (
+            "partners" in result.message.lower() or "disabled" in result.message.lower()
+        )
 
 
 # ---------------------------------------------------------------------------

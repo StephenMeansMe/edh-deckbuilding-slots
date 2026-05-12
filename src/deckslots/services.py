@@ -66,7 +66,11 @@ def move_card(deck: Decklist, card: str, to_category_key: str) -> CommandResult:
     source_key = deck.find_card(card)
     source_name = deck.categories[source_key].name if source_key else None
     target_key = to_category_key.lower()
-    target_name = deck.categories[target_key].name if target_key in deck.categories else to_category_key
+    target_name = (
+        deck.categories[target_key].name
+        if target_key in deck.categories
+        else to_category_key
+    )
     try:
         deck.move_card(card, target_name)
     except DecklistError as e:
@@ -75,7 +79,9 @@ def move_card(deck: Decklist, card: str, to_category_key: str) -> CommandResult:
     return CommandResult(
         ok=True,
         message=f"Moved '{card}' from '{source_name}' to '{target_name}'.",
-        events=[CardMoved(card=card, from_category=source_name, to_category=target_name)],
+        events=[
+            CardMoved(card=card, from_category=source_name, to_category=target_name)
+        ],
     )
 
 
@@ -108,7 +114,9 @@ def can_drop(deck: Decklist, card: str, to_category_key: str) -> bool:
 def remove_card(deck: Decklist, card: str) -> CommandResult:
     source_key = deck.find_card(card)
     if source_key is None:
-        return CommandResult(ok=False, message=f"Card '{card}' not found in the decklist.")
+        return CommandResult(
+            ok=False, message=f"Card '{card}' not found in the decklist."
+        )
     if source_key == "uncategorized":
         return CommandResult(
             ok=False,
@@ -129,7 +137,9 @@ def remove_card(deck: Decklist, card: str) -> CommandResult:
 def delete_card(deck: Decklist, card: str) -> CommandResult:
     source_key = deck.find_card(card)
     if source_key is None:
-        return CommandResult(ok=False, message=f"Card '{card}' not found in the decklist.")
+        return CommandResult(
+            ok=False, message=f"Card '{card}' not found in the decklist."
+        )
     source_name = deck.categories[source_key].name
     try:
         deck.delete_card(card)
@@ -165,7 +175,9 @@ def resize_category(deck: Decklist, name: str, new_slots: int) -> CommandResult:
     return CommandResult(
         ok=True,
         message=f"Resized '{name}' to {new_slots} slots.",
-        events=[CategoryResized(name=name, old_slots=old_slots or 0, new_slots=new_slots)],
+        events=[
+            CategoryResized(name=name, old_slots=old_slots or 0, new_slots=new_slots)
+        ],
     )
 
 
@@ -222,7 +234,9 @@ def rename_decklist(deck: Decklist, new_name: str) -> CommandResult:
 
 def enable_partners(deck: Decklist) -> CommandResult:
     deck.enable_partners()
-    slots = deck.categories["commander"].total_slots
+    commander = deck.categories["commander"]
+    assert isinstance(commander, CappedCategory)
+    slots = commander.total_slots
     return CommandResult(
         ok=True,
         message=f"Partners mode enabled. The Commander category now has {slots} slots.",
@@ -241,10 +255,14 @@ def disable_partners(deck: Decklist) -> CommandResult:
 
 def enable_background(deck: Decklist) -> CommandResult:
     deck.enable_background()
-    slots = deck.categories["commander"].total_slots
+    commander = deck.categories["commander"]
+    assert isinstance(commander, CappedCategory)
+    slots = commander.total_slots
     return CommandResult(
         ok=True,
-        message=f"Background mode enabled. The Commander category now has {slots} slots.",
+        message=(
+            f"Background mode enabled. The Commander category now has {slots} slots."
+        ),
         events=[ModeEnabled(mode="background")],
     )
 
@@ -262,7 +280,10 @@ def enable_companion(deck: Decklist) -> CommandResult:
     deck.enable_companion()
     return CommandResult(
         ok=True,
-        message="Companion slot enabled. Add a companion with 'card add Companion <card name>'.",
+        message=(
+            "Companion slot enabled. Add a companion with"
+            " 'card add Companion <card name>'."
+        ),
         events=[ModeEnabled(mode="companion")],
     )
 
