@@ -64,6 +64,9 @@ deckslots> Available commands:
   decklist export <file>        Export the active decklist to a text file
   decklist save                 Save the active decklist
   decklist load                 Load the last saved decklist
+  decklist list                 List all saved decks
+  decklist switch <name>        Switch the active deck to a saved one
+  decklist delete <name>        Remove a saved deck (prompts to confirm)
   decklist rename               Rename the active decklist
   decklist apply-template <n>   Apply a template to the active decklist
   decklist enable-partners      Allow two commanders (partner mechanic)
