@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Protocol
 
 from deckslots import services
-from deckslots.cli import ParsedCommand
+from deckslots.cli.parser import ParsedCommand
 from deckslots.exceptions import DecklistError, ParseError
 from deckslots.models import (
     BASIC_LAND_NAMES,
@@ -31,7 +31,7 @@ from deckslots.templates import (
     save_user_template,
 )
 
-logger = logging.getLogger("deckslots.commands")
+logger = logging.getLogger("deckslots.cli.commands")
 
 NO_ACTIVE_DECK = "No active decklist. Use 'decklist create <name>' first."
 
@@ -49,7 +49,6 @@ class Session:
 
 _CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
 _SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
-
 
 
 @dataclass

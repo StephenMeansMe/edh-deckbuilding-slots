@@ -37,8 +37,8 @@ def parse_command(line: str) -> ParsedCommand:
 @click.command()
 def main() -> None:
     """CLI entrypoint for deckslots."""
+    from deckslots.cli.repl import run_repl
     from deckslots.logging_config import setup_logging
-    from deckslots.repl import run_repl
 
     setup_logging()
     run_repl()

@@ -9,7 +9,7 @@ New REPL behaviors should get a scrut test; new handler/model behaviors get a py
 
 ## Test Organization
 
-- Mirror the source tree: `tests/test_cli.py` covers `src/deckslots/cli.py`, etc.
+- Mirror the source tree: `tests/test_cli.py` covers `src/deckslots/cli/parser.py`, `tests/test_commands.py` covers `src/deckslots/cli/commands.py`, etc.
 - File names: `test_<module>.py`; function names: `test_<expected_behavior>` (e.g. `test_deck_rejects_duplicate_cards`, not `test_deck_1`)
 - Only import names that already exist in production code — a top-level `ImportError` fails the **entire** test file.
 

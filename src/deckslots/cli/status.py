@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from deckslots.commands import Session
+from deckslots.cli.commands import Session
 from deckslots.models import CappedCategory
 
 

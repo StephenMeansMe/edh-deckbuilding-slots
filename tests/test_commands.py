@@ -1,7 +1,7 @@
 import pytest
 
 from deckslots.cli import ParsedCommand
-from deckslots.commands import (
+from deckslots.cli.commands import (
     Session,
     _format_export_file,
     _parse_import_file,
@@ -2394,7 +2394,7 @@ class TestHandleDecklistDisableCompanion:
 
 class TestDispatchedHandlerProtocol:
     def test_dispatched_handler_protocol_is_importable(self):
-        from deckslots.commands import DispatchedHandler  # noqa: F401
+        from deckslots.cli.commands import DispatchedHandler  # noqa: F401
 
 
 def _cmd(obj, verb, *args):
@@ -2687,7 +2687,7 @@ class TestCommandsLogging:
         import logging
 
         from deckslots.cli import ParsedCommand
-        from deckslots.commands import (
+        from deckslots.cli.commands import (
             Session,
             handle_card_add,
             handle_decklist_create,
@@ -2703,7 +2703,7 @@ class TestCommandsLogging:
             session,
             _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
         )
-        with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
+        with caplog.at_level(logging.DEBUG, logger="deckslots.cli.commands"):
             handle_card_add(
                 session,
                 _make_cmd(
@@ -2719,7 +2719,7 @@ class TestCommandsLogging:
         import logging
 
         from deckslots.cli import ParsedCommand
-        from deckslots.commands import (
+        from deckslots.cli.commands import (
             Session,
             handle_decklist_create,
             handle_decklist_save,
@@ -2736,7 +2736,7 @@ class TestCommandsLogging:
             session,
             _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
         )
-        with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
+        with caplog.at_level(logging.DEBUG, logger="deckslots.cli.commands"):
             handle_decklist_save(
                 session,
                 _make_cmd("decklist save", "decklist", "save", []),
