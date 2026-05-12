@@ -230,12 +230,11 @@ class TestCanDrop:
         # Basic Lands only allows basic land names
         assert can_drop(deck, "Sol Ring", "basic lands") is False
 
-    def test_can_drop_basic_land_to_basic_lands(self):
+    def test_can_drop_basic_land_from_uncategorized_to_basic_lands(self):
         deck = Decklist.create("Deck")
-        deck.add_category("Ramp", 10)
+        # Forest lands in Uncategorized after a remove; can be moved to Basic Lands
         deck.add_card("Forest", "basic lands")
-        deck.add_card("Island", "basic lands")
-        # Can drop another basic land into basic lands (uncapped, no exclusivity)
+        deck.remove_card("Forest")  # now in Uncategorized
         assert can_drop(deck, "Forest", "basic lands") is True
 
 
@@ -536,7 +535,7 @@ class TestModeServices:
 class TestApplyTemplate:
     def test_apply_template_success(self):
         deck = _deck_with_category("Ramp", 10)
-        result = apply_template(deck, "default")
+        result = apply_template(deck, "Goldfish Fundamentals")
         assert result.ok
         assert any(isinstance(e, TemplateApplied) for e in result.events)
 
