@@ -3000,7 +3000,9 @@ class TestDecklistListHandler:
         from deckslots.commands import handle_decklist_list
 
         session = Session()
-        result = handle_decklist_list(session, _make_cmd("decklist list", "decklist", "list", []))
+        result = handle_decklist_list(
+            session, _make_cmd("decklist list", "decklist", "list", [])
+        )
         assert "No decks saved" in result
 
     def test_list_shows_saved_deck(self, tmp_path, monkeypatch):
@@ -3063,7 +3065,9 @@ class TestDecklistSwitchHandler:
         session.decklist = d1
         result = handle_decklist_switch(
             session,
-            _make_cmd("decklist switch Deck Two", "decklist", "switch", ["Deck", "Two"]),
+            _make_cmd(
+                "decklist switch Deck Two", "decklist", "switch", ["Deck", "Two"]
+            ),
         )
         assert "Deck Two" in result
         assert session.decklist.name == "Deck Two"
@@ -3094,6 +3098,7 @@ class TestDecklistDeleteHandler:
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
         # Auto-confirm the click.confirm prompt.
         import click as _click
+
         monkeypatch.setattr(_click, "confirm", lambda *a, **kw: True)
         from deckslots.commands import handle_decklist_delete
         from deckslots.storage import SqliteRepository
@@ -3114,6 +3119,7 @@ class TestDecklistDeleteHandler:
     def test_delete_aborts_when_user_declines(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
         import click as _click
+
         monkeypatch.setattr(_click, "confirm", lambda *a, **kw: False)
         from deckslots.commands import handle_decklist_delete
         from deckslots.storage import SqliteRepository

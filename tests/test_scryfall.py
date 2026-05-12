@@ -141,9 +141,7 @@ class TestValidateCard:
         assert result.commander_legal is True
 
     def test_dfc_full_name_found(self):
-        result = validate_card(
-            "Delver of Secrets // Insectile Aberration", self.index
-        )
+        result = validate_card("Delver of Secrets // Insectile Aberration", self.index)
         assert result.found is True
 
     def test_result_carries_original_card_name(self):

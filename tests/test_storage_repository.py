@@ -327,9 +327,7 @@ class TestSqliteRepositoryLegacyImport:
         SqliteRepository(path=tmp_path / "library.db")
         assert legacy.exists()
 
-    def test_legacy_not_imported_when_db_already_has_decks(
-        self, tmp_path, monkeypatch
-    ):
+    def test_legacy_not_imported_when_db_already_has_decks(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
         legacy = tmp_path / "state" / "deckslots" / "decklist.bak"
         legacy.parent.mkdir(parents=True)

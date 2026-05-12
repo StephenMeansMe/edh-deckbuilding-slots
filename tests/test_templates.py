@@ -125,9 +125,7 @@ class TestLoadAllTemplates:
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
         user_dir = tmp_path / "deckslots" / "templates"
         user_dir.mkdir(parents=True)
-        (user_dir / "my-template.tmpl").write_text(
-            "# My Template\nRamp [10 slots]\n"
-        )
+        (user_dir / "my-template.tmpl").write_text("# My Template\nRamp [10 slots]\n")
         templates = load_all_templates()
         names = [t.name for t in templates]
         assert "My Template" in names
