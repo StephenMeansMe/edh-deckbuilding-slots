@@ -289,6 +289,25 @@ class SqliteRepository:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             _migrate(conn)
+        self._maybe_import_legacy()
+
+    def _maybe_import_legacy(self) -> None:
+        """Seed an empty db from a legacy plaintext save, if present.
+
+        First-run convenience for users opting into the SQLite backend who
+        already have a deck on disk. The plaintext file is left in place
+        as a read-only fallback.
+        """
+        if self.list():
+            return
+        legacy = _get_save_path()
+        if not legacy.exists():
+            return
+        try:
+            deck = _parse_save_file(str(legacy))
+        except (ParseError, OSError, ValueError):
+            return
+        self.save(deck)
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self._path))
