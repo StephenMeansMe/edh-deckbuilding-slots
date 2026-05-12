@@ -2997,7 +2997,7 @@ class TestSessionHasScryfallIndex:
 class TestDecklistListHandler:
     def test_empty_library_message(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-        from deckslots.commands import handle_decklist_list
+        from deckslots.cli.commands import handle_decklist_list
 
         session = Session()
         result = handle_decklist_list(
@@ -3007,7 +3007,7 @@ class TestDecklistListHandler:
 
     def test_list_shows_saved_deck(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-        from deckslots.commands import handle_decklist_list
+        from deckslots.cli.commands import handle_decklist_list
 
         session = Session()
         session.decklist = Decklist.create("Atraxa Stax")
@@ -3020,7 +3020,7 @@ class TestDecklistListHandler:
 
     def test_list_works_without_active_decklist(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-        from deckslots.commands import handle_decklist_list
+        from deckslots.cli.commands import handle_decklist_list
 
         session = Session()
         result = handle_decklist_list(
@@ -3031,7 +3031,7 @@ class TestDecklistListHandler:
 
 class TestDecklistSwitchHandler:
     def test_switch_without_name_shows_usage(self):
-        from deckslots.commands import handle_decklist_switch
+        from deckslots.cli.commands import handle_decklist_switch
 
         session = Session()
         result = handle_decklist_switch(
@@ -3041,7 +3041,7 @@ class TestDecklistSwitchHandler:
 
     def test_switch_unknown_name_returns_error(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-        from deckslots.commands import handle_decklist_switch
+        from deckslots.cli.commands import handle_decklist_switch
 
         session = Session()
         result = handle_decklist_switch(
@@ -3052,7 +3052,7 @@ class TestDecklistSwitchHandler:
 
     def test_switch_loads_named_deck(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-        from deckslots.commands import handle_decklist_switch
+        from deckslots.cli.commands import handle_decklist_switch
         from deckslots.storage import SqliteRepository
 
         session = Session(repository=SqliteRepository())
@@ -3075,7 +3075,7 @@ class TestDecklistSwitchHandler:
 
 class TestDecklistDeleteHandler:
     def test_delete_without_name_shows_usage(self):
-        from deckslots.commands import handle_decklist_delete
+        from deckslots.cli.commands import handle_decklist_delete
 
         session = Session()
         result = handle_decklist_delete(
@@ -3085,7 +3085,7 @@ class TestDecklistDeleteHandler:
 
     def test_delete_unknown_name_returns_error(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-        from deckslots.commands import handle_decklist_delete
+        from deckslots.cli.commands import handle_decklist_delete
 
         session = Session()
         result = handle_decklist_delete(
@@ -3100,7 +3100,7 @@ class TestDecklistDeleteHandler:
         import click as _click
 
         monkeypatch.setattr(_click, "confirm", lambda *a, **kw: True)
-        from deckslots.commands import handle_decklist_delete
+        from deckslots.cli.commands import handle_decklist_delete
         from deckslots.storage import SqliteRepository
 
         session = Session(repository=SqliteRepository())
@@ -3121,7 +3121,7 @@ class TestDecklistDeleteHandler:
         import click as _click
 
         monkeypatch.setattr(_click, "confirm", lambda *a, **kw: False)
-        from deckslots.commands import handle_decklist_delete
+        from deckslots.cli.commands import handle_decklist_delete
         from deckslots.storage import SqliteRepository
 
         session = Session(repository=SqliteRepository())
