@@ -274,3 +274,31 @@ class TestConfig:
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         assert get_config_path() == tmp_path / "deckslots" / "config.json"
+
+    def test_storage_backend_defaults_to_plaintext(self, tmp_path, monkeypatch):
+        from deckslots.config import get_storage_backend
+
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        assert get_storage_backend() == "plaintext"
+
+    def test_storage_backend_reads_sqlite_from_config(self, tmp_path, monkeypatch):
+        from deckslots.config import get_storage_backend
+
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_dir = tmp_path / "deckslots"
+        config_dir.mkdir()
+        (config_dir / "config.json").write_text(
+            json.dumps({"storage_backend": "sqlite"})
+        )
+        assert get_storage_backend() == "sqlite"
+
+    def test_storage_backend_falls_back_on_malformed_config(
+        self, tmp_path, monkeypatch
+    ):
+        from deckslots.config import get_storage_backend
+
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_dir = tmp_path / "deckslots"
+        config_dir.mkdir()
+        (config_dir / "config.json").write_text("not json")
+        assert get_storage_backend() == "plaintext"
