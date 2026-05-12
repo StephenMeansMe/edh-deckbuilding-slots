@@ -1,7 +1,7 @@
 import pytest
 
 from deckslots.cli import ParsedCommand
-from deckslots.commands import (
+from deckslots.cli.commands import (
     Session,
     _format_export_file,
     _parse_import_file,
@@ -2394,7 +2394,7 @@ class TestHandleDecklistDisableCompanion:
 
 class TestDispatchedHandlerProtocol:
     def test_dispatched_handler_protocol_is_importable(self):
-        from deckslots.commands import DispatchedHandler  # noqa: F401
+        from deckslots.cli.commands import DispatchedHandler  # noqa: F401
 
 
 def _cmd(obj, verb, *args):
@@ -2687,7 +2687,7 @@ class TestCommandsLogging:
         import logging
 
         from deckslots.cli import ParsedCommand
-        from deckslots.commands import (
+        from deckslots.cli.commands import (
             Session,
             handle_card_add,
             handle_decklist_create,
@@ -2719,7 +2719,7 @@ class TestCommandsLogging:
         import logging
 
         from deckslots.cli import ParsedCommand
-        from deckslots.commands import (
+        from deckslots.cli.commands import (
             Session,
             handle_decklist_create,
             handle_decklist_save,

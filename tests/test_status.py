@@ -2,9 +2,9 @@
 
 import click
 
-from deckslots.commands import Session
+from deckslots.cli.commands import Session
+from deckslots.cli.status import render_status_line
 from deckslots.models import Decklist
-from deckslots.status import render_status_line
 
 
 def _session_with_deck(name: str = "Test Deck") -> Session:
