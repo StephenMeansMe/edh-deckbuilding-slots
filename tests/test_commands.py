@@ -2987,3 +2987,159 @@ class TestSessionHasScryfallIndex:
     def test_session_starts_with_no_index(self):
         session = Session()
         assert session.scryfall_index is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 1.6 / 1.7 / 1.8 — multi-deck CLI handlers
+# ---------------------------------------------------------------------------
+
+
+class TestDecklistListHandler:
+    def test_empty_library_message(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        from deckslots.commands import handle_decklist_list
+
+        session = Session()
+        result = handle_decklist_list(session, _make_cmd("decklist list", "decklist", "list", []))
+        assert "No decks saved" in result
+
+    def test_list_shows_saved_deck(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        from deckslots.commands import handle_decklist_list
+
+        session = Session()
+        session.decklist = Decklist.create("Atraxa Stax")
+        session.decklist.add_card("Atraxa, Praetors' Voice", "Commander")
+        session.repository.save(session.decklist)
+        result = handle_decklist_list(
+            session, _make_cmd("decklist list", "decklist", "list", [])
+        )
+        assert "Atraxa Stax" in result
+
+    def test_list_works_without_active_decklist(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        from deckslots.commands import handle_decklist_list
+
+        session = Session()
+        result = handle_decklist_list(
+            session, _make_cmd("decklist list", "decklist", "list", [])
+        )
+        assert result  # should not raise; should return a string
+
+
+class TestDecklistSwitchHandler:
+    def test_switch_without_name_shows_usage(self):
+        from deckslots.commands import handle_decklist_switch
+
+        session = Session()
+        result = handle_decklist_switch(
+            session, _make_cmd("decklist switch", "decklist", "switch", [])
+        )
+        assert "Usage" in result
+
+    def test_switch_unknown_name_returns_error(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        from deckslots.commands import handle_decklist_switch
+
+        session = Session()
+        result = handle_decklist_switch(
+            session,
+            _make_cmd("decklist switch Nope", "decklist", "switch", ["Nope"]),
+        )
+        assert "not found" in result.lower()
+
+    def test_switch_loads_named_deck(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        from deckslots.commands import handle_decklist_switch
+        from deckslots.storage import SqliteRepository
+
+        session = Session(repository=SqliteRepository())
+        d1 = Decklist.create("Deck One")
+        d1.add_card("Atraxa, Praetors' Voice", "Commander")
+        d2 = Decklist.create("Deck Two")
+        d2.add_card("Animar, Soul of Elements", "Commander")
+        session.repository.save(d1)
+        session.repository.save(d2)
+        session.decklist = d1
+        result = handle_decklist_switch(
+            session,
+            _make_cmd("decklist switch Deck Two", "decklist", "switch", ["Deck", "Two"]),
+        )
+        assert "Deck Two" in result
+        assert session.decklist.name == "Deck Two"
+
+
+class TestDecklistDeleteHandler:
+    def test_delete_without_name_shows_usage(self):
+        from deckslots.commands import handle_decklist_delete
+
+        session = Session()
+        result = handle_decklist_delete(
+            session, _make_cmd("decklist delete", "decklist", "delete", [])
+        )
+        assert "Usage" in result
+
+    def test_delete_unknown_name_returns_error(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        from deckslots.commands import handle_decklist_delete
+
+        session = Session()
+        result = handle_decklist_delete(
+            session,
+            _make_cmd("decklist delete X", "decklist", "delete", ["X"]),
+        )
+        assert "not found" in result.lower()
+
+    def test_delete_removes_from_library_and_clears_active(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        # Auto-confirm the click.confirm prompt.
+        import click as _click
+        monkeypatch.setattr(_click, "confirm", lambda *a, **kw: True)
+        from deckslots.commands import handle_decklist_delete
+        from deckslots.storage import SqliteRepository
+
+        session = Session(repository=SqliteRepository())
+        d1 = Decklist.create("Doomed")
+        d1.add_card("Atraxa, Praetors' Voice", "Commander")
+        session.repository.save(d1)
+        session.decklist = d1
+        result = handle_decklist_delete(
+            session,
+            _make_cmd("decklist delete Doomed", "decklist", "delete", ["Doomed"]),
+        )
+        assert "Deleted" in result
+        assert session.repository.list() == []
+        assert session.decklist is None
+
+    def test_delete_aborts_when_user_declines(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        import click as _click
+        monkeypatch.setattr(_click, "confirm", lambda *a, **kw: False)
+        from deckslots.commands import handle_decklist_delete
+        from deckslots.storage import SqliteRepository
+
+        session = Session(repository=SqliteRepository())
+        d = Decklist.create("Keepme")
+        d.add_card("Atraxa, Praetors' Voice", "Commander")
+        session.repository.save(d)
+        result = handle_decklist_delete(
+            session,
+            _make_cmd("decklist delete Keepme", "decklist", "delete", ["Keepme"]),
+        )
+        assert "Aborted" in result
+        assert len(session.repository.list()) == 1
+
+
+class TestMultiDeckCommandsRegistered:
+    def test_dispatch_routes_decklist_list(self):
+        session = Session()
+        registry = register_all_handlers(session)
+        assert ("decklist", "list") in registry
+        assert ("decklist", "switch") in registry
+        assert ("decklist", "delete") in registry
+
+    def test_help_mentions_multi_deck_commands(self):
+        text = handle_help()
+        assert "decklist list" in text
+        assert "decklist switch" in text
+        assert "decklist delete" in text
