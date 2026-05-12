@@ -153,9 +153,7 @@ class TestPlaintextRepositoryContract:
         deck_id = repo.save(_deck_companion())
         loaded = repo.load(deck_id)
         assert "companion" in loaded.categories
-        assert loaded.categories["companion"].cards == [
-            "Lurrus of the Dream-Den"
-        ]
+        assert loaded.categories["companion"].cards == ["Lurrus of the Dream-Den"]
 
 
 class TestPlaintextRepositoryDefaultPath:

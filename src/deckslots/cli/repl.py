@@ -82,33 +82,33 @@ def run_repl() -> None:
     session = Session()
     registry = register_all_handlers(session)
 
-    try:
-        deck = session.repository.load()
-    except (OSError, ValueError) as e:
-        deck = None
-        _logger.warning("Save file load failed, entering recovery: %s", e)
-        click.echo(f"Warning: could not load save file: {e}.")
-        click.echo("Options:")
-        click.echo("  discard — delete the save file and start fresh")
-        click.echo("  exit    — quit so you can inspect the file manually")
-        while True:
-            click.echo("deckslots(recovery)> ", nl=False)
-            try:
-                choice = input().strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                click.echo("Goodbye.")
-                return
-            if choice == "discard":
-                session.repository.delete()
-                click.echo("Save file deleted. Starting fresh.")
-                break
-            elif choice == "exit":
-                click.echo("Goodbye.")
-                return
-    if deck is not None:
-        session.decklist = deck
-        click.echo(f"Resumed '{session.decklist.name}'.")
-        click.echo(render_status_line(session, is_validation_enabled()))
+    summaries = session.repository.list()
+    if summaries:
+        latest = summaries[0]
+        try:
+            session.decklist = session.repository.load(latest.id)
+            click.echo(f"Resumed '{session.decklist.name}'.")
+            click.echo(render_status_line(session, is_validation_enabled()))
+        except (OSError, ValueError, KeyError) as e:
+            _logger.warning("Save file load failed, entering recovery: %s", e)
+            click.echo(f"Warning: could not load save file: {e}.")
+            click.echo("Options:")
+            click.echo("  discard — delete the save file and start fresh")
+            click.echo("  exit    — quit so you can inspect the file manually")
+            while True:
+                click.echo("deckslots(recovery)> ", nl=False)
+                try:
+                    choice = input().strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    click.echo("Goodbye.")
+                    return
+                if choice == "discard":
+                    session.repository.delete(latest.id)
+                    click.echo("Save file deleted. Starting fresh.")
+                    break
+                elif choice == "exit":
+                    click.echo("Goodbye.")
+                    return
 
     _load_scryfall_index(session)
 

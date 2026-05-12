@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
-import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,9 +18,16 @@ from deckslots.models import (
     Decklist,
     UncappedCategory,
 )
-from deckslots.storage import (
+
+# Re-exported for backward compatibility with existing tests and repl.py imports.
+from deckslots.storage import (  # noqa: F401
+    _CARD_LINE_RE,
     DecklistRepository,
+    DecklistSummary,
     PlaintextRepository,
+    _format_save_file,
+    _get_save_path,
+    _parse_save_file,
 )
 from deckslots.templates import (
     Template,
@@ -44,11 +51,9 @@ class DispatchedHandler(Protocol):
 class Session:
     decklist: Decklist | None = None
     scryfall_index: dict | None = None
-    repository: DecklistRepository = field(default_factory=PlaintextRepository)
-
-
-_CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
-_SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
+    repository: DecklistRepository = dataclasses.field(
+        default_factory=PlaintextRepository
+    )
 
 
 @dataclass
@@ -439,16 +444,20 @@ def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
 
 
 def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
+    summaries = session.repository.list()
+    if not summaries:
+        logger.warning("Repository is empty: no decks to load.")
+        return "No saved decklist found."
     try:
-        deck = session.repository.load()
-    except (DecklistError, OSError) as e:
+        deck = session.repository.load(summaries[0].id)
+    except (DecklistError, OSError, KeyError) as e:
         logger.warning("Handler error: %s", e)
         return f"Error loading save file: {e}"
     if deck is None:
         logger.warning("Save file not found")
         return "No saved decklist found."
     session.decklist = deck
-    logger.debug("Deck loaded: %s", deck.name)
+    logger.debug("Deck loaded via %s", type(session.repository).__name__)
     return f"Loaded '{deck.name}'."
 
 
@@ -456,7 +465,7 @@ def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return NO_ACTIVE_DECK
     session.repository.save(session.decklist)
-    logger.debug("Deck saved: %s", session.decklist.name)
+    logger.debug("Deck saved via %s", type(session.repository).__name__)
     return f"Saved '{session.decklist.name}'."
 
 

@@ -1,8 +1,20 @@
+"""Persistence layer for Decklists.
+
+This module owns the storage seam (`DecklistRepository`) that the REPL,
+the GUI, and future SQLite backend share. The plaintext format helpers
+(`_format_save_file`, `_parse_save_file`) live here because they are
+the on-disk format of the default `PlaintextRepository` backend; the
+interop helpers `_format_export_file` / `_parse_import_file` stay in
+`commands.py` because they are user-facing Moxfield/Archidekt encoders,
+not storage.
+"""
+
 from __future__ import annotations
 
 import os
 import re
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -15,6 +27,9 @@ from deckslots.models import (
 
 _CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
 _SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
+
+# Single-deck backends (PlaintextRepository) always use this synthetic id.
+_PLAINTEXT_DECK_ID = 1
 
 
 def _get_save_path() -> Path:
@@ -65,8 +80,6 @@ def _parse_save_file(path: str) -> Decklist:
         raise ParseError("Save file missing '# <name>' header line.")
 
     deck = Decklist.create(name)
-    # Temporarily expand Commander to accept any number of cards during load;
-    # the correct slot count is set after all cards are read.
     commander_cat = deck.categories["commander"]
     assert isinstance(commander_cat, CappedCategory)
     commander_cat.total_slots = 99
@@ -109,7 +122,6 @@ def _parse_save_file(path: str) -> Decklist:
             for _ in range(qty):
                 deck.add_card(card, current_category)
 
-    # Set Commander slot count from the number of loaded cards
     loaded_commander_cat = deck.categories.get("commander")
     if loaded_commander_cat is not None and isinstance(
         loaded_commander_cat, CappedCategory
@@ -119,25 +131,80 @@ def _parse_save_file(path: str) -> Decklist:
     return deck
 
 
+@dataclass(frozen=True)
+class DecklistSummary:
+    """Lightweight row returned by ``DecklistRepository.list``."""
+
+    id: int
+    name: str
+    total_filled: int
+    updated_at: str
+
+
 class DecklistRepository(Protocol):
-    def save(self, deck: Decklist) -> None: ...
-    def load(self) -> Decklist | None: ...
-    def delete(self) -> None: ...
+    """Storage seam shared by the plaintext and SQLite backends."""
+
+    def save(self, deck: Decklist) -> int: ...
+
+    def load(self, deck_id: int) -> Decklist: ...
+
+    def load_by_name(self, name: str) -> Decklist | None: ...
+
+    def list(self) -> list[DecklistSummary]: ...
+
+    def delete(self, deck_id: int) -> None: ...
 
 
 class PlaintextRepository:
+    """Single-file backend writing to ``$XDG_STATE_HOME/deckslots/decklist.bak``.
+
+    Implements :class:`DecklistRepository`. Because there is only ever one
+    deck on disk, ``save`` always returns ``1`` and ``load`` ignores the
+    ``deck_id`` argument (raising ``KeyError`` if the file is absent).
+    """
+
     def __init__(self, path: Path | None = None) -> None:
         self._path = path if path is not None else _get_save_path()
 
-    def save(self, deck: Decklist) -> None:
+    def save(self, deck: Decklist) -> int:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(_format_save_file(deck))
+        return _PLAINTEXT_DECK_ID
 
-    def load(self) -> Decklist | None:
+    def load(self, deck_id: int) -> Decklist:
         if not self._path.exists():
-            return None
+            raise KeyError(deck_id)
         return _parse_save_file(str(self._path))
 
-    def delete(self) -> None:
+    def load_by_name(self, name: str) -> Decklist | None:
+        if not self._path.exists():
+            return None
+        deck = _parse_save_file(str(self._path))
+        return deck if deck.name == name else None
+
+    def list(self) -> list[DecklistSummary]:
+        if not self._path.exists():
+            return []
+        # Surface parse failures via load(); list() must succeed so the REPL
+        # can detect a present-but-corrupt save and offer recovery.
+        try:
+            deck = _parse_save_file(str(self._path))
+            name, total_filled = deck.name, deck.total_filled
+        except (ParseError, OSError, ValueError):
+            name, total_filled = "?", 0
+        mtime = self._path.stat().st_mtime
+        import datetime as _dt
+
+        updated_at = _dt.datetime.fromtimestamp(mtime, tz=_dt.timezone.utc).isoformat()
+        return [
+            DecklistSummary(
+                id=_PLAINTEXT_DECK_ID,
+                name=name,
+                total_filled=total_filled,
+                updated_at=updated_at,
+            )
+        ]
+
+    def delete(self, deck_id: int) -> None:  # noqa: ARG002 - single-deck backend
         if self._path.exists():
             self._path.unlink()
