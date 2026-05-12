@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Bridge Energy — EDH Deckbuilding Slots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<style>
+:root {
+  --bg:          #f0ede7;
+  --panel:       #ffffff;
+  --panel2:      #f7f5f1;
+  --border:      #dedad0;
+  --border-s:    #c0bbb0;
+  --text:        #1a1826;
+  --text-sub:    #706c84;
+  --text-dim:    #a8a4b8;
+  --accent:      #5248c8;
+  --accent-bg:   #eeedfb;
+  --accent-text: #3830a0;
+  --fixed-bg:    #eef4fd;
+  --fixed-bdr:   #b8d0f0;
+  --fixed-hdr:   #dce8fb;
+  --uncat-bg:    #fffbf0;
+  --uncat-bdr:   #d49820;
+  --uncat-hdr:   #fef3d0;
+  --menu-bg:     #e8e5de;
+  --tool-bg:     #edeae3;
+  --status-bg:   #1e1c2a;
+  --status-fg:   #d8d6e8;
+  --scrollbar:   #ccc;
+  --drag-over:   #e8e6fb;
+  --drag-bdr:    #5248c8;
+  --shadow:      0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:   0 4px 12px rgba(0,0,0,.12), 0 2px 4px rgba(0,0,0,.08);
+}
+[data-theme="dark"] {
+  --bg:          #16151f;
+  --panel:       #21202e;
+  --panel2:      #28273a;
+  --border:      #363448;
+  --border-s:    #504e68;
+  --text:        #e8e6f4;
+  --text-sub:    #9290a8;
+  --text-dim:    #5a5870;
+  --accent:      #8b7ff0;
+  --accent-bg:   #26244a;
+  --accent-text: #b0a8f8;
+  --fixed-bg:    #1c2238;
+  --fixed-bdr:   #304880;
+  --fixed-hdr:   #222c48;
+  --uncat-bg:    #221c0e;
+  --uncat-bdr:   #a07820;
+  --uncat-hdr:   #2e2008;
+  --menu-bg:     #1c1b28;
+  --tool-bg:     #1a1928;
+  --status-bg:   #0d0c16;
+  --status-fg:   #c8c6dc;
+  --scrollbar:   #444;
+  --drag-over:   #2a2848;
+  --drag-bdr:    #8b7ff0;
+  --shadow:      0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
+  --shadow-md:   0 4px 12px rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.3);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+body {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+
+/* Menu bar */
+.menubar {
+  display: flex; align-items: center;
+  background: var(--menu-bg);
+  border-bottom: 1px solid var(--border);
+  height: 30px; padding: 0 6px;
+  flex-shrink: 0; gap: 2px;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.menu-item {
+  padding: 3px 10px; font-size: 13px; border-radius: 4px;
+  cursor: default; color: var(--text);
+  -webkit-app-region: no-drag;
+}
+.menu-item:hover { background: var(--accent); color: #fff; }
+
+/* Toolbar */
+.toolbar {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--tool-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 12px; flex-shrink: 0;
+}
+.toolbar-sep { width: 1px; height: 18px; background: var(--border-s); margin: 0 2px; }
+.deck-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.deck-sub  { font-size: 12px; color: var(--text-sub); }
+.tool-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 5px; font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border-s); background: var(--panel);
+  color: var(--text); cursor: default;
+  box-shadow: var(--shadow);
+}
+.tool-btn:hover { background: var(--panel2); }
+.omni-trigger {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px; border-radius: 6px; font-size: 12px;
+  border: 1px solid var(--border-s); background: var(--panel);
+  color: var(--text-sub); cursor: default; min-width: 200px;
+  box-shadow: var(--shadow);
+}
+.omni-trigger:hover { border-color: var(--accent); }
+.kbd {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 3px; padding: 0 4px; font-size: 10px;
+  color: var(--text-dim); font-family: monospace; flex-shrink: 0;
+}
+
+/* Main body */
+.app-body {
+  display: flex; flex-direction: column;
+  flex: 1; overflow: hidden;
+}
+.main-scroll {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Category tiles */
+.cat-tile {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  break-inside: avoid;
+  margin-bottom: 8px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.cat-tile.fixed      { background: var(--fixed-bg); border-color: var(--fixed-bdr); }
+.cat-tile.drag-over  { border-color: var(--drag-bdr); background: var(--drag-over); box-shadow: 0 0 0 2px var(--drag-bdr)44; }
+
+.cat-hdr {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: default; user-select: none;
+}
+.cat-tile.fixed .cat-hdr { background: var(--fixed-hdr); border-color: var(--fixed-bdr); }
+.cat-hdr:hover { background: var(--panel2); }
+.cat-tile.fixed .cat-hdr:hover { background: var(--fixed-hdr); filter: brightness(.97); }
+
+.cat-name { font-size: 13px; font-weight: 600; flex: 1; }
+.cat-count {
+  font-size: 11px; font-weight: 600; padding: 1px 6px;
+  border-radius: 10px; background: var(--panel2);
+  border: 1px solid var(--border); color: var(--text-sub);
+  flex-shrink: 0;
+}
+.cat-count.full { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-text); }
+.slot-btn {
+  width: 20px; height: 20px; border-radius: 4px;
+  border: 1px solid var(--border-s); background: var(--panel);
+  font-size: 14px; color: var(--text-sub);
+  display: flex; align-items: center; justify-content: center;
+  cursor: default; flex-shrink: 0; line-height: 1;
+}
+.slot-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.slot-btn:active { opacity: .8; }
+.slot-btn.danger:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
+.lock-icon { font-size: 11px; color: var(--fixed-bdr); flex-shrink: 0; }
+
+/* Rename input inline */
+.cat-rename-input {
+  flex: 1; border: none; outline: none; background: transparent;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  font-family: inherit; min-width: 0;
+  border-bottom: 1.5px solid var(--accent);
+  padding-bottom: 1px;
+}
+
+/* Header action buttons — always visible, more prominent on hover */
+.cat-hdr .hdr-actions { display: flex; gap: 3px; opacity: 0.35; transition: opacity .15s; }
+.cat-hdr:hover .hdr-actions { opacity: 1; }
+.cat-hdr:focus-within .hdr-actions { opacity: 1; }
+.chevron { font-size: 10px; color: var(--text-dim); flex-shrink: 0; transition: transform .15s; }
+.chevron.open { transform: rotate(90deg); }
+
+/* Card rows */
+.card-list { display: flex; flex-direction: column; }
+.card-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 10px; min-height: 28px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab; user-select: none;
+  transition: background .1s;
+}
+.card-row:last-child { border-bottom: none; }
+.card-row:hover { background: var(--panel2); }
+.card-row.dragging-src { opacity: .4; }
+.card-row.selected { background: var(--accent-bg); border-left: 2px solid var(--accent); padding-left: 8px; }
+.card-row.empty-slot { color: var(--text-dim); font-style: italic; font-size: 12px; cursor: default; }
+.card-row.empty-slot:hover { background: transparent; }
+.drag-handle { color: var(--text-dim); font-size: 11px; flex-shrink: 0; cursor: grab; }
+.card-name { flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overflow-note { padding: 3px 10px 5px; font-size: 11px; color: var(--text-dim); }
+
+/* Basic lands tile */
+.basics-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0; padding: 6px 8px;
+}
+.basic-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 4px; border-radius: 4px;
+  font-size: 12px;
+}
+.basic-row.invalid { opacity: .28; }
+.basic-count {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  background: var(--accent-bg); padding: 0 4px; border-radius: 3px; flex-shrink: 0;
+}
+.basic-invalid-mark { font-size: 9px; color: var(--text-dim); flex-shrink: 0; }
+
+/* Color stat popover */
+.color-stat-wrap {
+  position: relative; flex-shrink: 0;
+}
+.color-stat-popover {
+  position: absolute; top: calc(100% + 5px); right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border-s);
+  border-radius: 6px; padding: 7px 9px;
+  box-shadow: var(--shadow-md);
+  z-index: 200; min-width: 110px;
+  display: none; flex-direction: column; gap: 3px;
+  pointer-events: none;
+}
+.color-stat-wrap:hover .color-stat-popover { display: flex; }
+.color-bar-row {
+  display: flex; align-items: center; gap: 5px; font-size: 10px;
+}
+.color-bar-track {
+  flex: 1; height: 6px; background: var(--border);
+  border-radius: 3px; overflow: hidden;
+}
+.color-bar-fill { height: 100%; border-radius: 3px; }
+.color-bar-count { width: 14px; text-align: right; color: var(--text-sub); font-size: 10px; }
+
+.card-preview {
+  width: 180px; height: 280px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 7px; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.card-preview-hdr {
+  padding: 5px 10px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; color: var(--text-sub);
+  text-transform: uppercase; letter-spacing: .05em;
+  background: var(--panel2); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-preview-body {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 8px; overflow: hidden;
+}
+.wf-card-face {
+  width: 100%; aspect-ratio: 63/88;
+  border: 2px solid var(--border-s); border-radius: 8px;
+  background: var(--panel2);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.wf-card-face-title {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 6px; background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; gap: 4px;
+}
+.wf-card-face-art {
+  flex: 1.4;
+  background: repeating-linear-gradient(135deg,
+    var(--border) 0, var(--border) 2px,
+    var(--panel2) 2px, var(--panel2) 8px);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-dim); font-size: 9px; font-style: italic;
+}
+.wf-card-face-type {
+  padding: 3px 6px; border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 9px; color: var(--text-sub); background: var(--panel2);
+}
+.wf-card-face-text {
+  flex: 1; padding: 4px 6px; font-size: 9px; color: var(--text-sub);
+  overflow: hidden; line-height: 1.4;
+}
+.wf-card-face-pt {
+  display: flex; justify-content: flex-end;
+  padding: 3px 6px; border-top: 1px solid var(--border);
+  font-size: 9px; font-weight: 700;
+}
+
+/* Uncategorized sidebar */
+  width: 220px;
+  flex-shrink: 0;
+  border-left: 2px dashed var(--uncat-bdr);
+  background: var(--uncat-bg);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.uncat-zone.drag-over { background: var(--drag-over); border-color: var(--drag-bdr); }
+.uncat-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px; background: var(--uncat-hdr);
+  border-bottom: 1px solid var(--uncat-bdr);
+}
+.uncat-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 7px 12px;
+}
+.uncat-chip {
+  display: flex; align-items: center; gap: 6px;
+  border: 1.5px dashed var(--uncat-bdr);
+  border-radius: 5px; padding: 3px 10px;
+  background: var(--panel); cursor: grab;
+  font-size: 12px; color: var(--text);
+  transition: background .1s;
+}
+.uncat-chip:hover { background: var(--uncat-hdr); }
+.uncat-chip.dragging-src { opacity: .4; }
+
+/* Status bar */
+.statusbar {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--status-bg); color: var(--status-fg);
+  padding: 0 14px; height: 26px; flex-shrink: 0; font-size: 12px;
+}
+.status-warn  { color: #f0b030; }
+.status-ok    { color: #60c860; }
+.status-sep   { opacity: .3; }
+
+/* Omnibar */
+.omni-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 80px; z-index: 1000;
+}
+.omni-box {
+  background: var(--panel);
+  border: 1px solid var(--border-s);
+  border-radius: 10px; width: 440px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.omni-input-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.omni-icon { font-size: 15px; color: var(--text-sub); flex-shrink: 0; }
+.omni-input {
+  flex: 1; border: none; outline: none; font-size: 15px;
+  background: transparent; color: var(--text); font-family: inherit;
+}
+.omni-sub { font-size: 11px; color: var(--text-sub); flex-shrink: 0; }
+.omni-results { max-height: 260px; overflow-y: auto; }
+.omni-result {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 14px; cursor: default;
+  border-bottom: 1px solid var(--border);
+}
+.omni-result:hover, .omni-result.active { background: var(--accent-bg); }
+.omni-result-name { flex: 1; font-size: 13px; }
+.omni-target-label { font-size: 11px; color: var(--text-sub); }
+.omni-empty { padding: 16px 14px; color: var(--text-dim); font-size: 13px; text-align: center; }
+.omni-hint { padding: 6px 14px; font-size: 11px; color: var(--text-dim); border-top: 1px solid var(--border); display: flex; gap: 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ── Mana badges ── */
+const MANA_S = {
+  W:{bg:"#faf5d8",bd:"#c4a820",fg:"#6b5410"},
+  U:{bg:"#c8e4f8",bd:"#2870c0",fg:"#134878"},
+  B:{bg:"#3a3450",bd:"#1a1430",fg:"#d0c8e8"},
+  R:{bg:"#fcd8c0",bd:"#c03010",fg:"#701006"},
+  G:{bg:"#b8e4a8",bd:"#286820",fg:"#0e4010"},
+  C:{bg:"#e0dcd8",bd:"#9090a0",fg:"#404050"},
+};
+function ManaBadge({ c }) {
+  const m = MANA_S[c] || MANA_S.C;
+  return (
+    <span style={{
+      display:"inline-flex",alignItems:"center",justifyContent:"center",
+      width:15,height:15,borderRadius:"50%",
+      background:m.bg,border:`1.5px solid ${m.bd}`,
+      fontSize:8,fontWeight:800,color:m.fg,
+      fontFamily:"monospace",lineHeight:1,flexShrink:0,userSelect:"none",
+    }}>{c}</span>
+  );
+}
+function ManaRow({ colors=[] }) {
+  return <span style={{display:"inline-flex",gap:2,alignItems:"center"}}>
+    {colors.map((c,i)=><ManaBadge key={i} c={c}/>)}
+  </span>;
+}
+
+/* ── Data ── */
+const ALL_BASICS = [
+  {name:"Plains",color:"W"},{name:"Island",color:"U"},{name:"Swamp",color:"B"},
+  {name:"Mountain",color:"R"},{name:"Forest",color:"G"},{name:"Wastes",color:"C"},
+  {name:"Snow Plains",color:"W"},{name:"Snow Island",color:"U"},{name:"Snow Swamp",color:"B"},
+  {name:"Snow Mountain",color:"R"},{name:"Snow Forest",color:"G"},{name:"Snow Wastes",color:"C"},
+];
+const DECK_IDENTITY = new Set(["W","U","B","R","G","C"]);
+
+let _id = 0;
+const mkCard = (name,colors) => ({id:++_id,name,colors});
+
+const INITIAL_CATS = [
+  { id:"commander", name:"Commander", fixed:true, slots:1, uncapped:false, cards:[
+    mkCard("Esika, God of the Tree",["W","U","B","R","G"]),
+  ]},
+  { id:"basiclands", name:"Basic Lands", fixed:true, slots:0, uncapped:true, isBasics:true, cards:[
+    mkCard("Plains",["W"]),mkCard("Plains",["W"]),
+    mkCard("Island",["U"]),mkCard("Island",["U"]),
+    mkCard("Swamp",["B"]),mkCard("Swamp",["B"]),
+    mkCard("Mountain",["R"]),
+    mkCard("Forest",["G"]),mkCard("Forest",["G"]),mkCard("Forest",["G"]),
+  ]},
+  { id:"ramp", name:"Ramp", fixed:false, slots:12, uncapped:false, cards:[
+    mkCard("Sol Ring",["C"]),mkCard("Arcane Signet",["C"]),
+    mkCard("Birds of Paradise",["G"]),mkCard("Cultivate",["G"]),
+    mkCard("Kodama's Reach",["G"]),mkCard("Farseek",["G"]),
+    mkCard("Nature's Lore",["G"]),mkCard("Three Visits",["G"]),
+    mkCard("Bloom Tender",["G","W"]),mkCard("Selvala, Heart of the Wilds",["G"]),
+  ]},
+  { id:"draw", name:"Draw", fixed:false, slots:10, uncapped:false, cards:[
+    mkCard("Rhystic Study",["U"]),mkCard("Sylvan Library",["G"]),
+    mkCard("Phyrexian Arena",["B"]),mkCard("Esper Sentinel",["W"]),
+    mkCard("Necropotence",["B"]),mkCard("Read the Bones",["B"]),
+    mkCard("Fact or Fiction",["U"]),mkCard("Consecrated Sphinx",["U"]),
+  ]},
+  { id:"removal", name:"Removal", fixed:false, slots:8, uncapped:false, cards:[
+    mkCard("Swords to Plowshares",["W"]),mkCard("Path to Exile",["W"]),
+    mkCard("Toxic Deluge",["B"]),mkCard("Cyclonic Rift",["U"]),
+    mkCard("Winds of Abandon",["W"]),mkCard("Assassin's Trophy",["B","G"]),
+    mkCard("Beast Within",["G"]),
+  ]},
+  { id:"counters", name:"Counterspells", fixed:false, slots:6, uncapped:false, cards:[
+    mkCard("Counterspell",["U","U"]),mkCard("Mana Drain",["U","U"]),
+    mkCard("Swan Song",["U"]),mkCard("Fierce Guardianship",["U"]),
+    mkCard("Force of Will",["U"]),
+  ]},
+  { id:"tutors", name:"Tutors", fixed:false, slots:5, uncapped:false, cards:[
+    mkCard("Demonic Tutor",["B"]),mkCard("Vampiric Tutor",["B"]),
+    mkCard("Enlightened Tutor",["W"]),mkCard("Worldly Tutor",["G"]),
+  ]},
+  { id:"wincons", name:"Win Conditions", fixed:false, slots:5, uncapped:false, cards:[
+    mkCard("Triumph of the Hordes",["G"]),mkCard("Craterhoof Behemoth",["G","G"]),
+    mkCard("Blightsteel Colossus",["C"]),
+  ]},
+  { id:"legends", name:"Legends / Bridge Targets", fixed:false, slots:8, uncapped:false, cards:[
+    mkCard("Avacyn, Angel of Hope",["W"]),mkCard("Jin-Gitaxias, Core Augur",["U"]),
+    mkCard("Sheoldred, the Apocalypse",["B"]),mkCard("Urabrask, Heretic Praetor",["R"]),
+    mkCard("Vorinclex, Voice of Hunger",["G"]),mkCard("Atraxa, Praetors' Voice",["W","U","B","G"]),
+  ]},
+  { id:"artifacts", name:"Artifacts", fixed:false, slots:6, uncapped:false, cards:[
+    mkCard("Mana Crypt",["C"]),mkCard("Chrome Mox",["C"]),
+    mkCard("Smothering Tithe",["W"]),mkCard("Chromatic Lantern",["C"]),
+  ]},
+  { id:"lands", name:"Lands", fixed:false, slots:12, uncapped:false, cards:[
+    mkCard("Command Tower",["W","U","B","R","G"]),mkCard("Exotic Orchard",["W","U","B","R","G"]),
+    mkCard("Reflecting Pool",["W","U","B","R","G"]),mkCard("Breeding Pool",["U","G"]),
+    mkCard("Godless Shrine",["W","B"]),mkCard("Hallowed Fountain",["W","U"]),
+    mkCard("Overgrown Tomb",["B","G"]),mkCard("Watery Grave",["U","B"]),
+    mkCard("Blood Crypt",["B","R"]),mkCard("Stomping Ground",["R","G"]),
+    mkCard("Sacred Foundry",["R","W"]),mkCard("Steam Vents",["U","R"]),
+  ]},
+  { id:"uncat", name:"Uncategorized", fixed:true, slots:0, uncapped:true, isUncat:true, cards:[
+    mkCard("Norn's Annex",["W"]),
+    mkCard("Void Winnower",["C"]),
+    mkCard("Morophon, the Boundless",["W","U","B","R","G"]),
+  ]},
+];
+
+const CARD_POOL = [
+  mkCard("Smothering Tithe",["W"]), mkCard("Mana Vault",["C"]),
+  mkCard("Windfall",["U"]), mkCard("Dark Confidant",["B"]),
+  mkCard("Krosan Grip",["G"]), mkCard("Terminate",["B","R"]),
+  mkCard("Teferi's Protection",["W"]), mkCard("Boseiju, Who Endures",["G"]),
+  mkCard("Dockside Extortionist",["R"]), mkCard("Cyclonic Rift",["U"]),
+  mkCard("Brainstorm",["U"]), mkCard("Sensei's Divining Top",["C"]),
+  mkCard("Imperial Seal",["B"]), mkCard("Green Sun's Zenith",["G"]),
+  mkCard("Natural Order",["G","G"]), mkCard("Food Chain",["G"]),
+  mkCard("Omniscience",["U"]), mkCard("Enter the Infinite",["U"]),
+];
+
+/* ── Card Preview Pane ── */
+function CardPreviewPane({ card, scryfallMode }) {
+  const [imgUrl, setImgUrl]   = useState(null);
+  const [loading, setLoading] = useState(false);
+  const cache = useRef({});
+
+  useEffect(() => {
+    if (!card || !scryfallMode) { setImgUrl(null); return; }
+    const key = card.name;
+    if (cache.current[key]) { setImgUrl(cache.current[key]); return; }
+    setLoading(true); setImgUrl(null);
+    fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(card.name)}`)
+      .then(r => r.json())
+      .then(data => {
+        const url = data.image_uris?.normal || data.card_faces?.[0]?.image_uris?.normal || null;
+        cache.current[key] = url;
+        setImgUrl(url);
+      })
+      .catch(() => setImgUrl(null))
+      .finally(() => setLoading(false));
+  }, [card?.name, scryfallMode]);
+
+  return (
+    <div className="card-preview">
+      <div className="card-preview-hdr">
+        <span>Card Preview</span>
+      </div>
+      <div className="card-preview-body">
+        {!card && (
+          <div style={{textAlign:"center",color:"var(--text-dim)",fontSize:11,fontStyle:"italic",padding:8}}>
+            Click any card to preview
+          </div>
+        )}
+        {card && scryfallMode && loading && (
+          <div style={{color:"var(--text-dim)",fontSize:11}}>Loading…</div>
+        )}
+        {card && scryfallMode && imgUrl && (
+          <img src={imgUrl} alt={card.name}
+               style={{width:"100%",borderRadius:6,display:"block"}} />
+        )}
+        {card && scryfallMode && !loading && !imgUrl && (
+          <div style={{color:"var(--text-dim)",fontSize:11,textAlign:"center",fontStyle:"italic"}}>
+            Image unavailable
+          </div>
+        )}
+        {card && !scryfallMode && (
+          <div className="wf-card-face">
+            <div className="wf-card-face-title">
+              <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{card.name}</span>
+              <ManaRow colors={card.colors}/>
+            </div>
+            <div className="wf-card-face-art">art</div>
+            <div className="wf-card-face-type">Card — Type</div>
+            <div className="wf-card-face-text">Oracle text placeholder</div>
+            <div className="wf-card-face-pt"></div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Color stat badge (replaces ManaRow in cat header, shows breakdown on hover) ── */
+const COLOR_ORDER = ["W","U","B","R","G","C"];
+const COLOR_HEX = { W:"#f5e87a", U:"#5b9bd5", B:"#9b59b6", R:"#e74c3c", G:"#27ae60", C:"#95a5a6" };
+
+function ColorStatBadge({ cards, total, filled, isFull }) {
+  // count color pips across all cards
+  const counts = {};
+  COLOR_ORDER.forEach(c => counts[c] = 0);
+  cards.forEach(card => card.colors.forEach(c => { if(counts[c]!==undefined) counts[c]++; }));
+  const maxCount = Math.max(1, ...Object.values(counts));
+  const hasColors = COLOR_ORDER.some(c => counts[c] > 0);
+
+  return (
+    <div className="color-stat-wrap">
+      <span className={`cat-count${isFull?" full":""}`} style={{cursor:"default"}}>
+        {filled}/{total}
+      </span>
+      <div className="color-stat-popover">
+        <div style={{fontSize:10,fontWeight:600,color:"var(--text-sub)",marginBottom:2}}>Color breakdown</div>
+        {!hasColors && <div style={{fontSize:10,color:"var(--text-dim)",fontStyle:"italic"}}>No cards</div>}
+        {COLOR_ORDER.filter(c=>counts[c]>0).map(c => (
+          <div key={c} className="color-bar-row">
+            <ManaBadge c={c}/>
+            <div className="color-bar-track">
+              <div className="color-bar-fill"
+                   style={{width:`${(counts[c]/maxCount)*100}%`, background:COLOR_HEX[c]}}/>
+            </div>
+            <span className="color-bar-count">{counts[c]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const MAX_CARD_NAME = 22;
+function truncate(name) {
+  return name.length > MAX_CARD_NAME ? name.slice(0, MAX_CARD_NAME - 1) + "…" : name;
+}
+
+/* ── Basic lands color stat badge ── */
+function BasicColorStatBadge({ counts, total }) {
+  // Group by mana color: regular + snow
+  const REGULAR = { W:"Plains", U:"Island", B:"Swamp", R:"Mountain", G:"Forest", C:"Wastes" };
+  const SNOW    = { W:"Snow Plains", U:"Snow Island", B:"Snow Swamp", R:"Snow Mountain", G:"Snow Forest", C:"Snow Wastes" };
+  const maxCount = Math.max(1, ...COLOR_ORDER.map(c=>(counts[REGULAR[c]]||0)+(counts[SNOW[c]]||0)));
+  const hasAny = COLOR_ORDER.some(c=>(counts[REGULAR[c]]||0)+(counts[SNOW[c]]||0)>0);
+
+  return (
+    <div className="color-stat-wrap">
+      <span className="cat-count" style={{cursor:"default"}}>{total} · ∞</span>
+      <div className="color-stat-popover" style={{minWidth:130}}>
+        <div style={{fontSize:10,fontWeight:600,color:"var(--text-sub)",marginBottom:2}}>Mana produced</div>
+        {!hasAny && <div style={{fontSize:10,color:"var(--text-dim)",fontStyle:"italic"}}>No basics</div>}
+        {COLOR_ORDER.map(c => {
+          const reg  = counts[REGULAR[c]] || 0;
+          const snow = counts[SNOW[c]]    || 0;
+          if(reg+snow===0) return null;
+          const regPct  = (reg  / maxCount) * 100;
+          const snowPct = (snow / maxCount) * 100;
+          return (
+            <div key={c} className="color-bar-row">
+              <ManaBadge c={c}/>
+              <div className="color-bar-track" style={{position:"relative"}}>
+                {/* regular portion — solid */}
+                <div className="color-bar-fill"
+                     style={{width:`${regPct}%`, background:COLOR_HEX[c],
+                             position:"absolute",left:0,top:0,bottom:0}}/>
+                {/* snow portion — hatched, starts after regular */}
+                {snow>0 && (
+                  <div style={{
+                    width:`${snowPct}%`, position:"absolute",
+                    left:`${regPct}%`, top:0, bottom:0,
+                    borderRadius:"0 3px 3px 0",
+                    background:`repeating-linear-gradient(45deg,
+                      ${COLOR_HEX[c]}88 0px, ${COLOR_HEX[c]}88 2px,
+                      transparent 2px, transparent 4px)`,
+                    borderLeft: reg>0 ? `1px solid ${COLOR_HEX[c]}` : "none",
+                  }}/>
+                )}
+              </div>
+              <span className="color-bar-count">{reg+snow}</span>
+              {snow>0 && <span style={{fontSize:9,color:"var(--text-dim)",flexShrink:0}}
+                               title={`${snow} snow-covered`}>❄{snow}</span>}
+            </div>
+          );
+        })}
+        <div style={{fontSize:9,color:"var(--text-dim)",marginTop:3,display:"flex",gap:8}}>
+          <span>▬ regular</span><span style={{opacity:.6}}>╱ snow</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BasicLandsTile({ cats, onDump, onBasicAdd, onBasicRemove, onBasicSet }) {
+  const basicCat = cats.find(c=>c.isBasics);
+  const counts = {};
+  if(basicCat) basicCat.cards.forEach(c=>{ counts[c.name]=(counts[c.name]||0)+1; });
+  const total = basicCat ? basicCat.cards.length : 0;
+
+  const [editing, setEditing] = useState(null); // land name being edited
+  const [editVal, setEditVal] = useState("");
+  const editRef = useRef();
+
+  const startEdit = (landName, currentCount) => {
+    setEditing(landName);
+    setEditVal(String(currentCount));
+    setTimeout(()=>{ editRef.current?.select(); }, 20);
+  };
+  const commitEdit = (landName) => {
+    const n = parseInt(editVal, 10);
+    if(!isNaN(n) && n >= 0) onBasicSet(landName, n);
+    setEditing(null);
+  };
+  const onEditKey = (e, landName) => {
+    if(e.key==="Enter") commitEdit(landName);
+    if(e.key==="Escape") setEditing(null);
+    e.stopPropagation();
+  };
+
+  return (
+    <div className="cat-tile fixed" style={{minWidth:0}}>
+      <div className="cat-hdr">
+        <span className="cat-name">Basic Lands</span>
+        <BasicColorStatBadge counts={counts} total={total}/>
+        <div className="hdr-actions">
+          <div className="slot-btn danger" title="Clear all basics to Uncategorized"
+               onClick={()=>onDump&&onDump("basiclands")} style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="6" width="9" height="6" rx="1.5" fill="currentColor" opacity=".75"/>
+              <rect x="4" y="2" width="9" height="6" rx="1.5" fill="currentColor"/>
+              <line x1="1" y1="13" x2="13" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <span className="lock-icon">🔒</span>
+      </div>
+      <div className="basics-grid">
+        {ALL_BASICS.map(land => {
+          const valid = DECK_IDENTITY.has(land.color);
+          const n = counts[land.name] || 0;
+          const isEditing = editing === land.name;
+          return (
+            <div key={land.name}
+                 className={`basic-row${valid?"":" invalid"}`}
+                 onDoubleClick={()=>{ if(valid) startEdit(land.name, n); }}
+                 title={valid ? "Double-click to set quantity" : "Outside color identity"}>
+              <ManaBadge c={land.color} />
+              <span style={{flex:1, fontSize:12, overflow:"hidden", textOverflow:"ellipsis",
+                            whiteSpace:"nowrap",
+                            textDecoration:valid?"none":"line-through",
+                            color: valid?"var(--text)":"var(--text-dim)"}}>
+                {land.name}
+              </span>
+              {valid && (
+                isEditing ? (
+                  <input ref={editRef}
+                    style={{width:36, fontSize:12, border:"1px solid var(--accent)",
+                            borderRadius:3, padding:"0 4px", background:"var(--panel)",
+                            color:"var(--text)", fontFamily:"inherit", outline:"none"}}
+                    value={editVal}
+                    onChange={e=>setEditVal(e.target.value)}
+                    onBlur={()=>commitEdit(land.name)}
+                    onKeyDown={e=>onEditKey(e, land.name)}
+                    onClick={e=>e.stopPropagation()}
+                  />
+                ) : (
+                  <div style={{display:"flex", alignItems:"center", gap:2, flexShrink:0}}>
+                    <div className="slot-btn"
+                         style={{width:16,height:16,fontSize:13}}
+                         onClick={e=>{e.stopPropagation(); if(n>0) onBasicRemove(land.name);}}>−</div>
+                    <span className="basic-count" style={{minWidth:18, textAlign:"center",
+                          opacity: n===0?0.35:1}}>{n}</span>
+                    <div className="slot-btn"
+                         style={{width:16,height:16,fontSize:13}}
+                         onClick={e=>{e.stopPropagation(); onBasicAdd(land.name, land.color);}}>+</div>
+                  </div>
+                )
+              )}
+              {!valid && <span className="basic-invalid-mark">✕</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Category Tile ── */
+function CatTile({ cat, onSlotChange, onToggle, collapsed, dragOver, onDragOver, onDragLeave, onDrop, onCardDragStart, draggingId, density, onRename, onDump, onCardClick, selectedCardId }) {
+  if(cat.isBasics || cat.isUncat) return null;
+  const filled = cat.cards.length;
+  const isFull = !cat.uncapped && filled >= cat.slots;
+  const shown = collapsed ? [] : cat.cards;
+  const emptySlots = cat.uncapped ? 0 : Math.max(0, Math.min(cat.slots - filled, density==="compact"?2:3));
+
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState(cat.name);
+  const renameRef = useRef();
+
+  const startRename = (e) => {
+    e.stopPropagation();
+    setDraftName(cat.name);
+    setRenaming(true);
+    setTimeout(()=>{ renameRef.current?.select(); }, 30);
+  };
+  const commitRename = () => {
+    const trimmed = draftName.trim();
+    if(trimmed && trimmed !== cat.name) onRename(cat.id, trimmed);
+    setRenaming(false);
+  };
+  const onRenameKey = (e) => {
+    if(e.key==="Enter") commitRename();
+    if(e.key==="Escape"){ setRenaming(false); }
+    e.stopPropagation();
+  };
+
+  return (
+    <div className={`cat-tile${cat.fixed?" fixed":""}${dragOver?" drag-over":""}`}
+         style={{marginBottom:8, breakInside:"avoid"}}
+         onDragOver={e=>{e.preventDefault();onDragOver();}}
+         onDragLeave={onDragLeave}
+         onDrop={e=>{e.preventDefault();onDrop(cat.id);}}>
+      <div className="cat-hdr" onClick={()=>{ if(!renaming) onToggle(cat.id); }}>
+        <span className={`chevron${collapsed?"":" open"}`} style={{flexShrink:0}}>▶</span>
+        {renaming ? (
+          <input ref={renameRef} className="cat-rename-input"
+            value={draftName}
+            onChange={e=>setDraftName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={onRenameKey}
+            onClick={e=>e.stopPropagation()}/>
+        ) : (
+          <span className="cat-name">{cat.name}</span>
+        )}
+        <ColorStatBadge cards={cat.cards} total={cat.uncapped?"∞":cat.slots} filled={filled} isFull={isFull}/>
+        {!cat.fixed && (
+          <div className="hdr-actions">
+            {/* Rename */}
+            <div className="slot-btn" title="Rename category"
+                 onClick={startRename}
+                 style={{fontSize:11}}>✎</div>
+            {/* Dump to Uncategorized */}
+            <div className="slot-btn danger" title="Dump all cards to Uncategorized"
+                 onClick={e=>{e.stopPropagation(); onDump(cat.id);}}
+                 style={{fontSize:12}}>
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="6" width="9" height="6" rx="1.5" fill="currentColor" opacity=".75"/>
+                <rect x="4" y="2" width="9" height="6" rx="1.5" fill="currentColor"/>
+                <line x1="1" y1="13" x2="13" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            {/* Slot resize */}
+            <div className="slot-btn" onClick={e=>{e.stopPropagation();onSlotChange(cat.id,-1);}}>−</div>
+            <div className="slot-btn" onClick={e=>{e.stopPropagation();onSlotChange(cat.id,+1);}}>+</div>
+          </div>
+        )}
+        {cat.fixed && (
+          <div className="hdr-actions">
+            {/* Dump fixed category cards to Uncategorized — category itself stays */}
+            <div className="slot-btn danger" title="Clear all cards to Uncategorized"
+                 onClick={e=>{e.stopPropagation(); onDump(cat.id);}}
+                 style={{fontSize:12}}>
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="6" width="9" height="6" rx="1.5" fill="currentColor" opacity=".75"/>
+                <rect x="4" y="2" width="9" height="6" rx="1.5" fill="currentColor"/>
+                <line x1="1" y1="13" x2="13" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+          </div>
+        )}
+        {cat.fixed && <span className="lock-icon">🔒</span>}
+      </div>
+      {!collapsed && (
+        <div className="card-list">
+          {shown.map(card=>(
+            <div key={card.id}
+                 className={`card-row${card.id===draggingId?" dragging-src":""}${card.id===selectedCardId?" selected":""}`}
+                 draggable
+                 onClick={()=>onCardClick&&onCardClick(card)}
+                 onDragStart={()=>{ onCardClick&&onCardClick(card); onCardDragStart(card,cat.id); }}>
+              <span className="drag-handle">⠿⠿</span>
+              <span className="card-name" title={card.name}>{truncate(card.name)}</span>
+              <ManaRow colors={card.colors}/>
+            </div>
+          ))}
+          {emptySlots > 0 && Array.from({length:emptySlots}).map((_,i)=>(
+            <div key={"e"+i} className="card-row empty-slot">— empty slot —</div>
+          ))}
+          {!cat.uncapped && cat.slots - filled > emptySlots && (
+            <div className="overflow-note">+{cat.slots - filled - emptySlots} more empty slots</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UncatZone({ cats, onCardDragStart, draggingId, onDragOver, onDragLeave, onDrop, dragOver }) {
+  const uncat = cats.find(c=>c.isUncat);
+  const empty = !uncat || uncat.cards.length===0;
+  return (
+    <div className={`uncat-zone${dragOver?" drag-over":""}`}
+         onDragOver={e=>{e.preventDefault();onDragOver();}}
+         onDragLeave={onDragLeave}
+         onDrop={e=>{e.preventDefault();onDrop("uncat");}}>
+      <div className="uncat-hdr">
+        <div style={{display:"flex",flexDirection:"column",gap:2}}>
+          <span style={{fontSize:13,fontWeight:600,color:"var(--uncat-bdr)"}}>⚠ Uncategorized</span>
+          <span style={{fontSize:11,color:"var(--text-sub)"}}>
+            {empty ? "All cards placed ✓" : `${uncat.cards.length} card${uncat.cards.length!==1?"s":""} — drag to assign`}
+          </span>
+        </div>
+      </div>
+      {empty ? null : (
+        <div style={{flex:1,overflowY:"auto",padding:"6px 8px",display:"flex",flexDirection:"column",gap:5}}>
+          {uncat.cards.map(card=>(
+            <div key={card.id}
+                 className={`uncat-chip${card.id===draggingId?" dragging-src":""}`}
+                 draggable
+                 onDragStart={()=>onCardDragStart(card,"uncat")}
+                 style={{flexDirection:"column",alignItems:"flex-start",gap:3}}>
+              <div style={{display:"flex",alignItems:"center",gap:5,width:"100%"}}>
+                <span style={{color:"var(--text-dim)",fontSize:11}}>⠿⠿</span>
+                <span style={{flex:1,fontSize:12,fontWeight:500}}>{card.name}</span>
+              </div>
+              <ManaRow colors={card.colors}/>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Omnibar ── */
+function OmniBar({ open, onClose, cats, onAdd }) {
+  const [query, setQuery]   = useState("");
+  const [active, setActive] = useState(0);
+  const [target, setTarget] = useState(null);
+  const inputRef = useRef();
+
+  useEffect(()=>{
+    if(open){ setQuery(""); setActive(0); setTimeout(()=>inputRef.current?.focus(),50); }
+  },[open]);
+
+  const userCats = cats.filter(c=>!c.fixed&&!c.isUncat&&!c.uncapped);
+  useEffect(()=>{
+    const t = userCats.find(c=>c.cards.length < c.slots);
+    setTarget(t||userCats[0]||null);
+  },[cats,open]);
+
+  const results = query.length < 1 ? CARD_POOL.slice(0,8)
+    : CARD_POOL.filter(c=>c.name.toLowerCase().includes(query.toLowerCase())).slice(0,8);
+
+  const doAdd = (card) => { if(target){ onAdd(card, target.id); onClose(); } };
+
+  useEffect(()=>{
+    const h = e => {
+      if(!open) return;
+      if(e.key==="ArrowDown"){ e.preventDefault(); setActive(a=>Math.min(a+1,results.length-1)); }
+      if(e.key==="ArrowUp")  { e.preventDefault(); setActive(a=>Math.max(a-1,0)); }
+      if(e.key==="Enter")    { e.preventDefault(); if(results[active]) doAdd(results[active]); }
+      if(e.key==="Escape")   { onClose(); }
+    };
+    window.addEventListener("keydown",h);
+    return ()=>window.removeEventListener("keydown",h);
+  },[open,results,active,target]);
+
+  if(!open) return null;
+  return (
+    <div className="omni-backdrop" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="omni-box">
+        <div className="omni-input-row">
+          <span className="omni-icon">⌕</span>
+          <input ref={inputRef} className="omni-input" placeholder="Search cards to add…"
+                 value={query} onChange={e=>{setQuery(e.target.value);setActive(0);}} />
+          {target && <span className="omni-sub">→ {target.name}</span>}
+        </div>
+        <div className="omni-results">
+          {results.length===0 && <div className="omni-empty">No results for "{query}"</div>}
+          {results.map((card,i)=>(
+            <div key={card.id} className={`omni-result${i===active?" active":""}`}
+                 onClick={()=>doAdd(card)}
+                 onMouseEnter={()=>setActive(i)}>
+              <ManaRow colors={card.colors}/>
+              <span className="omni-result-name">{card.name}</span>
+              <span className="omni-target-label">Add to {target?.name||"…"}</span>
+            </div>
+          ))}
+        </div>
+        {/* Category selector */}
+        <div style={{padding:"6px 14px",borderTop:"1px solid var(--border)",
+                     display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          <span style={{fontSize:11,color:"var(--text-dim)",flexShrink:0}}>Add to:</span>
+          {userCats.map(c=>(
+            <span key={c.id} onClick={()=>setTarget(c)}
+                  style={{fontSize:11,padding:"1px 7px",borderRadius:4,cursor:"default",
+                          background:target?.id===c.id?"var(--accent)":"var(--panel2)",
+                          color:target?.id===c.id?"#fff":"var(--text-sub)",
+                          border:"1px solid var(--border)"}}>
+              {c.name} ({c.cards.length}/{c.slots})
+            </span>
+          ))}
+        </div>
+        <div className="omni-hint">
+          <span>↑↓ navigate</span><span>Enter add card</span><span>Esc cancel</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Status bar ── */
+function StatusBar({ cats }) {
+  const main = cats.filter(c=>!c.isUncat);
+  const totalFilled = main.reduce((s,c)=>s+c.cards.length,0) - (cats.find(c=>c.isBasics)?.cards.length||0);
+  const totalSlots  = cats.filter(c=>!c.fixed&&!c.isUncat).reduce((s,c)=>s+(c.uncapped?0:c.slots),0)
+                    + cats.filter(c=>c.fixed&&!c.isUncat&&!c.isBasics).reduce((s,c)=>s+c.slots,0);
+  const uncat = cats.find(c=>c.isUncat);
+  const warns = [];
+  if(uncat?.cards.length) warns.push(`Uncategorized: ${uncat.cards.length} card${uncat.cards.length!==1?"s":""}`);
+  return (
+    <div className="statusbar">
+      <span>Slots: <span className={totalFilled===totalSlots?"status-ok":""}>{totalFilled}/{totalSlots}</span></span>
+      <span className="status-sep">|</span>
+      {warns.map(w=><span key={w} className="status-warn">⚠ {w}</span>)}
+      {!warns.length && <span className="status-ok">✓ All cards placed</span>}
+      <span style={{flex:1}}></span>
+      <span style={{color:"var(--status-fg)",opacity:.4}}>Big Bridge Energy · Esika, God of the Tree (WUBRG) · EDH Deckbuilding Slots</span>
+    </div>
+  );
+}
+
+/* ── App ── */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "density": "compact",
+  "scryfallMode": false
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const theme       = tweaks.theme;
+  const density     = tweaks.density;
+  const scryfallMode = tweaks.scryfallMode;
+
+  const [cats, setCats]         = useState(INITIAL_CATS);
+  const [omniOpen, setOmniOpen] = useState(false);
+  const [dragging, setDragging] = useState(null);
+  const [collapsed, setCollapsed] = useState(new Set());
+  const [dragOverCat, setDragOverCat] = useState(null);
+  const [selectedCard, setSelectedCard] = useState(null);
+
+  /* keyboard shortcut */
+  useEffect(()=>{
+    const h = e => {
+      if((e.metaKey||e.ctrlKey)&&e.key==="k"){ e.preventDefault(); setOmniOpen(o=>!o); }
+    };
+    window.addEventListener("keydown",h);
+    return ()=>window.removeEventListener("keydown",h);
+  },[]);
+
+  const basicAdd = useCallback((landName, color) => {
+    setCats(prev => prev.map(c =>
+      c.isBasics ? {...c, cards: [...c.cards, mkCard(landName, [color])]} : c
+    ));
+  }, []);
+
+  const basicRemove = useCallback((landName) => {
+    setCats(prev => prev.map(c => {
+      if(!c.isBasics) return c;
+      const idx = [...c.cards].reverse().findIndex(x=>x.name===landName);
+      if(idx===-1) return c;
+      const realIdx = c.cards.length - 1 - idx;
+      const next = [...c.cards];
+      next.splice(realIdx, 1);
+      return {...c, cards: next};
+    }));
+  }, []);
+
+  const basicSet = useCallback((landName, count) => {
+    setCats(prev => prev.map(c => {
+      if(!c.isBasics) return c;
+      const color = ALL_BASICS.find(b=>b.name===landName)?.color || "C";
+      const without = c.cards.filter(x=>x.name!==landName);
+      const added = Array.from({length: count}, ()=>mkCard(landName,[color]));
+      return {...c, cards:[...without, ...added]};
+    }));
+  }, []);
+
+  const renameCategory = useCallback((catId, newName) => {
+    setCats(prev => prev.map(c => c.id === catId ? {...c, name: newName} : c));
+  }, []);
+
+  const dumpCategory = useCallback((catId) => {
+    setCats(prev => {
+      const cat = prev.find(c => c.id === catId);
+      if (!cat || cat.cards.length === 0) return prev;
+      const dumped = cat.cards;
+      return prev.map(c => {
+        if (c.id === catId)    return {...c, cards: []};
+        if (c.isUncat)         return {...c, cards: [...c.cards, ...dumped]};
+        return c;
+      });
+    });
+  }, []);
+
+  const moveCard = useCallback((card, fromId, toId) => {
+    if(fromId===toId) return;
+    setCats(prev=>{
+      const next = prev.map(c=>{
+        if(c.id===fromId) return {...c, cards:c.cards.filter(x=>x.id!==card.id)};
+        if(c.id===toId){
+          if(!c.uncapped && c.cards.length>=c.slots) return c; // full — reject
+          return {...c, cards:[...c.cards, card]};
+        }
+        return c;
+      });
+      return next;
+    });
+  },[]);
+
+  const addCard = useCallback((card, toCatId) => {
+    setCats(prev=>prev.map(c=>
+      c.id===toCatId && (c.uncapped||c.cards.length<c.slots)
+        ? {...c, cards:[...c.cards,{...card,id:++_id}]}
+        : c
+    ));
+  },[]);
+
+  const resizeSlot = useCallback((catId, delta) => {
+    setCats(prev=>prev.map(c=>
+      c.id===catId
+        ? {...c, slots:Math.max(c.cards.length, c.slots+delta)}
+        : c
+    ));
+  },[]);
+
+  const toggleCollapse = useCallback((catId) => {
+    setCollapsed(prev=>{
+      const n = new Set(prev);
+      n.has(catId) ? n.delete(catId) : n.add(catId);
+      return n;
+    });
+  },[]);
+
+  const onCardDragStart = useCallback((card, fromCatId) => {
+    setDragging({card, fromCatId});
+  },[]);
+
+  const onDrop = useCallback((toCatId) => {
+    if(dragging) moveCard(dragging.card, dragging.fromCatId, toCatId);
+    setDragging(null); setDragOverCat(null);
+  },[dragging]);
+
+  const cmdCat   = cats.find(c=>c.id==="commander");
+  const userCats = cats.filter(c=>!c.fixed&&!c.isUncat);
+
+  return (
+    <div data-theme={theme} style={{display:"flex",flexDirection:"column",height:"100vh"}}>
+      {/* Menu bar */}
+      <div className="menubar">
+        {["File","Deck","Category","Card","View","Help"].map(m=>(
+          <div key={m} className="menu-item">{m}</div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="toolbar">
+        <span className="deck-name">Big Bridge Energy</span>
+        <span className="deck-sub">Esika, God of the Tree // The Prismatic Bridge · WUBRG</span>
+        <ManaRow colors={["W","U","B","R","G"]}/>
+        <div className="toolbar-sep"></div>
+        <div className="tool-btn">New</div>
+        <div className="tool-btn">Import…</div>
+        <div className="tool-btn">Export…</div>
+        <div className="toolbar-sep"></div>
+        <div className="tool-btn">+ Category</div>
+        <span style={{flex:1}}></span>
+        <div className="omni-trigger" onClick={()=>setOmniOpen(true)}>
+          <span>⌕ Search cards to add…</span>
+          <span className="kbd">⌘K</span>
+        </div>
+      </div>
+
+      {/* Main area */}
+      <div className="app-body" style={{flexDirection:"row"}}>
+        <div className="main-scroll" style={{flex:1}}>
+          {/* Pinned row: Commander + Basic Lands + Card Preview */}
+          <div style={{display:"flex",gap:10,flexShrink:0}}>
+            {/* Commander tile */}
+            <div style={{width:180,flexShrink:0}}>
+              <div className={`cat-tile fixed${dragOverCat==="commander"?" drag-over":""}`}
+                   onDragOver={e=>{e.preventDefault();setDragOverCat("commander");}}
+                   onDragLeave={()=>setDragOverCat(null)}
+                   onDrop={e=>{e.preventDefault();onDrop("commander");}}>
+                <div className="cat-hdr">
+                  <span className="cat-name">Commander</span>
+                  <span className="cat-count">{cmdCat.cards.length}/{cmdCat.slots}</span>
+                  <div className="hdr-actions">
+                    <div className="slot-btn danger" title="Clear commander to Uncategorized"
+                         onClick={e=>{e.stopPropagation();dumpCategory("commander");}} style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+                        <rect x="1" y="6" width="9" height="6" rx="1.5" fill="currentColor" opacity=".75"/>
+                        <rect x="4" y="2" width="9" height="6" rx="1.5" fill="currentColor"/>
+                        <line x1="1" y1="13" x2="13" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <span className="lock-icon">🔒</span>
+                </div>
+                {cmdCat.cards.map(card=>(
+                  <div key={card.id}
+                       className={`card-row${card.id===dragging?.card.id?" dragging-src":""}${card.id===selectedCard?.id?" selected":""}`}
+                       draggable
+                       onClick={()=>setSelectedCard(card)}
+                       onDragStart={()=>{ setSelectedCard(card); onCardDragStart(card,"commander"); }}>
+                    <span className="drag-handle">⠿⠿</span>
+                    <span className="card-name">{card.name}</span>
+                    <ManaRow colors={card.colors}/>
+                  </div>
+                ))}
+                {cmdCat.cards.length===0 && <div className="card-row empty-slot">— drop commander here —</div>}
+              </div>
+            </div>
+            {/* Basic lands tile */}
+            <div style={{flex:1,minWidth:0}}>
+              <BasicLandsTile cats={cats} onDump={dumpCategory}
+                onBasicAdd={basicAdd} onBasicRemove={basicRemove} onBasicSet={basicSet}/>
+            </div>
+            {/* Card preview */}
+            <CardPreviewPane card={selectedCard} scryfallMode={scryfallMode}/>
+          </div>
+
+          {/* User categories: masonry 3-col */}
+          <div style={{columns:3, columnGap:10, flex:1}}>
+            {userCats.map(cat=>(
+              <CatTile key={cat.id} cat={cat}
+                onSlotChange={resizeSlot}
+                onToggle={toggleCollapse}
+                collapsed={collapsed.has(cat.id)}
+                dragOver={dragOverCat===cat.id}
+                onDragOver={()=>setDragOverCat(cat.id)}
+                onDragLeave={()=>setDragOverCat(null)}
+                onDrop={onDrop}
+                onCardDragStart={onCardDragStart}
+                draggingId={dragging?.card.id}
+                density={density}
+                onRename={renameCategory}
+                onDump={dumpCategory}
+                onCardClick={setSelectedCard}
+                selectedCardId={selectedCard?.id}
+              />
+            ))}
+          </div>
+        </div>{/* end main-scroll */}
+
+        {/* Uncategorized sidebar */}
+        <UncatZone cats={cats}
+          onCardDragStart={onCardDragStart}
+          draggingId={dragging?.card.id}
+          dragOver={dragOverCat==="uncat"}
+          onDragOver={()=>setDragOverCat("uncat")}
+          onDragLeave={()=>setDragOverCat(null)}
+          onDrop={onDrop}
+        />
+
+      </div>{/* end app-body */}
+
+      <StatusBar cats={cats}/>
+
+      {/* Omnibar */}
+      <OmniBar open={omniOpen} onClose={()=>setOmniOpen(false)}
+        cats={cats} onAdd={addCard}/>
+
+      {/* Tweaks */}
+      <TweaksPanel>
+        <TweakSection label="Appearance">
+          <TweakRadio label="Theme" value={tweaks.theme}
+            options={["light","dark"]}
+            onChange={v=>setTweak("theme",v)}/>
+          <TweakRadio label="Density" value={tweaks.density}
+            options={["comfortable","compact"]}
+            onChange={v=>setTweak("density",v)}/>
+        </TweakSection>
+        <TweakSection label="Card Preview">
+          <TweakToggle label="Scryfall images" value={tweaks.scryfallMode}
+            onChange={v=>setTweak("scryfallMode",v)}/>
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

@@ -4,10 +4,7 @@ from deckslots.cli import ParsedCommand
 from deckslots.commands import (
     Session,
     _format_export_file,
-    _format_save_file,
-    _get_save_path,
     _parse_import_file,
-    _parse_save_file,
     _resolve_card_and_category_suffix,
     _resolve_category_and_card,
     dispatch,
@@ -46,6 +43,7 @@ from deckslots.commands import (
     validate_template_save,
 )
 from deckslots.models import CappedCategory, Decklist, UncappedCategory
+from deckslots.storage import _format_save_file, _get_save_path, _parse_save_file
 
 
 def _make_session_with_deck():
@@ -2696,12 +2694,25 @@ class TestCommandsLogging:
         )
 
         def _make_cmd(raw, obj, verb, args):
-            return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
+            return ParsedCommand(
+                kind="object_verb", raw=raw, obj=obj, verb=verb, args=args
+            )
 
         session = Session()
-        handle_decklist_create(session, _make_cmd("decklist create Test", "decklist", "create", ["Test"]))
+        handle_decklist_create(
+            session,
+            _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
+        )
         with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
-            handle_card_add(session, _make_cmd("card add Commander Sol Ring", "card", "add", ["Commander", "Sol", "Ring"]))
+            handle_card_add(
+                session,
+                _make_cmd(
+                    "card add Commander Sol Ring",
+                    "card",
+                    "add",
+                    ["Commander", "Sol", "Ring"],
+                ),
+            )
         assert any("Sol Ring" in r.message for r in caplog.records)
 
     def test_save_logs_debug(self, caplog, tmp_path, monkeypatch):
@@ -2715,13 +2726,21 @@ class TestCommandsLogging:
         )
 
         def _make_cmd(raw, obj, verb, args):
-            return ParsedCommand(kind="object_verb", raw=raw, obj=obj, verb=verb, args=args)
+            return ParsedCommand(
+                kind="object_verb", raw=raw, obj=obj, verb=verb, args=args
+            )
 
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
         session = Session()
-        handle_decklist_create(session, _make_cmd("decklist create Test", "decklist", "create", ["Test"]))
+        handle_decklist_create(
+            session,
+            _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
+        )
         with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
-            handle_decklist_save(session, _make_cmd("decklist save", "decklist", "save", []))
+            handle_decklist_save(
+                session,
+                _make_cmd("decklist save", "decklist", "save", []),
+            )
         assert any("saved" in r.message.lower() for r in caplog.records)
 
 

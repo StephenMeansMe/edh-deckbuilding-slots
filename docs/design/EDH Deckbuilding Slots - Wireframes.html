@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDH Deckbuilding Slots — Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Caveat+Brush&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a1a; font-family: 'Caveat', cursive; }
+
+  /* ── Shared wireframe primitives ── */
+  .wf { font-family: 'Caveat', cursive; }
+  .wf-win {
+    background: #f5f3ee;
+    border: 2.5px solid #2a2a2a;
+    border-radius: 6px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    box-shadow: 4px 4px 0 #2a2a2a44;
+  }
+  .wf-menubar {
+    background: #e8e4dc;
+    border-bottom: 2px solid #2a2a2a;
+    display: flex; align-items: center; gap: 0;
+    padding: 0 8px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .wf-menu-item {
+    padding: 4px 12px;
+    font-size: 15px;
+    color: #2a2a2a;
+    border-radius: 3px;
+    cursor: default;
+  }
+  .wf-menu-item:hover { background: #2a2a2a; color: #f5f3ee; }
+  .wf-statusbar {
+    background: #2a2a2a;
+    color: #f5f3ee;
+    border-top: 2px solid #2a2a2a;
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 12px;
+    height: 28px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .wf-statusbar .warn { color: #f0b429; }
+  .wf-statusbar .ok { color: #72c472; }
+  .wf-body { flex: 1; overflow: hidden; display: flex; }
+
+  /* ── Category tile shared ── */
+  .wf-cat {
+    border: 2px solid #2a2a2a;
+    border-radius: 4px;
+    background: #fff;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .wf-cat.fixed {
+    background: #edf3fb;
+    border-color: #4a7fc1;
+  }
+  .wf-cat.fixed .wf-cat-hdr { background: #d0e3f7; border-color: #4a7fc1; }
+  .wf-cat.uncategorized {
+    background: #fff8ed;
+    border-color: #c18a30;
+  }
+  .wf-cat.uncategorized .wf-cat-hdr { background: #fdecc8; border-color: #c18a30; }
+  .wf-cat-hdr {
+    background: #e8e4dc;
+    border-bottom: 2px solid #2a2a2a;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 3px 8px;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .wf-cat-name { font-size: 15px; font-weight: 700; color: #2a2a2a; flex: 1; }
+  .wf-cat-slots { font-size: 13px; color: #666; white-space: nowrap; }
+  .wf-cat-ctrl { display: flex; align-items: center; gap: 2px; }
+  .wf-btn {
+    width: 18px; height: 18px;
+    border: 1.5px solid #2a2a2a;
+    background: #f5f3ee;
+    border-radius: 3px;
+    font-size: 13px; font-family: 'Caveat', cursive;
+    display: flex; align-items: center; justify-content: center;
+    cursor: default; color: #2a2a2a;
+    flex-shrink: 0;
+  }
+  .wf-lock { font-size: 11px; color: #4a7fc1; margin-left: 2px; }
+
+  /* Card row styles */
+  .wf-card-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 2px 8px;
+    border-bottom: 1px solid #e0ddd5;
+    font-size: 13px; color: #2a2a2a;
+    min-height: 22px;
+  }
+  .wf-card-row.empty { color: #aaa; font-style: italic; }
+  .wf-card-drag { width: 10px; color: #bbb; font-size: 11px; flex-shrink: 0; }
+  .wf-card-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 1.5px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+  .wf-card-chip {
+    display: flex; align-items: center; gap: 4px;
+    background: #e8e4dc; border: 1.5px solid #2a2a2a;
+    border-radius: 10px; padding: 1px 7px;
+    font-size: 12px;
+  }
+  .wf-card-thumb {
+    width: 20px; height: 28px;
+    background: repeating-linear-gradient(135deg, #e0ddd5 0, #e0ddd5 2px, #f0ede8 2px, #f0ede8 6px);
+    border: 1.5px solid #2a2a2a; border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* Omnibar overlay */
+  .wf-omnibar-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.35);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 60px;
+    pointer-events: none;
+  }
+  .wf-omnibar {
+    background: #fff;
+    border: 2.5px solid #2a2a2a;
+    border-radius: 6px;
+    width: 360px;
+    box-shadow: 6px 6px 0 #2a2a2a55;
+    overflow: hidden;
+  }
+  .wf-omnibar-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 2px solid #2a2a2a;
+  }
+  .wf-omnibar-input-icon { font-size: 14px; color: #888; }
+  .wf-omnibar-text { font-size: 16px; color: #2a2a2a; flex: 1; }
+  .wf-omnibar-cursor { display: inline-block; width: 2px; height: 16px; background: #2a2a2a; animation: blink 1s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .wf-omnibar-result {
+    padding: 5px 12px;
+    font-size: 14px; color: #2a2a2a;
+    border-bottom: 1px solid #e0ddd5;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .wf-omnibar-result.selected { background: #e8e4dc; }
+  .wf-omnibar-hint { padding: 4px 12px; font-size: 12px; color: #999; }
+
+  /* Drag ghost label */
+  .wf-drag-ghost {
+    position: absolute;
+    background: #fff; border: 2px dashed #2a2a2a;
+    border-radius: 4px; padding: 3px 10px;
+    font-size: 13px; opacity: 0.85;
+    transform: rotate(-3deg);
+    pointer-events: none;
+  }
+
+  /* Annotation labels */
+  .wf-anno {
+    font-family: 'Caveat', cursive;
+    font-size: 12px; color: #888;
+    position: absolute;
+  }
+  .wf-anno-arrow {
+    position: absolute;
+    width: 30px; height: 30px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<script type="text/babel">
+const { useState, useRef } = React;
+
+/* ─── Shared data ─── */
+const SAMPLE_CATS = [
+  { name: "Commander",    fixed: true,  slots: 1,  cards: ["Atraxa, Praetors' Voice"] },
+  { name: "Basic Lands",  fixed: true,  slots: 0,  uncapped: true, cards: ["Forest ×4","Plains ×3","Island ×3","Swamp ×2"] },
+  { name: "Ramp",         fixed: false, slots: 12, cards: ["Sol Ring","Arcane Signet","Cultivate","Kodama's Reach","Farseek","Nature's Lore","Three Visits","Rampant Growth","Skyshroud Claim"] },
+  { name: "Draw",         fixed: false, slots: 10, cards: ["Rhystic Study","Sylvan Library","Phyrexian Arena","Esper Sentinel","Necropotence","Read the Bones"] },
+  { name: "Removal",      fixed: false, slots: 8,  cards: ["Swords to Plowshares","Path to Exile","Toxic Deluge","Cyclonic Rift","Winds of Abandon"] },
+  { name: "Counters",     fixed: false, slots: 6,  cards: ["Counterspell","Mana Drain","Swan Song","Fierce Guardianship"] },
+  { name: "Tutors",       fixed: false, slots: 5,  cards: ["Demonic Tutor","Vampiric Tutor","Enlightened Tutor","Worldly Tutor"] },
+  { name: "Win-Cons",     fixed: false, slots: 5,  cards: ["Triumph of the Hordes","Craterhoof Behemoth","Blightsteel Colossus"] },
+  { name: "Lands",        fixed: false, slots: 12, cards: ["Command Tower","Exotic Orchard","Reflecting Pool","Breeding Pool","Godless Shrine","Hallowed Fountain","Overgrown Tomb","Watery Grave"] },
+  { name: "Uncategorized",uncategorized:true, slots:0, uncapped:true, cards:["Vorinclex, Monstrous Raider","Norn's Annex","Atraxa, Grand Unifier"] },
+];
+
+/* ─── Shared sub-components ─── */
+
+function MenuBar({ items }) {
+  return (
+    <div className="wf-menubar">
+      {items.map(item => (
+        <div key={item} className="wf-menu-item">{item}</div>
+      ))}
+    </div>
+  );
+}
+
+function StatusBar({ filled = 78, total = 100, warns = ["Uncategorized not empty (3 cards)"] }) {
+  const pct = Math.round(filled / total * 100);
+  return (
+    <div className="wf-statusbar">
+      <span className={filled === total ? "ok" : ""}>{filled}/{total} slots filled</span>
+      <span style={{flex:1}}></span>
+      {warns.map(w => <span key={w} className="warn">⚠ {w}</span>)}
+      <span style={{color:"#aaa", fontSize:11}}>EDH Deckbuilding Slots v0.x</span>
+    </div>
+  );
+}
+
+function CatHeader({ cat, compact }) {
+  const filled = cat.cards.length;
+  const total  = cat.uncapped ? "∞" : cat.slots;
+  return (
+    <div className="wf-cat-hdr">
+      <span className="wf-cat-name" style={{fontSize: compact ? 13 : 15}}>{cat.name}</span>
+      <span className="wf-cat-slots">{filled}/{total}</span>
+      {!cat.fixed && !cat.uncategorized && (
+        <div className="wf-cat-ctrl">
+          <div className="wf-btn">−</div>
+          <div className="wf-btn">+</div>
+        </div>
+      )}
+      {cat.fixed && <span className="wf-lock">🔒</span>}
+    </div>
+  );
+}
+
+/* Card display: "row" | "chip" | "thumb" */
+function CardItem({ name, display="row", empty }) {
+  if (display === "chip") {
+    if (empty) return <div className="wf-card-row empty" style={{padding:"3px 8px"}}>— empty slot —</div>;
+    return (
+      <div style={{padding:"3px 6px"}}>
+        <div className="wf-card-chip">
+          <div className="wf-card-dot" style={{background:"#72c472"}}></div>
+          {name}
+        </div>
+      </div>
+    );
+  }
+  if (display === "thumb") {
+    if (empty) return <div className="wf-card-row empty">— empty slot —</div>;
+    return (
+      <div className="wf-card-row">
+        <div className="wf-card-thumb"></div>
+        <span>{name}</span>
+      </div>
+    );
+  }
+  /* default: row */
+  if (empty) return <div className="wf-card-row empty">— empty slot —</div>;
+  return (
+    <div className="wf-card-row">
+      <span className="wf-card-drag">⠿</span>
+      <div className="wf-card-dot" style={{background:"#72c472"}}></div>
+      <span style={{flex:1}}>{name}</span>
+    </div>
+  );
+}
+
+function OmniBar({ style }) {
+  return (
+    <div className="wf-omnibar-overlay" style={style}>
+      <div className="wf-omnibar">
+        <div className="wf-omnibar-input">
+          <span className="wf-omnibar-input-icon">🔍</span>
+          <span className="wf-omnibar-text">Sol Ring<span className="wf-omnibar-cursor"></span></span>
+        </div>
+        <div className="wf-omnibar-result selected">
+          <div className="wf-card-dot" style={{background:"#aaa",border:"1.5px solid #2a2a2a"}}></div>
+          Sol Ring  <span style={{color:"#aaa",fontSize:12,marginLeft:"auto"}}>→ add to Ramp</span>
+        </div>
+        <div className="wf-omnibar-result">
+          <div className="wf-card-dot" style={{background:"#aaa",border:"1.5px solid #2a2a2a"}}></div>
+          Mana Crypt
+        </div>
+        <div className="wf-omnibar-result">
+          <div className="wf-card-dot" style={{background:"#aaa",border:"1.5px solid #2a2a2a"}}></div>
+          Chrome Mox
+        </div>
+        <div className="wf-omnibar-hint">↑↓ navigate · Enter add · Esc cancel</div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   VARIATION 1 — Masonry Grid
+   Categories as tiles in a masonry grid; filled slots as text rows.
+   Fixed cats pinned at top with blue tint.
+   Uncategorized is a distinct warning zone docked above the status bar.
+   Basic Lands shows all 12 types as a fixed grid; invalid ones greyed out.
+   Omnibar overlay shown.
+════════════════════════════════════════════════════════ */
+
+/* All 12 basic land types with their mana color(s) */
+const ALL_BASICS = [
+  { name:"Plains",                color:"W" },
+  { name:"Island",                color:"U" },
+  { name:"Swamp",                 color:"B" },
+  { name:"Mountain",              color:"R" },
+  { name:"Forest",                color:"G" },
+  { name:"Wastes",                color:"C" },
+  { name:"Snow-Covered Plains",   color:"W" },
+  { name:"Snow-Covered Island",   color:"U" },
+  { name:"Snow-Covered Swamp",    color:"B" },
+  { name:"Snow-Covered Mountain", color:"R" },
+  { name:"Snow-Covered Forest",   color:"G" },
+  { name:"Snow-Covered Wastes",   color:"C" },
+];
+
+const COLOR_DOT = { W:"#f5f0d8", U:"#b8d4f0", B:"#c0b8c8", R:"#f0b8a0", G:"#a8d4a0", C:"#d0d0d0" };
+const COLOR_BORDER = { W:"#c8b840", U:"#4a7fc1", B:"#6a5878", R:"#c14a2a", G:"#3a8040", C:"#888" };
+
+/* Sample color identity for demo: Atraxa = W/U/B/G (no red) */
+const DECK_IDENTITY = new Set(["W","U","B","G","C"]);
+
+/* Counts of basics currently in the deck (from SAMPLE_CATS) */
+const BASIC_COUNTS = {
+  "Plains": 3, "Island": 3, "Swamp": 2, "Forest": 4,
+};
+
+function BasicLandsTile() {
+  return (
+    <div className="wf-cat fixed" style={{minWidth:0}}>
+      <div className="wf-cat-hdr" style={{borderColor:"#4a7fc1"}}>
+        <span className="wf-cat-name">Basic Lands</span>
+        <span className="wf-cat-slots">12 total  ·  ∞ slots</span>
+        <span className="wf-lock">🔒</span>
+      </div>
+      {/* 2-column grid of all 12 basic types */}
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"2px 0", padding:"4px 6px"}}>
+        {ALL_BASICS.map(land => {
+          const valid = DECK_IDENTITY.has(land.color);
+          const count = BASIC_COUNTS[land.name] || 0;
+          return (
+            <div key={land.name} style={{
+              display:"flex", alignItems:"center", gap:5,
+              padding:"2px 4px", borderRadius:3,
+              opacity: valid ? 1 : 0.32,
+            }}>
+              <div style={{
+                width:9, height:9, borderRadius:"50%", flexShrink:0,
+                background: COLOR_DOT[land.color],
+                border: `1.5px solid ${COLOR_BORDER[land.color]}`,
+              }}></div>
+              <span style={{
+                fontSize:12, flex:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                color: valid ? "#2a2a2a" : "#aaa",
+                textDecoration: valid ? "none" : "line-through",
+              }}>{land.name}</span>
+              {count > 0 && (
+                <span style={{fontSize:11, fontWeight:700, color:"#4a7fc1", flexShrink:0}}>×{count}</span>
+              )}
+              {!valid && (
+                <span style={{fontSize:10, color:"#ccc", flexShrink:0}} title="Outside color identity">✕</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function V1_MasonryGrid({ display = "row" }) {
+  const commanderCat = SAMPLE_CATS.find(c => c.name === "Commander");
+  const userCats     = SAMPLE_CATS.filter(c => !c.fixed && !c.uncategorized);
+  const uncat        = SAMPLE_CATS.find(c => c.uncategorized);
+
+  function CatTile({ cat, maxCards = 5 }) {
+    const shown = cat.cards.slice(0, maxCards);
+    const emptyCount = Math.max(0, Math.min(cat.slots - cat.cards.length, 3));
+    return (
+      <div className={`wf-cat${cat.fixed?" fixed":""}`}
+           style={{marginBottom:8, breakInside:"avoid"}}>
+        <CatHeader cat={cat} />
+        {shown.map(c => <CardItem key={c} name={c} display={display} />)}
+        {Array.from({length: emptyCount}).map((_,i) =>
+          <CardItem key={"e"+i} empty display={display} />
+        )}
+        {cat.cards.length > maxCards && (
+          <div style={{padding:"2px 8px", fontSize:12, color:"#aaa"}}>
+            +{cat.cards.length - maxCards} more…
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="wf-win" style={{width:"100%",height:"100%",position:"relative",display:"flex",flexDirection:"column"}}>
+      <MenuBar items={["File","Deck","Category","Card","View","Help"]} />
+      {/* Toolbar strip */}
+      <div style={{background:"#ede9e0", borderBottom:"2px solid #2a2a2a", padding:"4px 10px",
+                   display:"flex", alignItems:"center", gap:10, fontSize:14, flexShrink:0}}>
+        <div className="wf-btn" style={{width:"auto",padding:"0 8px",height:22}}>New Deck</div>
+        <div className="wf-btn" style={{width:"auto",padding:"0 8px",height:22}}>Import…</div>
+        <div className="wf-btn" style={{width:"auto",padding:"0 8px",height:22}}>Export…</div>
+        <span style={{flex:1}}></span>
+        <div style={{background:"#fff", border:"1.5px solid #2a2a2a", borderRadius:3,
+                     padding:"2px 10px", fontSize:13, color:"#aaa"}}>
+          ⌘K  search / add card…
+        </div>
+      </div>
+
+      {/* Main scrollable area */}
+      <div style={{flex:1, overflow:"auto", padding:12, display:"flex", flexDirection:"column", gap:8}}>
+        {/* Fixed pinned row: Commander + Basic Lands */}
+        <div style={{display:"flex", gap:8, flexShrink:0}}>
+          <div style={{width:160, flexShrink:0}}>
+            <CatTile cat={commanderCat} maxCards={1} />
+          </div>
+          <div style={{flex:1}}>
+            <BasicLandsTile />
+          </div>
+        </div>
+
+        {/* User categories: masonry 3-col */}
+        <div style={{columns:3, columnGap:8, flex:1}}>
+          {userCats.map(c => <CatTile key={c.name} cat={c} maxCards={6} />)}
+        </div>
+      </div>
+
+      {/* ── Uncategorized zone ── docked above status bar, visually alarming */}
+      <div style={{
+        borderTop:"2.5px dashed #c18a30",
+        background:"repeating-linear-gradient(135deg, #fff8ed 0, #fff8ed 8px, #fdf0d8 8px, #fdf0d8 16px)",
+        flexShrink:0,
+      }}>
+        <div style={{
+          display:"flex", alignItems:"center", gap:8,
+          padding:"4px 12px",
+          background:"#fdecc8cc",
+          borderBottom:"1px solid #e0c080",
+        }}>
+          <span style={{fontSize:13, fontWeight:700, color:"#7a4e00"}}>⚠ Uncategorized</span>
+          <span style={{fontSize:12, color:"#a06000"}}>— {uncat.cards.length} cards need a home</span>
+          <span style={{flex:1}}></span>
+          <span style={{fontSize:11, color:"#c18a30", fontStyle:"italic"}}>drag cards to a category to dismiss</span>
+        </div>
+        <div style={{display:"flex", flexWrap:"wrap", gap:6, padding:"6px 12px"}}>
+          {uncat.cards.map(c => (
+            <div key={c} style={{
+              display:"flex", alignItems:"center", gap:5,
+              background:"#fff", border:"2px dashed #c18a30",
+              borderRadius:4, padding:"2px 10px",
+              fontSize:13, color:"#7a4e00",
+              cursor:"grab",
+            }}>
+              <span className="wf-card-drag" style={{color:"#c18a30"}}>⠿</span>
+              {c}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <StatusBar />
+      {/* Omnibar overlay */}
+      <OmniBar style={{position:"absolute",top:0,left:0,right:0,bottom:28}} />
+      {/* Drag ghost */}
+      <div className="wf-drag-ghost" style={{top:220, left:340}}>Cultivate</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   VARIATION 2 — Horizontal Category Bands
+   Each category is a full-width horizontal row; cards flow
+   as inline chips. Very compact / spreadsheet-like.
+════════════════════════════════════════════════════════ */
+function V2_HorizontalBands({ display = "chip" }) {
+  const cats = SAMPLE_CATS;
+
+  function BandRow({ cat }) {
+    const filled = cat.cards.length;
+    const total  = cat.uncapped ? "∞" : cat.slots;
+    const pct    = cat.uncapped ? 0 : (filled / cat.slots) * 100;
+    return (
+      <div style={{display:"flex", alignItems:"stretch",
+                   borderBottom:"1.5px solid #d8d4ca",
+                   background: cat.fixed?"#edf3fb": cat.uncategorized?"#fff8ed":"#fff",
+                   minHeight: 38}}>
+        {/* Category name column */}
+        <div style={{width:130, borderRight:"2px solid #2a2a2a", flexShrink:0,
+                     background: cat.fixed?"#d0e3f7": cat.uncategorized?"#fdecc8":"#e8e4dc",
+                     display:"flex", alignItems:"center", justifyContent:"space-between",
+                     padding:"0 8px", gap:4}}>
+          <span style={{fontSize:13, fontWeight:700, color:"#2a2a2a"}}>{cat.name}</span>
+          {cat.fixed && <span style={{fontSize:10, color:"#4a7fc1"}}>🔒</span>}
+        </div>
+        {/* Slot count */}
+        <div style={{width:52, borderRight:"1.5px solid #d8d4ca", flexShrink:0,
+                     display:"flex", alignItems:"center", justifyContent:"center",
+                     fontSize:12, color:"#666", gap:2, flexDirection:"column"}}>
+          <span>{filled}/{total}</span>
+          {!cat.fixed && !cat.uncategorized && (
+            <div style={{display:"flex", gap:2}}>
+              <div className="wf-btn" style={{width:14,height:14,fontSize:11}}>−</div>
+              <div className="wf-btn" style={{width:14,height:14,fontSize:11}}>+</div>
+            </div>
+          )}
+        </div>
+        {/* Progress bar */}
+        {!cat.uncapped && (
+          <div style={{width:50, borderRight:"1.5px solid #d8d4ca", flexShrink:0,
+                       display:"flex", alignItems:"center", padding:"0 6px"}}>
+            <div style={{width:"100%", height:8, background:"#e0ddd5", borderRadius:3, border:"1px solid #ccc", overflow:"hidden"}}>
+              <div style={{width:pct+"%", height:"100%", background: cat.uncategorized?"#c18a30": cat.fixed?"#4a7fc1":"#2a2a2a", borderRadius:3}}></div>
+            </div>
+          </div>
+        )}
+        {cat.uncapped && <div style={{width:50, borderRight:"1.5px solid #d8d4ca", flexShrink:0}}></div>}
+        {/* Cards as chips */}
+        <div style={{flex:1, display:"flex", alignItems:"center", flexWrap:"wrap",
+                     gap:5, padding:"4px 8px", overflow:"hidden"}}>
+          {cat.cards.map(c => (
+            <div key={c} className="wf-card-chip" style={{
+              background: cat.fixed?"#d0e3f7": cat.uncategorized?"#fdecc8":"#e8e4dc"
+            }}>
+              <div className="wf-card-dot" style={{
+                background: cat.uncategorized?"#c18a30": cat.fixed?"#4a7fc1":"#72c472"
+              }}></div>
+              {c}
+            </div>
+          ))}
+          {/* empty slots */}
+          {!cat.uncapped && Array.from({length: Math.min(cat.slots - cat.cards.length, 3)}).map((_,i) => (
+            <div key={"e"+i} style={{
+              border:"1.5px dashed #bbb", borderRadius:10, padding:"1px 7px",
+              fontSize:12, color:"#bbb"
+            }}>empty</div>
+          ))}
+          {!cat.uncapped && cat.slots - cat.cards.length > 3 && (
+            <span style={{fontSize:12, color:"#bbb"}}>+{cat.slots - cat.cards.length - 3} empty…</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wf-win" style={{width:"100%",height:"100%",position:"relative"}}>
+      <MenuBar items={["File","Deck","Category","Card","View","Help"]} />
+      {/* Toolbar */}
+      <div style={{background:"#ede9e0", borderBottom:"2px solid #2a2a2a",
+                   display:"flex", alignItems:"center", gap:10, padding:"4px 10px",
+                   fontSize:14, flexShrink:0}}>
+        <span style={{fontWeight:700, fontSize:16}}>My Atraxa Deck</span>
+        <span style={{color:"#aaa", fontSize:13}}>·  last saved 2m ago</span>
+        <span style={{flex:1}}></span>
+        <div style={{background:"#fff", border:"1.5px solid #2a2a2a", borderRadius:3,
+                     padding:"2px 10px", fontSize:13, color:"#aaa"}}>
+          ⌘K  add card…
+        </div>
+        <div className="wf-btn" style={{width:"auto",padding:"0 8px",height:22}}>+ Category</div>
+      </div>
+      {/* Column headers */}
+      <div style={{display:"flex", borderBottom:"2px solid #2a2a2a",
+                   background:"#e8e4dc", flexShrink:0}}>
+        <div style={{width:130,borderRight:"2px solid #2a2a2a",padding:"2px 8px",fontSize:12,fontWeight:700}}>Category</div>
+        <div style={{width:52,borderRight:"1.5px solid #d8d4ca",padding:"2px 4px",fontSize:12,fontWeight:700,textAlign:"center"}}>Slots</div>
+        <div style={{width:50,borderRight:"1.5px solid #d8d4ca",padding:"2px 4px",fontSize:12,fontWeight:700,textAlign:"center"}}>Fill%</div>
+        <div style={{flex:1, padding:"2px 8px", fontSize:12, fontWeight:700}}>Cards</div>
+      </div>
+      {/* Band rows */}
+      <div className="wf-body" style={{overflow:"auto", display:"block"}}>
+        {cats.map(c => <BandRow key={c.name} cat={c} />)}
+        {/* Add category row */}
+        <div style={{display:"flex", alignItems:"center", padding:"6px 10px",
+                     borderBottom:"1.5px solid #d8d4ca", color:"#aaa", fontSize:14,
+                     cursor:"default"}}>
+          + Add category…
+        </div>
+      </div>
+      <StatusBar />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   VARIATION 3 — Sidebar + Focal Detail Pane
+   Left: scrollable category list w/ slot counts + mini-fill bars
+   Right: selected category in large detail view, all cards visible
+   + drag-from-sidebar flavor
+════════════════════════════════════════════════════════ */
+function V3_SidebarFocus({ display = "thumb" }) {
+  const [selected, setSelected] = useState("Ramp");
+  const selectedCat = SAMPLE_CATS.find(c => c.name === selected);
+
+  function SidebarRow({ cat }) {
+    const filled = cat.cards.length;
+    const total  = cat.uncapped ? null : cat.slots;
+    const pct    = total ? (filled / total) * 100 : 0;
+    const isSelected = cat.name === selected;
+    return (
+      <div onClick={() => setSelected(cat.name)}
+           style={{
+             display:"flex", alignItems:"center", gap:6,
+             padding:"5px 10px",
+             borderBottom:"1px solid #e0ddd5",
+             background: isSelected ? "#2a2a2a" : cat.fixed?"#edf3fb": cat.uncategorized?"#fff8ed":"transparent",
+             cursor:"default",
+             borderLeft: isSelected ? "3px solid #f5f3ee" : "3px solid transparent",
+           }}>
+        <div style={{
+          width:4, height:4, borderRadius:"50%",
+          background: cat.fixed?"#4a7fc1": cat.uncategorized?"#c18a30":"#2a2a2a",
+          border: isSelected?"1px solid #f5f3ee":"1px solid #2a2a2a",
+          flexShrink:0
+        }}></div>
+        <span style={{flex:1, fontSize:13, fontWeight: isSelected?700:400,
+                      color: isSelected?"#f5f3ee": cat.fixed?"#234e7a": cat.uncategorized?"#7a4e00":"#2a2a2a",
+                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>
+          {cat.name}
+        </span>
+        <span style={{fontSize:11, color: isSelected?"#ccc":"#999", flexShrink:0}}>
+          {filled}{total?"/"+total:""}
+        </span>
+        {cat.fixed && <span style={{fontSize:9, color: isSelected?"#88b8e8":"#4a7fc1"}}>🔒</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="wf-win" style={{width:"100%",height:"100%"}}>
+      <MenuBar items={["File","Deck","Category","Card","View","Help"]} />
+      {/* Toolbar */}
+      <div style={{background:"#ede9e0", borderBottom:"2px solid #2a2a2a",
+                   display:"flex", alignItems:"center", gap:10, padding:"4px 10px",
+                   fontSize:14, flexShrink:0}}>
+        <span style={{fontWeight:700, fontSize:16}}>My Atraxa Deck</span>
+        <span style={{flex:1}}></span>
+        <div style={{background:"#fff", border:"1.5px solid #2a2a2a", borderRadius:3,
+                     padding:"2px 10px", fontSize:13, color:"#aaa"}}>
+          ⌘K  add card…
+        </div>
+      </div>
+      <div className="wf-body">
+        {/* Left sidebar */}
+        <div style={{width:170, borderRight:"2px solid #2a2a2a", display:"flex",
+                     flexDirection:"column", background:"#f0ede8", overflow:"hidden"}}>
+          {/* Sidebar header */}
+          <div style={{padding:"4px 10px", borderBottom:"1.5px solid #d8d4ca",
+                       fontSize:12, fontWeight:700, color:"#888",
+                       background:"#e8e4dc", textTransform:"uppercase", letterSpacing:1}}>
+            Categories
+          </div>
+          {/* Category list */}
+          <div style={{flex:1, overflowY:"auto"}}>
+            {SAMPLE_CATS.map(c => <SidebarRow key={c.name} cat={c} />)}
+          </div>
+          {/* Add category */}
+          <div style={{padding:"5px 10px", borderTop:"1.5px solid #d8d4ca",
+                       fontSize:13, color:"#aaa", cursor:"default"}}>
+            + Add category
+          </div>
+        </div>
+
+        {/* Right: detail pane */}
+        <div style={{flex:1, display:"flex", flexDirection:"column", overflow:"hidden"}}>
+          {/* Category toolbar */}
+          <div style={{background:"#e8e4dc", borderBottom:"1.5px solid #d8d4ca",
+                       display:"flex", alignItems:"center", gap:8, padding:"5px 12px",
+                       flexShrink:0}}>
+            <span style={{fontSize:18, fontWeight:700}}>{selectedCat?.name}</span>
+            {selectedCat?.fixed && <span style={{fontSize:11, color:"#4a7fc1"}}>🔒 fixed</span>}
+            {!selectedCat?.fixed && !selectedCat?.uncategorized && (
+              <>
+                <div className="wf-cat-ctrl" style={{gap:4}}>
+                  <div className="wf-btn">−</div>
+                  <span style={{fontSize:13}}>{selectedCat?.cards.length}/{selectedCat?.slots} slots</span>
+                  <div className="wf-btn">+</div>
+                </div>
+              </>
+            )}
+            <span style={{flex:1}}></span>
+            <div className="wf-btn" style={{width:"auto",padding:"0 8px",height:22,fontSize:13}}>Rename</div>
+            <div className="wf-btn" style={{width:"auto",padding:"0 8px",height:22,fontSize:13}}>Delete</div>
+          </div>
+
+          {/* Cards grid */}
+          <div style={{flex:1, overflowY:"auto", padding:12,
+                       display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(170px,1fr))",
+                       gap:8, alignContent:"start"}}>
+            {selectedCat?.cards.map(c => (
+              <div key={c} style={{
+                background:"#fff", border:"1.5px solid #2a2a2a", borderRadius:4,
+                padding:"6px 8px", display:"flex", flexDirection:"column", gap:6,
+                position:"relative"
+              }}>
+                {/* Fake card art area */}
+                <div style={{
+                  height: display==="thumb"?60:0,
+                  background:"repeating-linear-gradient(135deg,#e0ddd5 0,#e0ddd5 2px,#f0ede8 2px,#f0ede8 7px)",
+                  border:"1px solid #d0cdc5", borderRadius:2,
+                  display: display==="thumb"?"block":"none"
+                }}></div>
+                <div style={{fontSize:13, fontWeight:700}}>{c}</div>
+                <div style={{fontSize:11, color:"#999"}}>drag to move ↔</div>
+              </div>
+            ))}
+            {/* empty slots */}
+            {selectedCat && !selectedCat.uncapped && Array.from({length: Math.max(0, selectedCat.slots - selectedCat.cards.length)}).map((_,i) => (
+              <div key={"e"+i} style={{
+                border:"1.5px dashed #ccc", borderRadius:4, padding:"6px 8px",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                minHeight:40, color:"#bbb", fontSize:12
+              }}>empty slot</div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <StatusBar />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   Root — Design Canvas
+════════════════════════════════════════════════════════ */
+function App() {
+  const [cardStyle, setCardStyle] = useState("row");
+
+  // tweaks panel
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+
+  React.useEffect(() => {
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode')   setTweaksOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    });
+    window.parent.postMessage({type:'__edit_mode_available'}, '*');
+  }, []);
+
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection id="variations" title="Layout Explorations — EDH Deckbuilding Slots GUI">
+          <DCArtboard id="v1" label="Option A — Masonry Grid + Omnibar" width={900} height={640}>
+            <V1_MasonryGrid display={cardStyle} />
+          </DCArtboard>
+          <DCArtboard id="v2" label="Option B — Horizontal Category Bands" width={900} height={640}>
+            <V2_HorizontalBands display={cardStyle} />
+          </DCArtboard>
+          <DCArtboard id="v3" label="Option C — Sidebar + Focal Pane" width={900} height={640}>
+            <V3_SidebarFocus display={cardStyle} />
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      {/* Tweaks panel */}
+      {tweaksOpen && (
+        <div style={{
+          position:"fixed", bottom:24, right:24, zIndex:9999,
+          background:"#fff", border:"2px solid #2a2a2a", borderRadius:6,
+          boxShadow:"4px 4px 0 #2a2a2a33",
+          padding:"12px 16px", fontFamily:"'Caveat',cursive",
+          width:220
+        }}>
+          <div style={{fontWeight:700, fontSize:17, marginBottom:10, display:"flex", justifyContent:"space-between"}}>
+            Tweaks
+            <button onClick={() => { setTweaksOpen(false); window.parent.postMessage({type:'__edit_mode_dismissed'},'*'); }}
+                    style={{background:"none",border:"none",cursor:"pointer",fontSize:16}}>✕</button>
+          </div>
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:14, fontWeight:600, marginBottom:6}}>Card display style</div>
+            {["row","chip","thumb"].map(s => (
+              <label key={s} style={{display:"flex", alignItems:"center", gap:8, marginBottom:4, fontSize:14, cursor:"pointer"}}>
+                <input type="radio" name="cardStyle" value={s} checked={cardStyle===s} onChange={()=>setCardStyle(s)} />
+                {s==="row"?"Text row (dense)":s==="chip"?"Color-coded chip":s==="Thumbnail + name"}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<div id="root"></div>
+</body>
+</html>

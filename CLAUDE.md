@@ -7,7 +7,8 @@
 ## Repository Structure
 
 - `bin/` — Standalone CLI entrypoint
-- `docs/` — ROADMAP, domain-concepts.md
+- `docs/` — ROADMAP, domain-concepts.md, plans/, design/
+- `docs/design/` — GUI design handoff: hi-fi prototype (`Big Bridge Energy.html`), wireframes, screenshots, and [`design-handoff.md`](docs/design/design-handoff.md) (full spec)
 - `src/deckslots/` — Source modules + CLAUDE.md (architecture, command grammar, design decisions) + `data/templates/` (built-in template assets)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`); see [tests/CLAUDE.md](tests/CLAUDE.md)
 
@@ -64,6 +65,14 @@ scrut test --work-directory . tests/functional/  # Functional CLI tests
 
 See [`docs/domain-concepts.md`](docs/domain-concepts.md) for the full glossary (slots, categories, fixed categories, basic lands, exclusivity, Uncategorized, and card-add business rules). Read it before planning any feature that touches business logic.
 
+## GUI Design Reference
+
+The GUI target design lives in [`docs/design/`](docs/design/):
+- **[`design-handoff.md`](docs/design/design-handoff.md)** — full design spec: screens, interactions, state shape, design tokens, typography, spacing. **Read this before implementing any GUI work.**
+- **`Big Bridge Energy.html`** — hi-fi interactive prototype (open in a browser; no build step). This is the visual target.
+- **`EDH Deckbuilding Slots - Wireframes.html`** — lo-fi layout exploration (context only; Option A / Masonry was selected).
+- **`screenshots/`** — light/dark themes, omnibar, and wireframe overview PNGs.
+
 ## Notes for AI Assistants
 
 - **User stories live as GitHub Issues** (label: `user-story`) on `StephenMeansMe/edh-deckbuilding-slots`. Before planning any feature, fetch the relevant stories:
@@ -77,3 +86,5 @@ See [`docs/domain-concepts.md`](docs/domain-concepts.md) for the full glossary (
 - **Testing details** (test split, scrut format, naming conventions): see [`tests/CLAUDE.md`](tests/CLAUDE.md).
 - Use `uv run` to run commands; `uv add` / `uv add --dev` to manage dependencies.
 - Keep this file and its sub-`CLAUDE.md` files updated as the project evolves.
+- **Never use `git stash` to check pre-existing errors.** Stash saves uncommitted changes and `git stash drop` permanently discards them — any edits not yet committed will be lost. To compare the current branch against main, use `git diff main -- <file>` or temporarily checkout a file with `git show main:<path>` and read it separately. If you must stash (e.g. to run a clean baseline check), always `git stash pop` before `git stash drop`, and never drop the stash if the pop fails.
+- **Commit lint/type fixes incrementally.** When fixing ruff or ty errors across a gate check, commit after each fixable batch (auto-fix, then manual fixes) so that a failed `git stash` or accidental revert cannot undo all in-progress work.
