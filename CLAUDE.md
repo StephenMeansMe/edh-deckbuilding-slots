@@ -61,6 +61,23 @@ scrut test --work-directory . tests/functional/  # Functional CLI tests
 - **Creating PRs**: Must be on the feature branch — `gh pr create` from `main` errors with "head branch is the same as base branch."
 - **Python style**: PEP 8, enforced by Ruff (E, F, I, W); line length 88.
 
+## Forbidden git operations
+
+These operations are **categorically banned** — no exceptions, no "safe probe" use cases:
+
+| Banned command | Why banned | Safe alternative |
+|----------------|-----------|-----------------|
+| `git stash` / `git stash pop` | Stash pop can fail on concurrent file changes (e.g. `uv.lock`), leaving work in an unrecoverable state | `git show HEAD:<path> \| uv run ruff check -` to lint the committed version; `git diff HEAD -- <path>` to see what changed |
+| `git reset --hard` | Discards uncommitted work permanently | `git stash` is banned, but `git restore <path>` is OK for single-file revert when you've confirmed the file is expendable |
+| `git push --force` to `main`/`master` | Overwrites shared history | Never force-push to main; force-push only to personal feature branches, and only with explicit user instruction |
+
+**Project enforcement:**
+- `.claude/settings.json` contains a `PreToolUse` hook that intercepts any Bash command matching `git stash` and exits 2 (blocked).
+- `.git/config` contains a `stash` alias that prints the prohibition and exits 1 (shell-level fallback).
+- Neither guard is committed to the repo — note them in dev setup if this project gains new contributors.
+
+**At session start:** Re-read this section before any git operations. The rule is categorical: if you are tempted to use a banned command, find the safe alternative listed above instead.
+
 ## Key Domain Concepts
 
 See [`docs/domain-concepts.md`](docs/domain-concepts.md) for the full glossary (slots, categories, fixed categories, basic lands, exclusivity, Uncategorized, and card-add business rules). Read it before planning any feature that touches business logic.
