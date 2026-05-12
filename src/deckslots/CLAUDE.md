@@ -4,12 +4,38 @@ The app uses an **object-verb command pattern** with a dispatch registry.
 
 > **GUI work?** The target design is in [`docs/design/design-handoff.md`](../../docs/design/design-handoff.md). Read that before implementing Phase 2. The hi-fi prototype (`docs/design/Big Bridge Energy.html`) is the visual target — open it in a browser.
 
-## cli.py
+## Module Layout
+
+CLI-facing modules live in the `cli/` subpackage; the top of `deckslots/` holds the domain model, services, persistence, and shared infrastructure.
+
+```
+src/deckslots/
+├── cli/                # CLI/REPL layer
+│   ├── __init__.py     # re-exports ParsedCommand, parse_command, main
+│   ├── parser.py       # ParsedCommand + parse_command + main (entry point)
+│   ├── commands.py     # Session, handlers, dispatch registry
+│   ├── repl.py         # run_repl loop
+│   └── status.py       # render_status_line
+├── models.py           # Decklist, Category, BASIC_LAND_NAMES
+├── services.py         # Pure domain functions → CommandResult
+├── events.py           # DomainEvent ADT
+├── storage.py          # DecklistRepository + PlaintextRepository
+├── templates.py        # Template, load/save/import/export
+├── scryfall.py         # Card-name validation index
+├── config.py           # config.json reader
+├── logging_config.py   # File logging setup
+└── exceptions.py       # DecklistError hierarchy
+```
+
+`pyproject.toml` keeps its `deckslots = "deckslots.cli:main"` entry point — `main` is re-exported from `cli/__init__.py`.
+
+## cli/parser.py
 
 - `parse_command(line)` returns a `ParsedCommand`
 - `ParsedCommand` fields: `kind` (`builtin`, `object_verb`, `unknown`, `empty`), `obj`, `verb`, `args`, `raw`, `builtin`
 - Known objects: `decklist`, `category`, `card`, `template`
 - Builtins: `quit`, `exit`, `help`
+- `main()` — console-script entry point (sets up logging, calls `run_repl`)
 
 ## models.py
 
@@ -63,18 +89,18 @@ Repository abstraction for deck persistence.
 - `_get_save_path()` — returns `$XDG_STATE_HOME/deckslots/decklist.bak` (falls back to `~/.local/state/`)
 - `_format_save_file(deck)` / `_parse_save_file(path)` — custom plain-text round-trip format (moved from `commands.py` in Phase 0)
 
-## commands.py
+## cli/commands.py
 
 - `Session` holds REPL state: `decklist: Decklist | None`, `scryfall_index: dict | None`, `repository: DecklistRepository` (defaults to `PlaintextRepository()`)
 - Handler functions (e.g., `handle_decklist_create`) return strings; domain handlers are thin adapters that call `services.*` and format the result
-- File I/O helpers (private, in commands.py):
+- File I/O helpers (private, in `cli/commands.py`):
   - `_format_export_file(decklist)` / `_parse_import_file(path)` — Moxfield/Archidekt-compatible format
 - `_resolve_category_and_card(args, categories)` — greedy longest-prefix match for `<category> <card>` args (used by `card add`)
 - `_resolve_card_and_category_suffix(args, categories)` — greedy longest-suffix match for `<card> <category>` args (used by `card move`)
 - `register_all_handlers(session)` — builds `dict[tuple[str, str], Callable]` dispatch registry covering decklist, category, card, and template handlers
 - `dispatch(cmd, registry)` — routes commands to the appropriate handler
 
-## repl.py
+## cli/repl.py
 
 - `run_repl()` — creates a Session and registry, then loops on `input()`:
   - On startup, loads/resumes the last saved decklist from XDG state home
@@ -298,4 +324,4 @@ class Decklist:
 9. **Export format**: up to three sections — `Commander`, `Companion` (only when a companion card is assigned), and `Maindeck` — compatible with Moxfield, Archidekt, and the `decklist import` command. Category structure is discarded. All non-commander, non-companion cards are merged into `Maindeck`, sorted alphabetically by card name.
 10. **Companion does not expand Commander**: Partner and Background both expand `Commander.total_slots`. Companion is a wholly separate `CappedCategory`; it does not affect Commander slot count or the `commander_overcrowded` check.
 11. **`cards` is a `list[str]`** (not a `set`): preserves insertion order and allows `UncappedCategory` to hold multiple copies of the same basic land. `CappedCategory` enforces singleton exclusivity at `add_card`/`move_card` time.
-12. **Save I/O in `storage.py`, export I/O in `commands.py`**: `_format_save_file` and `_parse_save_file` were moved to `storage.py` (Phase 0) and are used by `PlaintextRepository`. `_format_export_file` and `_parse_import_file` remain in `commands.py` (Moxfield/Archidekt-compatible format, not part of the repository abstraction).
+12. **Save I/O in `storage.py`, export I/O in `cli/commands.py`**: `_format_save_file` and `_parse_save_file` were moved to `storage.py` (Phase 0) and are used by `PlaintextRepository`. `_format_export_file` and `_parse_import_file` remain in `cli/commands.py` (Moxfield/Archidekt-compatible format, not part of the repository abstraction).
