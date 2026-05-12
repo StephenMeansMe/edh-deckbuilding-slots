@@ -38,6 +38,7 @@ def _run(
     state_home: Path,
     data_home: Path | None = None,
     cache_home: Path | None = None,
+    config_home: Path | None = None,
 ) -> str:
     """Invoke the deckslots REPL in-process and return captured stdout."""
     env: dict[str, str] = {"XDG_STATE_HOME": str(state_home)}
@@ -45,6 +46,8 @@ def _run(
         env["XDG_DATA_HOME"] = str(data_home)
     if cache_home is not None:
         env["XDG_CACHE_HOME"] = str(cache_home)
+    if config_home is not None:
+        env["XDG_CONFIG_HOME"] = str(config_home)
     runner = CliRunner(env=env)
     result = runner.invoke(main, input=commands)
     return result.output
@@ -1206,3 +1209,63 @@ class TestValidation:
             "Test (1/11)\n"
             "deckslots> Goodbye.\n"
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 1.5 — storage_backend config opt-in
+# ---------------------------------------------------------------------------
+
+
+class TestStorageBackendSelection:
+    """REPL selects PlaintextRepository or SqliteRepository from config.json."""
+
+    def _write_config(self, config_home: Path, backend: str) -> None:
+        d = config_home / "deckslots"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "config.json").write_text(json.dumps({"storage_backend": backend}))
+
+    def test_default_backend_writes_decklist_bak(self, tmp_path):
+        state = tmp_path / "state"
+        data = tmp_path / "data"
+        out = _run(
+            "decklist create Test\ndecklist save\nquit\n",
+            state_home=state,
+            data_home=data,
+        )
+        assert "Saved 'Test'." in out
+        assert (state / "deckslots" / "decklist.bak").exists()
+        assert not (data / "deckslots" / "library.db").exists()
+
+    def test_sqlite_backend_writes_library_db(self, tmp_path):
+        state = tmp_path / "state"
+        data = tmp_path / "data"
+        config = tmp_path / "config"
+        self._write_config(config, "sqlite")
+        out = _run(
+            "decklist create Test\ndecklist save\nquit\n",
+            state_home=state,
+            data_home=data,
+            config_home=config,
+        )
+        assert "Saved 'Test'." in out
+        assert (data / "deckslots" / "library.db").exists()
+        assert not (state / "deckslots" / "decklist.bak").exists()
+
+    def test_sqlite_backend_resumes_saved_deck_across_runs(self, tmp_path):
+        state = tmp_path / "state"
+        data = tmp_path / "data"
+        config = tmp_path / "config"
+        self._write_config(config, "sqlite")
+        _run(
+            "decklist create Resumed\ndecklist save\nquit\n",
+            state_home=state,
+            data_home=data,
+            config_home=config,
+        )
+        out2 = _run(
+            "quit\n",
+            state_home=state,
+            data_home=data,
+            config_home=config,
+        )
+        assert "Resumed 'Resumed'." in out2
