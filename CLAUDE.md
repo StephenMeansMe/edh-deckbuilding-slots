@@ -7,7 +7,8 @@
 ## Repository Structure
 
 - `bin/` — Standalone CLI entrypoint
-- `docs/` — ROADMAP, domain-concepts.md
+- `docs/` — ROADMAP, domain-concepts.md, plans/, design/
+- `docs/design/` — GUI design handoff: hi-fi prototype (`Big Bridge Energy.html`), wireframes, screenshots, and [`design-handoff.md`](docs/design/design-handoff.md) (full spec)
 - `src/deckslots/` — Source modules + CLAUDE.md (architecture, command grammar, design decisions) + `data/templates/` (built-in template assets)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`); see [tests/CLAUDE.md](tests/CLAUDE.md)
 
@@ -63,6 +64,14 @@ scrut test --work-directory . tests/functional/  # Functional CLI tests
 ## Key Domain Concepts
 
 See [`docs/domain-concepts.md`](docs/domain-concepts.md) for the full glossary (slots, categories, fixed categories, basic lands, exclusivity, Uncategorized, and card-add business rules). Read it before planning any feature that touches business logic.
+
+## GUI Design Reference
+
+The GUI target design lives in [`docs/design/`](docs/design/):
+- **[`design-handoff.md`](docs/design/design-handoff.md)** — full design spec: screens, interactions, state shape, design tokens, typography, spacing. **Read this before implementing any GUI work.**
+- **`Big Bridge Energy.html`** — hi-fi interactive prototype (open in a browser; no build step). This is the visual target.
+- **`EDH Deckbuilding Slots - Wireframes.html`** — lo-fi layout exploration (context only; Option A / Masonry was selected).
+- **`screenshots/`** — light/dark themes, omnibar, and wireframe overview PNGs.
 
 ## Notes for AI Assistants
 

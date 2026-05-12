@@ -2,6 +2,8 @@
 
 The app uses an **object-verb command pattern** with a dispatch registry.
 
+> **GUI work?** The target design is in [`docs/design/design-handoff.md`](../../docs/design/design-handoff.md). Read that before implementing Phase 2. The hi-fi prototype (`docs/design/Big Bridge Energy.html`) is the visual target — open it in a browser.
+
 ## cli.py
 
 - `parse_command(line)` returns a `ParsedCommand`
@@ -27,12 +29,45 @@ The app uses an **object-verb command pattern** with a dispatch registry.
 - Computed properties: `total_slots` (sum of CappedCategory.total_slots), `total_filled`, `commander_overcrowded` (Commander has more cards than enabled modes allow), `companion_slot_empty` (Companion enabled but no card added)
 - `BASIC_LAND_NAMES` — module-level `frozenset[str]` of all 12 valid basic land names (Plains through Snow-Covered Wastes)
 
+## events.py (Phase 0+)
+
+`DomainEvent` ADT — a union of frozen dataclasses representing state mutations. Used by the GUI (Phase 2) to refresh only changed views.
+
+- `CardAdded(card, category)`, `CardMoved(card, from_category, to_category)`, `CardRemoved(card, from_category)`, `CardDeleted(card, from_category)`
+- `CategoryCreated(name, slots)`, `CategoryResized(name, old_slots, new_slots)`, `CategoryDeleted(name, cards_displaced)`, `CategoryRenamed(old_name, new_name)`
+- `DecklistRenamed(old_name, new_name)`
+- `ModeEnabled(mode)`, `ModeDisabled(mode)` — mode is `"partners"`, `"background"`, or `"companion"`
+- `TemplateApplied(template_name, cards_displaced)`
+
+## services.py (Phase 0+)
+
+Pure domain functions — accept a `Decklist`, return a `CommandResult`. No I/O. Called by REPL handlers (thin adapters) and directly by the GUI.
+
+```python
+@dataclass
+class CommandResult:
+    ok: bool
+    message: str
+    warnings: list[str]    # e.g. Scryfall "not found" warnings
+    events: list[DomainEvent]
+```
+
+Functions: `add_card`, `move_card`, `can_drop` (preflight predicate, returns `bool`), `remove_card`, `delete_card`, `create_category`, `resize_category`, `delete_category`, `rename_category`, `rename_decklist`, `enable_partners`, `disable_partners`, `enable_background`, `disable_background`, `enable_companion`, `disable_companion`, `apply_template`.
+
+## storage.py (Phase 0+)
+
+Repository abstraction for deck persistence.
+
+- `DecklistRepository` — `Protocol` with `save(deck)`, `load() -> Decklist | None`, `delete()`
+- `PlaintextRepository(path=None)` — wraps the custom plain-text save format; `path` defaults to `_get_save_path()` (XDG state home). Pass an explicit `path` in tests for isolation.
+- `_get_save_path()` — returns `$XDG_STATE_HOME/deckslots/decklist.bak` (falls back to `~/.local/state/`)
+- `_format_save_file(deck)` / `_parse_save_file(path)` — custom plain-text round-trip format (moved from `commands.py` in Phase 0)
+
 ## commands.py
 
-- `Session` holds REPL state: `decklist: Decklist | None`, `scryfall_index: dict | None`
-- Handler functions (e.g., `handle_decklist_create`) return strings
-- File I/O helpers (all private, in commands.py — no separate io.py):
-  - `_format_save_file(decklist)` / `_parse_save_file(path)` — custom plain-text round-trip format
+- `Session` holds REPL state: `decklist: Decklist | None`, `scryfall_index: dict | None`, `repository: DecklistRepository` (defaults to `PlaintextRepository()`)
+- Handler functions (e.g., `handle_decklist_create`) return strings; domain handlers are thin adapters that call `services.*` and format the result
+- File I/O helpers (private, in commands.py):
   - `_format_export_file(decklist)` / `_parse_import_file(path)` — Moxfield/Archidekt-compatible format
 - `_resolve_category_and_card(args, categories)` — greedy longest-prefix match for `<category> <card>` args (used by `card add`)
 - `_resolve_card_and_category_suffix(args, categories)` — greedy longest-suffix match for `<card> <category>` args (used by `card move`)
@@ -263,4 +298,4 @@ class Decklist:
 9. **Export format**: up to three sections — `Commander`, `Companion` (only when a companion card is assigned), and `Maindeck` — compatible with Moxfield, Archidekt, and the `decklist import` command. Category structure is discarded. All non-commander, non-companion cards are merged into `Maindeck`, sorted alphabetically by card name.
 10. **Companion does not expand Commander**: Partner and Background both expand `Commander.total_slots`. Companion is a wholly separate `CappedCategory`; it does not affect Commander slot count or the `commander_overcrowded` check.
 11. **`cards` is a `list[str]`** (not a `set`): preserves insertion order and allows `UncappedCategory` to hold multiple copies of the same basic land. `CappedCategory` enforces singleton exclusivity at `add_card`/`move_card` time.
-12. **I/O lives in `commands.py`**: the planned `io.py` module was never created. `_format_save_file`, `_parse_save_file`, `_format_export_file`, and `_parse_import_file` are private functions in `commands.py`.
+12. **Save I/O in `storage.py`, export I/O in `commands.py`**: `_format_save_file` and `_parse_save_file` were moved to `storage.py` (Phase 0) and are used by `PlaintextRepository`. `_format_export_file` and `_parse_import_file` remain in `commands.py` (Moxfield/Archidekt-compatible format, not part of the repository abstraction).
