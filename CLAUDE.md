@@ -86,3 +86,5 @@ The GUI target design lives in [`docs/design/`](docs/design/):
 - **Testing details** (test split, scrut format, naming conventions): see [`tests/CLAUDE.md`](tests/CLAUDE.md).
 - Use `uv run` to run commands; `uv add` / `uv add --dev` to manage dependencies.
 - Keep this file and its sub-`CLAUDE.md` files updated as the project evolves.
+- **Never use `git stash` to check pre-existing errors.** Stash saves uncommitted changes and `git stash drop` permanently discards them — any edits not yet committed will be lost. To compare the current branch against main, use `git diff main -- <file>` or temporarily checkout a file with `git show main:<path>` and read it separately. If you must stash (e.g. to run a clean baseline check), always `git stash pop` before `git stash drop`, and never drop the stash if the pop fails.
+- **Commit lint/type fixes incrementally.** When fixing ruff or ty errors across a gate check, commit after each fixable batch (auto-fix, then manual fixes) so that a failed `git stash` or accidental revert cannot undo all in-progress work.
