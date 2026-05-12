@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/check_banned_git_ops.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '--- Session reminder: re-read CLAUDE.md at the start of the next session (forbidden ops, TDD rules). ---'"
+          }
+        ]
+      }
+    ]
+  }
+}
