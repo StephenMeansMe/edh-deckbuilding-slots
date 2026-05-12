@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -19,6 +19,13 @@ from deckslots.models import (
     Category,
     Decklist,
     UncappedCategory,
+)
+from deckslots.storage import (
+    DecklistRepository,
+    PlaintextRepository,
+    _format_save_file,
+    _get_save_path,
+    _parse_save_file,
 )
 from deckslots.templates import (
     Template,
@@ -36,117 +43,16 @@ class DispatchedHandler(Protocol):
     def __call__(self, cmd: ParsedCommand) -> str: ...
 
 
-def _get_save_path() -> Path:
-    state_home = os.environ.get("XDG_STATE_HOME", "")
-    base = Path(state_home) if state_home else Path.home() / ".local" / "state"
-    return base / "deckslots" / "decklist.bak"
-
-
 @dataclass
 class Session:
     decklist: Decklist | None = None
     scryfall_index: dict | None = None
+    repository: DecklistRepository = field(default_factory=PlaintextRepository)
 
 
 _CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
 _SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
 
-
-def _format_save_file(decklist: Decklist) -> str:
-    sections: list[str] = [f"# {decklist.name}"]
-    for cat in decklist.categories.values():
-        if cat.name == "Commander":
-            heading = "Commander"
-        elif cat.name == "Basic Lands":
-            heading = "Basic Lands"
-        elif cat.name == "Uncategorized":
-            heading = "Uncategorized"
-        elif cat.name == "Companion":
-            heading = "Companion"
-        else:
-            assert isinstance(cat, CappedCategory)
-            heading = f"{cat.name} [{cat.total_slots} slots]"
-        lines = [heading]
-        for card, qty in sorted(Counter(cat.cards).items()):
-            lines.append(f"{qty} {card}")
-        sections.append("\n".join(lines))
-    return "\n\n".join(sections)
-
-
-def _parse_save_file(path: str) -> Decklist:
-    try:
-        with open(path) as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: '{path}'")
-
-    stripped = [line.rstrip("\n") for line in lines]
-
-    # First non-empty line must be the name comment
-    name: str | None = None
-    start = 0
-    for i, line in enumerate(stripped):
-        if line.strip():
-            if line.startswith("# "):
-                name = line[2:].strip()
-                start = i + 1
-            break
-    if name is None:
-        raise ParseError("Save file missing '# <name>' header line.")
-
-    deck = Decklist.create(name)
-    # Temporarily expand Commander to accept any number of cards during load;
-    # the correct slot count is set after all cards are read.
-    commander_cat = deck.categories["commander"]
-    assert isinstance(commander_cat, CappedCategory)
-    commander_cat.total_slots = 99
-    current_category: str | None = None
-
-    for line in stripped[start:]:
-        s = line.strip()
-        if not s:
-            continue
-        if s == "Commander" or s.startswith("Commander ["):
-            current_category = "Commander"
-            continue
-        if s == "Basic Lands":
-            current_category = "Basic Lands"
-            continue
-        if s == "Uncategorized":
-            if "uncategorized" not in deck.categories:
-                deck.categories["uncategorized"] = UncappedCategory(
-                    name="Uncategorized",
-                    fixed=True,
-                    user_addable=False,
-                )
-            current_category = "Uncategorized"
-            continue
-        if s == "Companion":
-            deck.enable_companion()
-            current_category = "Companion"
-            continue
-        m_cat = _SAVE_CAT_RE.match(s)
-        if m_cat:
-            cat_name = m_cat.group(1)
-            slots = int(m_cat.group(2))
-            deck.add_category(cat_name, slots)
-            current_category = cat_name
-            continue
-        m_card = _CARD_LINE_RE.match(s)
-        if m_card and current_category is not None:
-            qty = int(m_card.group(1))
-            card = m_card.group(2).strip()
-            for _ in range(qty):
-                deck.add_card(card, current_category)
-
-    # Set Commander slot count from the number of loaded cards
-    loaded_commander_cat = deck.categories.get("commander")
-    if loaded_commander_cat is not None and isinstance(
-        loaded_commander_cat, CappedCategory
-    ):
-        loaded_commander_cat.total_slots = max(1, len(loaded_commander_cat.cards))
-
-    return deck
 
 
 @dataclass
@@ -535,27 +441,24 @@ def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
 
 
 def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
-    path = _get_save_path()
     try:
-        deck = _parse_save_file(str(path))
-    except FileNotFoundError:
-        logger.warning("Save file not found: %s", path)
-        return "No saved decklist found."
+        deck = session.repository.load()
     except (DecklistError, OSError) as e:
         logger.warning("Handler error: %s", e)
         return f"Error loading save file: {e}"
+    if deck is None:
+        logger.warning("Save file not found")
+        return "No saved decklist found."
     session.decklist = deck
-    logger.debug("Deck loaded from %s", path)
+    logger.debug("Deck loaded: %s", deck.name)
     return f"Loaded '{deck.name}'."
 
 
 def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return NO_ACTIVE_DECK
-    path = _get_save_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_format_save_file(session.decklist))
-    logger.debug("Deck saved to %s", path)
+    session.repository.save(session.decklist)
+    logger.debug("Deck saved: %s", session.decklist.name)
     return f"Saved '{session.decklist.name}'."
 
 
