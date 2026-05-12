@@ -3,8 +3,7 @@ import sys
 
 import click
 
-from deckslots.cli import parse_command
-from deckslots.commands import (
+from deckslots.cli.commands import (
     Session,
     dispatch,
     handle_category_rename,
@@ -15,12 +14,13 @@ from deckslots.commands import (
     validate_decklist_rename,
     validate_template_save,
 )
+from deckslots.cli.parser import parse_command
+from deckslots.cli.status import render_status_line
 from deckslots.config import is_validation_enabled
 from deckslots.logging_config import setup_logging
-from deckslots.status import render_status_line
 from deckslots.templates import user_template_exists
 
-_logger = logging.getLogger("deckslots.repl")
+_logger = logging.getLogger("deckslots.cli.repl")
 
 
 def _load_scryfall_index(session: Session) -> None:
@@ -191,8 +191,7 @@ def run_repl() -> None:
                     session.decklist is not None
                     and session.decklist.companion_slot_empty
                     and not (
-                        parsed.obj == "decklist"
-                        and parsed.verb == "enable-companion"
+                        parsed.obj == "decklist" and parsed.verb == "enable-companion"
                     )
                 ):
                     warnings.append(

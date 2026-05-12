@@ -2703,7 +2703,7 @@ class TestCommandsLogging:
             session,
             _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
         )
-        with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
+        with caplog.at_level(logging.DEBUG, logger="deckslots.cli.commands"):
             handle_card_add(
                 session,
                 _make_cmd(
@@ -2736,7 +2736,7 @@ class TestCommandsLogging:
             session,
             _make_cmd("decklist create Test", "decklist", "create", ["Test"]),
         )
-        with caplog.at_level(logging.DEBUG, logger="deckslots.commands"):
+        with caplog.at_level(logging.DEBUG, logger="deckslots.cli.commands"):
             handle_decklist_save(
                 session,
                 _make_cmd("decklist save", "decklist", "save", []),
