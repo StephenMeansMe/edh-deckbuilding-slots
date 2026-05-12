@@ -304,6 +304,51 @@ class TestSqliteSchemaMigration:
         assert count == 1
 
 
+class TestSqliteRepositoryLegacyImport:
+    """First-run convenience: import an existing decklist.bak into a fresh db."""
+
+    def test_legacy_bak_imported_on_first_open(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        legacy = tmp_path / "state" / "deckslots" / "decklist.bak"
+        legacy.parent.mkdir(parents=True)
+        PlaintextRepository(path=legacy).save(_full_deck())
+        repo = SqliteRepository(path=tmp_path / "library.db")
+        summaries = repo.list()
+        assert len(summaries) == 1
+        assert summaries[0].name == "Atraxa Stax"
+        loaded = repo.load(summaries[0].id)
+        assert "Sol Ring" in loaded.categories["ramp"].cards
+
+    def test_legacy_bak_preserved_after_import(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        legacy = tmp_path / "state" / "deckslots" / "decklist.bak"
+        legacy.parent.mkdir(parents=True)
+        PlaintextRepository(path=legacy).save(_full_deck())
+        SqliteRepository(path=tmp_path / "library.db")
+        assert legacy.exists()
+
+    def test_legacy_not_imported_when_db_already_has_decks(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        legacy = tmp_path / "state" / "deckslots" / "decklist.bak"
+        legacy.parent.mkdir(parents=True)
+        PlaintextRepository(path=legacy).save(_full_deck())
+        db_path = tmp_path / "library.db"
+        repo = SqliteRepository(path=db_path)
+        repo.delete(repo.list()[0].id)  # remove the imported deck
+        repo.save(_deck_partners())
+        # Reopen: should NOT re-import the legacy deck
+        repo2 = SqliteRepository(path=db_path)
+        names = {s.name for s in repo2.list()}
+        assert names == {"Thrasios + Tymna"}
+
+    def test_no_legacy_file_is_a_noop(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        repo = SqliteRepository(path=tmp_path / "library.db")
+        assert repo.list() == []
+
+
 class TestSqliteRepositoryDefaultPath:
     def test_default_path_uses_xdg_data_home(self, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
