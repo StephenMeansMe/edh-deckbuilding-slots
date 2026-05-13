@@ -6,24 +6,24 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from deckslots.config import get_storage_backend
+from deckslots.config import get_storage_backend  # re-exported for test monkeypatch
 from deckslots.gui.main_window import DeckWindow
 from deckslots.gui.styles import apply_theme
 from deckslots.models import Decklist
 from deckslots.scryfall import get_cache_path, load_index_from_cache
-from deckslots.storage import (
-    DecklistRepository,
-    PlaintextRepository,
-    SqliteRepository,
-)
+from deckslots.storage import DecklistRepository, SqliteRepository
+
+__all__ = ["run_app", "get_storage_backend"]
 
 
 def _pick_repository() -> DecklistRepository:
-    """Choose a repository based on the user's config."""
-    backend = get_storage_backend()
-    if backend == "sqlite":
-        return SqliteRepository()
-    return PlaintextRepository()
+    """Return the repository the GUI always uses (SQLite).
+
+    The GUI's deck-library panel is multi-deck by design; the single-file
+    plaintext backend has no useful workflow here. We hard-code SQLite
+    regardless of ``config.json``. The REPL is unaffected.
+    """
+    return SqliteRepository()
 
 
 def _load_initial_deck(repo: DecklistRepository) -> Decklist:
