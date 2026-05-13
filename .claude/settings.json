@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git tag *)",
+      "Bash(git push origin v*)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
