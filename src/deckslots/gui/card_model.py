@@ -15,6 +15,9 @@ from PySide6.QtCore import (
 from deckslots.models import Category
 
 CARD_MIME_TYPE = "application/x-deckslots-card"
+# Sentinel MIME type for cards dragged from the Omnibar search results.
+# CatTile.dropEvent branches on this to call add_card instead of move_card.
+SEARCH_MIME_TYPE = "application/x-deckslots-search-card"
 
 
 class CardListModel(QAbstractListModel):

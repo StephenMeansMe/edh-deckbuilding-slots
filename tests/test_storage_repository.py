@@ -288,20 +288,25 @@ class TestSqliteSchemaMigration:
         db_path = tmp_path / "library.db"
         SqliteRepository(path=db_path)
         with sqlite3.connect(str(db_path)) as conn:
-            cur = conn.execute("SELECT version FROM schema_version")
+            cur = conn.execute("SELECT version FROM schema_version ORDER BY version")
             rows = cur.fetchall()
-        assert rows == [(1,)]
+        # Fresh db gets all migrations up to the current version
+        assert (1,) in rows
 
     def test_reopen_does_not_reapply_migration(self, tmp_path):
         import sqlite3
 
         db_path = tmp_path / "library.db"
         SqliteRepository(path=db_path)
+        initial_count = None
+        with sqlite3.connect(str(db_path)) as conn:
+            (initial_count,) = conn.execute(
+                "SELECT COUNT(*) FROM schema_version"
+            ).fetchone()
         SqliteRepository(path=db_path)  # second open
         with sqlite3.connect(str(db_path)) as conn:
-            cur = conn.execute("SELECT COUNT(*) FROM schema_version")
-            (count,) = cur.fetchone()
-        assert count == 1
+            (count,) = conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()
+        assert count == initial_count
 
 
 class TestSqliteRepositoryLegacyImport:
@@ -355,3 +360,148 @@ class TestSqliteRepositoryDefaultPath:
         expected = tmp_path / "deckslots" / "library.db"
         assert expected.exists()
         assert repo.load(deck_id).name == "Atraxa Stax"
+
+
+# ---------------------------------------------------------------------------
+# Schema v2 — events table (Phase 3.3)
+# ---------------------------------------------------------------------------
+
+
+class TestSchemaV2Migration:
+    def test_events_table_created_on_fresh_db(self, tmp_path):
+        import sqlite3
+
+        SqliteRepository(tmp_path / "lib.db")
+        conn = sqlite3.connect(str(tmp_path / "lib.db"))
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        conn.close()
+        assert "events" in tables
+
+    def test_events_table_has_required_columns(self, tmp_path):
+        import sqlite3
+
+        SqliteRepository(tmp_path / "lib.db")
+        conn = sqlite3.connect(str(tmp_path / "lib.db"))
+        cols = {
+            r[1]
+            for r in conn.execute("PRAGMA table_info(events)").fetchall()
+        }
+        conn.close()
+        assert {"id", "deck_id", "event_type", "payload", "applied_at"} <= cols
+
+    def test_schema_version_2_recorded(self, tmp_path):
+        import sqlite3
+
+        SqliteRepository(tmp_path / "lib.db")
+        conn = sqlite3.connect(str(tmp_path / "lib.db"))
+        versions = {
+            r[0]
+            for r in conn.execute("SELECT version FROM schema_version").fetchall()
+        }
+        conn.close()
+        assert 2 in versions
+
+    def test_v1_db_migrated_to_v2(self, tmp_path):
+        """An existing schema-v1 database is upgraded to v2 transparently."""
+        import sqlite3
+
+        from deckslots.storage import _SCHEMA_V1
+
+        db_path = tmp_path / "lib.db"
+        # Manually create a v1 database
+        import datetime as dt
+
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript(_SCHEMA_V1)
+        conn.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (1, ?)",
+            (dt.datetime.now(tz=dt.timezone.utc).isoformat(),),
+        )
+        conn.commit()
+        conn.close()
+
+        # Now open with SqliteRepository — should migrate to v2
+        SqliteRepository(db_path)
+
+        conn = sqlite3.connect(str(db_path))
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        versions = {
+            r[0]
+            for r in conn.execute("SELECT version FROM schema_version").fetchall()
+        }
+        conn.close()
+        assert "events" in tables
+        assert 2 in versions
+
+
+class TestEventPersistence:
+    def test_append_event_round_trips(self, tmp_path):
+        from deckslots.events import CardAdded
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Test")
+        deck_id = repo.save(deck)
+
+        event = CardAdded(card="Sol Ring", category="Ramp")
+        repo.append_event(deck_id, event)
+
+        events = repo.load_events(deck_id)
+        assert len(events) == 1
+        seq, ev = events[0]
+        assert isinstance(ev, CardAdded)
+        assert ev.card == "Sol Ring"
+        assert ev.category == "Ramp"
+
+    def test_multiple_events_ordered_by_seq(self, tmp_path):
+        from deckslots.events import CardAdded, CardMoved
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Test")
+        deck_id = repo.save(deck)
+
+        repo.append_event(deck_id, CardAdded(card="Sol Ring", category="Ramp"))
+        repo.append_event(
+            deck_id,
+            CardMoved(card="Sol Ring", from_category="Ramp", to_category="Draw"),
+        )
+
+        events = repo.load_events(deck_id)
+        assert len(events) == 2
+        assert events[0][0] < events[1][0]  # seq is monotonically increasing
+
+    def test_load_events_since_seq(self, tmp_path):
+        from deckslots.events import CardAdded
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Test")
+        deck_id = repo.save(deck)
+
+        repo.append_event(deck_id, CardAdded(card="A", category="X"))
+        seq1, _ = repo.load_events(deck_id)[0]
+        repo.append_event(deck_id, CardAdded(card="B", category="Y"))
+
+        since = repo.load_events(deck_id, since_seq=seq1 + 1)
+        assert len(since) == 1
+        assert since[0][1].card == "B"
+
+    def test_events_scoped_per_deck(self, tmp_path):
+        from deckslots.events import CardAdded
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        d1 = repo.save(Decklist.create("D1"))
+        d2 = repo.save(Decklist.create("D2"))
+
+        repo.append_event(d1, CardAdded(card="Sol Ring", category="Ramp"))
+
+        assert len(repo.load_events(d1)) == 1
+        assert len(repo.load_events(d2)) == 0

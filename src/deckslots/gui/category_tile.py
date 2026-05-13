@@ -13,8 +13,8 @@ from PySide6.QtWidgets import (
 )
 
 from deckslots import services
-from deckslots.events import CardMoved
-from deckslots.gui.card_model import CARD_MIME_TYPE, CardListModel
+from deckslots.events import CardAdded, CardMoved
+from deckslots.gui.card_model import CARD_MIME_TYPE, SEARCH_MIME_TYPE, CardListModel
 from deckslots.models import (
     CappedCategory,
     Category,
@@ -154,6 +154,9 @@ class CatTile(QFrame):
 
     def would_accept_drop(self, mime: QMimeData) -> bool:
         """Predicate used both by tests and by the live drag handlers."""
+        if mime.hasFormat(SEARCH_MIME_TYPE):
+            card = bytes(mime.data(SEARCH_MIME_TYPE)).decode()
+            return services.can_add(self._deck, card, self._category.name.lower())
         parsed = _split_mime(mime)
         if parsed is None:
             return False
@@ -224,10 +227,6 @@ class CatTile(QFrame):
 
     def _handle_drag_enter(self, event: QDragEnterEvent) -> None:
         mime = event.mimeData()
-        parsed = _split_mime(mime)
-        if parsed is None:
-            event.ignore()
-            return
         accept = self.would_accept_drop(mime)
         if accept:
             self._set_drag_state(ok=True)
@@ -235,8 +234,10 @@ class CatTile(QFrame):
             event.acceptProposedAction()
         else:
             self._set_drag_state(ok=False)
-            _from, card = parsed
-            self.setToolTip(self.rejection_reason(card, _from))
+            parsed = _split_mime(mime)
+            if parsed:
+                _from, card = parsed
+                self.setToolTip(self.rejection_reason(card, _from))
             event.ignore()
 
     def _handle_drag_move(self, event: QDragMoveEvent) -> None:
@@ -250,8 +251,29 @@ class CatTile(QFrame):
         self.setToolTip("")
 
     def _handle_drop(self, event: QDropEvent) -> None:
-        parsed = _split_mime(event.mimeData())
+        mime = event.mimeData()
         self._handle_drag_leave()
+
+        if mime.hasFormat(SEARCH_MIME_TYPE):
+            card = bytes(mime.data(SEARCH_MIME_TYPE)).decode()
+            result = services.add_card(self._deck, card, self._category.name.lower())
+            if result.ok:
+                self.refresh()
+                for ev in result.events:
+                    if isinstance(ev, CardAdded):
+                        self.card_moved.emit(
+                            CardMoved(
+                                card=ev.card,
+                                from_category="",
+                                to_category=ev.category,
+                            )
+                        )
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+            return
+
+        parsed = _split_mime(mime)
         if parsed is None:
             event.ignore()
             return

@@ -255,6 +255,17 @@ CREATE TABLE cards (
 CREATE INDEX cards_by_category ON cards (category_id, position);
 """
 
+_SCHEMA_V2 = """
+CREATE TABLE events (
+  id         INTEGER PRIMARY KEY,
+  deck_id    INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  payload    TEXT NOT NULL,
+  applied_at TEXT NOT NULL
+);
+CREATE INDEX events_by_deck ON events (deck_id, id);
+"""
+
 
 def _get_db_path() -> Path:
     data_home = os.environ.get("XDG_DATA_HOME", "")
@@ -271,6 +282,17 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.executescript(_SCHEMA_V1)
         conn.execute(
             "INSERT INTO schema_version (version, applied_at) VALUES (1, ?)",
+            (_dt.datetime.now(tz=_dt.timezone.utc).isoformat(),),
+        )
+        conn.commit()
+
+    version = (
+        conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] or 0
+    )
+    if version < 2:
+        conn.executescript(_SCHEMA_V2)
+        conn.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (2, ?)",
             (_dt.datetime.now(tz=_dt.timezone.utc).isoformat(),),
         )
         conn.commit()
@@ -469,3 +491,51 @@ class SqliteRepository:
         with self._connect() as conn:
             conn.execute("DELETE FROM decks WHERE id = ?", (deck_id,))
             conn.commit()
+
+    # ------------------------------------------------------------------
+    # Event log (Phase 3.3)
+    # ------------------------------------------------------------------
+
+    def append_event(self, deck_id: int, event: object) -> None:
+        """Persist one DomainEvent to the events table."""
+        import dataclasses
+        import json
+
+        payload = json.dumps(dataclasses.asdict(event))
+        event_type = type(event).__name__
+        now = _dt.datetime.now(tz=_dt.timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO events (deck_id, event_type, payload, applied_at) "
+                "VALUES (?, ?, ?, ?)",
+                (deck_id, event_type, payload, now),
+            )
+            conn.commit()
+
+    def load_events(
+        self, deck_id: int, since_seq: int = 0
+    ) -> list[tuple[int, object]]:
+        """Return (id, DomainEvent) pairs for *deck_id* with id > since_seq."""
+        import json
+
+        from deckslots import events as ev_module
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, event_type, payload FROM events "
+                "WHERE deck_id = ? AND id >= ? ORDER BY id",
+                (deck_id, since_seq),
+            ).fetchall()
+
+        result = []
+        for row_id, event_type, payload in rows:
+            cls = getattr(ev_module, event_type, None)
+            if cls is None:
+                continue
+            data = json.loads(payload)
+            try:
+                event = cls(**data)
+            except TypeError:
+                continue
+            result.append((int(row_id), event))
+        return result

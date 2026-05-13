@@ -3,20 +3,28 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QDockWidget,
+    QInputDialog,
     QLabel,
     QMainWindow,
     QMenuBar,
+    QMessageBox,
     QStatusBar,
     QToolBar,
     QWidget,
 )
 
+from deckslots import services
 from deckslots.gui.board_widget import BoardWidget
+from deckslots.gui.deck_library import DeckLibraryPanel
 from deckslots.gui.image_loader import ImageLoader
+from deckslots.gui.mana_panel import ManaPanel
+from deckslots.gui.omnibar import Omnibar
+from deckslots.gui.undo_stack import UndoStack
 from deckslots.models import Decklist
-from deckslots.storage import DecklistRepository
+from deckslots.storage import DecklistRepository, SqliteRepository
 
 
 class DeckWindow(QMainWindow):
@@ -24,6 +32,10 @@ class DeckWindow(QMainWindow):
 
     Holds the active ``Decklist`` and ``DecklistRepository`` and persists
     after each mutation reported by the board.
+
+    When the repository is a ``SqliteRepository``, a ``QDockWidget`` containing
+    a ``DeckLibraryPanel`` is shown on the left so the user can switch decks
+    without leaving the GUI.
     """
 
     def __init__(
@@ -35,15 +47,21 @@ class DeckWindow(QMainWindow):
         super().__init__()
         self._deck = deck
         self._repository = repository
-        self._setWindowTitle()
+        self._scryfall_index = scryfall_index
+        self._current_deck_id: int | None = None
+        self._library_dock: QDockWidget | None = None
+        self._deck_library: DeckLibraryPanel | None = None
+        self._mana_dock: QDockWidget | None = None
+        self._mana_panel: ManaPanel | None = None
+        self._undo_stack = UndoStack()
 
+        self._setWindowTitle()
         self._setup_menus()
         self._setup_toolbar()
 
         self.board = BoardWidget(deck)
         self.setCentralWidget(self.board)
-        self.board.card_selected.connect(self._on_card_selected)
-        self.board.deck_mutated.connect(self._on_deck_mutated)
+        self._wire_board()
 
         self._setup_status_bar()
         self.refresh_status_bar()
@@ -51,6 +69,18 @@ class DeckWindow(QMainWindow):
         # Async card-image loader for the inspector
         self._image_loader = ImageLoader(index=scryfall_index, parent=self)
         self._image_loader.image_ready.connect(self.board.inspector.set_image)
+
+        # Card-search omnibar (Ctrl+K)
+        self._omnibar = Omnibar(scryfall_index, deck, parent=self)
+        self._omnibar.card_chosen.connect(self._on_card_chosen)
+        QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(self._open_omnibar)
+
+        # Library sidebar — only for multi-deck SQLite backend
+        if isinstance(repository, SqliteRepository):
+            self._setup_library_dock()
+
+        # Mana-curve panel (bottom dock)
+        self._setup_mana_dock()
 
     # ---------------------------------------------------------------
     # Setup
@@ -64,6 +94,7 @@ class DeckWindow(QMainWindow):
 
         file_menu = menubar.addMenu("File")
         act_new = QAction("New Deck...", self)
+        act_new.triggered.connect(self._on_create_deck)
         act_open = QAction("Open Deck...", self)
         act_close = QAction("Close", self)
         act_quit = QAction("Quit", self)
@@ -72,6 +103,18 @@ class DeckWindow(QMainWindow):
             file_menu.addAction(a)
         file_menu.addSeparator()
         file_menu.addAction(act_quit)
+
+        edit_menu = menubar.addMenu("Edit")
+        self._act_undo = QAction("Undo", self)
+        self._act_undo.setShortcut(QKeySequence.StandardKey.Undo)
+        self._act_undo.setEnabled(False)
+        self._act_undo.triggered.connect(self._undo)
+        self._act_redo = QAction("Redo", self)
+        self._act_redo.setShortcut(QKeySequence.StandardKey.Redo)
+        self._act_redo.setEnabled(False)
+        self._act_redo.triggered.connect(self._redo)
+        edit_menu.addAction(self._act_undo)
+        edit_menu.addAction(self._act_redo)
 
         deck_menu = menubar.addMenu("Deck")
         deck_menu.addAction(QAction("Rename...", self))
@@ -86,11 +129,14 @@ class DeckWindow(QMainWindow):
         cat_menu.addAction(QAction("New Category...", self))
 
         card_menu = menubar.addMenu("Card")
-        card_menu.addAction(QAction("Search... (Phase 3)", self))
+        act_search = QAction("Search... (Ctrl+K)", self)
+        act_search.setShortcut(QKeySequence("Ctrl+K"))
+        act_search.triggered.connect(self._open_omnibar)
+        card_menu.addAction(act_search)
 
-        view_menu = menubar.addMenu("View")
-        view_menu.addAction(QAction("Light Theme", self))
-        view_menu.addAction(QAction("Dark Theme", self))
+        self._view_menu = menubar.addMenu("View")
+        self._view_menu.addAction(QAction("Light Theme", self))
+        self._view_menu.addAction(QAction("Dark Theme", self))
 
         help_menu = menubar.addMenu("Help")
         help_menu.addAction(QAction("About", self))
@@ -104,7 +150,6 @@ class DeckWindow(QMainWindow):
         deck_name.setObjectName("DeckName")
         toolbar.addWidget(deck_name)
 
-        # Stub of sub-line — will be filled by deck.commanders / identity later
         sub = QLabel("Commander • EDH")
         sub.setObjectName("DeckSub")
         toolbar.addWidget(sub)
@@ -121,6 +166,168 @@ class DeckWindow(QMainWindow):
         self.status_label = QLabel()
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         bar.addPermanentWidget(self.status_label, 1)
+
+    def _setup_library_dock(self) -> None:
+        """Create and register the deck-library QDockWidget."""
+        # Determine the current deck's ID in the repository
+        summaries = self._repository.list()
+        self._current_deck_id = next(
+            (s.id for s in summaries if s.name == self._deck.name), None
+        )
+
+        self._deck_library = DeckLibraryPanel(
+            self._repository,
+            current_deck_id=self._current_deck_id,
+        )
+        self._deck_library.deck_selected.connect(self._load_deck)
+        self._deck_library.create_requested.connect(self._on_create_deck)
+        self._deck_library.delete_requested.connect(self._on_delete_deck)
+
+        dock = QDockWidget("Decks", self)
+        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
+        dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+        )
+        dock.setWidget(self._deck_library)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        self._library_dock = dock
+
+        # Add a toggle to the View menu
+        toggle = dock.toggleViewAction()
+        toggle.setText("Library Sidebar")
+        self._view_menu.addSeparator()
+        self._view_menu.addAction(toggle)
+
+    def _setup_mana_dock(self) -> None:
+        """Create the mana-curve QDockWidget at the bottom."""
+        self._mana_panel = ManaPanel(self._deck, index=self._scryfall_index)
+
+        dock = QDockWidget("Mana Curve", self)
+        dock.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea
+            | Qt.DockWidgetArea.TopDockWidgetArea
+        )
+        dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+        )
+        dock.setWidget(self._mana_panel)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+        self._mana_dock = dock
+
+        toggle = dock.toggleViewAction()
+        toggle.setText("Mana Curve")
+        self._view_menu.addSeparator()
+        self._view_menu.addAction(toggle)
+
+    def _wire_board(self) -> None:
+        """Connect board signals to window slots."""
+        self.board.card_selected.connect(self._on_card_selected)
+        self.board.deck_mutated.connect(self._on_deck_mutated)
+        if self._mana_panel is not None:
+            self.board.deck_mutated.connect(self._mana_panel.refresh)
+
+    # ---------------------------------------------------------------
+    # Deck switching
+    # ---------------------------------------------------------------
+
+    # ---------------------------------------------------------------
+    # Undo / redo
+    # ---------------------------------------------------------------
+
+    def _undo(self) -> None:
+        snapshot = self._undo_stack.undo(self._deck)
+        if snapshot is None:
+            return
+        self._deck = snapshot
+        self._rebuild_after_history_change()
+
+    def _redo(self) -> None:
+        snapshot = self._undo_stack.redo(self._deck)
+        if snapshot is None:
+            return
+        self._deck = snapshot
+        self._rebuild_after_history_change()
+
+    def _rebuild_after_history_change(self) -> None:
+        """Rebuild the board and persist after an undo/redo."""
+        old_board = self.board
+        self.board = BoardWidget(self._deck)
+        self.setCentralWidget(self.board)
+        self._wire_board()
+        self._image_loader.image_ready.disconnect()
+        self._image_loader.image_ready.connect(self.board.inspector.set_image)
+        old_board.deleteLater()
+        self.refresh_status_bar()
+        self._act_undo.setEnabled(self._undo_stack.can_undo)
+        self._act_redo.setEnabled(self._undo_stack.can_redo)
+        try:
+            self._repository.save(self._deck)
+        except OSError:
+            pass
+
+    def _load_deck(self, deck_id: int) -> None:
+        """Replace the active deck and rebuild the board."""
+        try:
+            new_deck = self._repository.load(deck_id)
+        except KeyError:
+            return
+        self._current_deck_id = deck_id
+        self._deck = new_deck
+        self._undo_stack.reset()
+        self._act_undo.setEnabled(False)
+        self._act_redo.setEnabled(False)
+
+        # Tear down old board and create a fresh one
+        old_board = self.board
+        self.board = BoardWidget(new_deck)
+        self.setCentralWidget(self.board)
+        self._wire_board()
+        # Reconnect image loader to new inspector
+        self._image_loader.image_ready.disconnect()
+        self._image_loader.image_ready.connect(self.board.inspector.set_image)
+        old_board.deleteLater()
+
+        self._setWindowTitle()
+        self._deck_name_label.setText(new_deck.name)
+        self.refresh_status_bar()
+
+        if self._deck_library is not None:
+            self._deck_library.refresh(current_deck_id=deck_id)
+        self._omnibar.update_deck(new_deck)
+        if self._mana_panel is not None:
+            self._mana_panel.set_deck(new_deck)
+            self._mana_panel.refresh()
+
+    # ---------------------------------------------------------------
+    # Deck management actions
+    # ---------------------------------------------------------------
+
+    def _on_create_deck(self) -> None:
+        name, ok = QInputDialog.getText(self, "New Deck", "Deck name:")
+        if not ok or not name.strip():
+            return
+        new_deck = Decklist.create(name.strip())
+        deck_id = self._repository.save(new_deck)
+        self._load_deck(deck_id)
+
+    def _on_delete_deck(self, deck_id: int) -> None:
+        summaries = self._repository.list()
+        summary = next((s for s in summaries if s.id == deck_id), None)
+        if summary is None:
+            return
+        btn = QMessageBox.question(
+            self,
+            "Delete deck",
+            f"Delete '{summary.name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if btn != QMessageBox.StandardButton.Yes:
+            return
+        self._repository.delete(deck_id)
+        if self._deck_library is not None:
+            self._deck_library.refresh(self._current_deck_id)
 
     # ---------------------------------------------------------------
     # Refresh / event handlers
@@ -151,10 +358,23 @@ class DeckWindow(QMainWindow):
         try:
             self._repository.save(self._deck)
         except OSError:
-            # Persistence error shouldn't crash the GUI; surface in status bar.
             self.status_label.setText(
                 self.status_label.text() + " | ⚠ failed to save"
             )
+        if self._deck_library is not None:
+            self._deck_library.refresh(self._current_deck_id)
+
+    def _open_omnibar(self) -> None:
+        self._omnibar.show()
+        self._omnibar.raise_()
+        self._omnibar.activateWindow()
+        self._omnibar.search_input.setFocus()
+
+    def _on_card_chosen(self, card: str, category_key: str) -> None:
+        result = services.add_card(self._deck, card, category_key)
+        if result.ok:
+            self.board.refresh_tile(category_key)
+            self._on_deck_mutated()
 
     # ---------------------------------------------------------------
     # Accessors

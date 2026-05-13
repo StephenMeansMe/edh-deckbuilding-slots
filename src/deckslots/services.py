@@ -85,6 +85,27 @@ def move_card(deck: Decklist, card: str, to_category_key: str) -> CommandResult:
     )
 
 
+def can_add(deck: Decklist, card: str, to_category_key: str) -> bool:
+    """Preflight: would add_card(deck, card, to_category_key) succeed?
+
+    Like can_drop but for cards not yet in the deck (e.g. from the Omnibar).
+    Does not check whether the card already exists in the deck's history.
+    """
+    key = to_category_key.lower()
+    if key not in deck.categories:
+        return False
+    cat = deck.categories[key]
+    if cat.is_full:
+        return False
+    if cat.allowed_cards is not None and card not in cat.allowed_cards:
+        return False
+    if isinstance(cat, CappedCategory):
+        for other in deck.categories.values():
+            if isinstance(other, CappedCategory) and card in other.cards:
+                return False
+    return True
+
+
 def can_drop(deck: Decklist, card: str, to_category_key: str) -> bool:
     """Dry-run predicate: would a move of *card* to *to_category_key* succeed?"""
     target_key = to_category_key.lower()
