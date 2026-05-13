@@ -36,13 +36,13 @@ DB and GUI work doesn't double up on plumbing.
 Exit: power users can maintain a deck library; plaintext import/export still
 round-trips through Moxfield.
 
-### Phase 2 — GUI MVP
+### Phase 2 — GUI MVP ✅
 
-- **2.1** PySide6 shell, deck board view, menu bar, repository-backed deck open.
-- **2.2** Drag-and-drop wired to `services.can_drop` / `services.move_card`,
+- **2.1** ✅ PySide6 shell, deck board view, menu bar, repository-backed deck open.
+- **2.2** ✅ Drag-and-drop wired to `services.can_drop` / `services.move_card`,
   with full validation feedback.
-- **2.3** Scryfall image pipeline (async fetch, on-disk cache, placeholder).
-- **2.4** Ship behind `[project.optional-dependencies] gui`. CLI install stays
+- **2.3** ✅ Scryfall image pipeline (async fetch, on-disk cache, placeholder).
+- **2.4** ✅ Ship behind `[project.optional-dependencies] gui`. CLI install stays
   slim.
 
 Exit: `deckslots gui` opens any deck the CLI can; drag-drop maintains all
