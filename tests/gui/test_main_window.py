@@ -377,6 +377,107 @@ class TestImportExportDialogs:
         assert warnings
 
 
+class TestKeyboardMove:
+    """4.4.1 — Keyboard-only card move alternative to drag-and-drop."""
+
+    def test_card_menu_has_move_action(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 5)
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        card_menu = None
+        for a in win.menuBar().actions():
+            if a.text() == "Card":
+                card_menu = a.menu()
+                break
+        assert card_menu is not None
+        action_texts = [a.text() for a in card_menu.actions()]
+        assert any("Move Card" in t for t in action_texts), action_texts
+
+    def test_move_card_routes_through_services(
+        self, qtbot, tmp_path, monkeypatch
+    ):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 5)
+        deck.add_category("Draw", 5)
+        deck.add_card("Sol Ring", "Ramp")
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+
+        win._last_selected_card = "Sol Ring"
+        from deckslots.gui import main_window as mw
+
+        monkeypatch.setattr(
+            mw, "_prompt_move_destination", lambda parent, choices, card: "Draw"
+        )
+        win._on_keyboard_move_card()
+        assert win.deck.find_card("Sol Ring") == "draw"
+
+    def test_move_card_no_selection_is_noop(self, qtbot, tmp_path, monkeypatch):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        from deckslots.gui import main_window as mw
+
+        called: list[tuple] = []
+        monkeypatch.setattr(
+            mw.QMessageBox,
+            "information",
+            lambda *args: called.append(args),
+        )
+        win._last_selected_card = None
+        win._on_keyboard_move_card()
+        assert win.deck.total_filled == 0
+
+
+class TestAccessibilityLabels:
+    """4.4.2 — Screen-reader-friendly accessible names on key widgets."""
+
+    def test_cat_tile_has_accessible_name(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 5)
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        tile = win.board.masonry_tiles["ramp"]
+        acc = tile.accessibleName() or tile.name_label.accessibleName()
+        assert "Ramp" in acc
+
+    def test_status_label_has_accessible_name(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        assert win.status_label.accessibleName()
+
+    def test_inspector_has_accessible_name(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        assert win.board.inspector.accessibleName()
+
+
+class TestOmnibarLegalityWarning:
+    """4.4.3 — surface Commander legality warnings from services in the GUI."""
+
+    def test_warning_from_services_appears_in_status_bar(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 5)
+        index = {
+            "brainstorm": {
+                "name": "Brainstorm",
+                "legalities": {"commander": "banned"},
+            }
+        }
+        win = DeckWindow(deck, _repo(tmp_path), scryfall_index=index)
+        qtbot.addWidget(win)
+        win._on_card_chosen("Brainstorm", "ramp")
+        text = win.status_label.text()
+        assert "Brainstorm" in text and "not legal" in text
+
+
 class TestLibraryDock:
     def test_sqlite_repo_shows_library_dock(self, qtbot, tmp_path):
         from deckslots.storage import SqliteRepository
