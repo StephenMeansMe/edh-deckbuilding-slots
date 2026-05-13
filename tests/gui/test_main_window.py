@@ -287,6 +287,96 @@ class TestNewDeckDialog:
         assert seen and "Alpha" in seen[0]
 
 
+class TestImportExportDialogs:
+    """4.0.4 — Import... / Export... toolbar/menu actions wired to QFileDialog."""
+
+    def test_deck_menu_has_import_and_export(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        deck_menu = None
+        for a in win.menuBar().actions():
+            if a.text() == "Deck":
+                deck_menu = a.menu()
+                break
+        assert deck_menu is not None
+        texts = [a.text() for a in deck_menu.actions()]
+        assert any("Import" in t for t in texts), texts
+        assert any("Export" in t for t in texts), texts
+
+    def test_export_writes_file(self, qtbot, tmp_path, monkeypatch):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 5)
+        deck.add_card("Sol Ring", "Ramp")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+
+        out = tmp_path / "exported.txt"
+        from deckslots.gui import main_window as mw
+
+        monkeypatch.setattr(
+            mw, "_prompt_export_path", lambda parent, default: str(out)
+        )
+        win._on_export_deck()
+        assert out.exists()
+        text = out.read_text()
+        assert "Commander" in text
+        assert "Sol Ring" in text
+
+    def test_export_cancel_writes_nothing(self, qtbot, tmp_path, monkeypatch):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        from deckslots.gui import main_window as mw
+
+        monkeypatch.setattr(mw, "_prompt_export_path", lambda parent, default: None)
+        win._on_export_deck()  # should be a no-op, no error
+
+    def test_import_replaces_active_deck(self, qtbot, tmp_path, monkeypatch):
+        # Write a Moxfield-format file to import
+        src = tmp_path / "deck.txt"
+        src.write_text(
+            "Commander\n1 Atraxa, Praetors' Voice\n\nMaindeck\n1 Sol Ring\n"
+        )
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Original")
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+
+        from deckslots.gui import main_window as mw
+
+        monkeypatch.setattr(mw, "_prompt_import_path", lambda parent: str(src))
+        win._on_import_deck()
+        # The deck file name (stem) becomes the deck name
+        assert win.deck.name == "deck"
+        assert "Atraxa, Praetors' Voice" in win.deck.categories["commander"].cards
+
+    def test_import_parse_failure_keeps_original_deck(
+        self, qtbot, tmp_path, monkeypatch
+    ):
+        deck = Decklist.create("Original")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+
+        from deckslots.gui import main_window as mw
+
+        warnings: list[tuple[str, str]] = []
+        monkeypatch.setattr(
+            mw.QMessageBox,
+            "warning",
+            lambda parent, title, msg: warnings.append((title, msg)),
+        )
+        monkeypatch.setattr(
+            mw, "_prompt_import_path", lambda parent: str(tmp_path / "nope.txt")
+        )
+        win._on_import_deck()
+        assert win.deck.name == "Original"
+        assert warnings
+
+
 class TestLibraryDock:
     def test_sqlite_repo_shows_library_dock(self, qtbot, tmp_path):
         from deckslots.storage import SqliteRepository
