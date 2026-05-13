@@ -89,8 +89,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
       - uses: softprops/action-gh-release@v2
         with:
+          body_path: packaging/release-notes.md
           files: |
             linux/*.AppImage
             windows/deckslots.exe
