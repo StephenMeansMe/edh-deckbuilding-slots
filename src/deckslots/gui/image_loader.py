@@ -2,16 +2,34 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 from PySide6.QtGui import QPixmap
 
-from deckslots.scryfall import fetch_card_image
+from deckslots.scryfall import _image_filename, fetch_card_image
 
 _MEMORY_CACHE_LIMIT = 200
 _SCRYFALL_THROTTLE_SECONDS = 0.1
+
+# Shared throttle for *network* fetches. A cache hit on disk skips this
+# entirely, so a warm-cache cold open does not pay the 100 ms per image.
+# Concurrent network workers serialise on this lock and pause 100 ms between
+# successful acquisitions.
+_NETWORK_LOCK = threading.Lock()
+_LAST_NETWORK_FETCH = 0.0
+
+
+def _network_throttle() -> None:
+    """Block briefly so we never exceed Scryfall's request-rate guidance."""
+    global _LAST_NETWORK_FETCH
+    with _NETWORK_LOCK:
+        wait = _SCRYFALL_THROTTLE_SECONDS - (time.monotonic() - _LAST_NETWORK_FETCH)
+        if wait > 0:
+            time.sleep(wait)
+        _LAST_NETWORK_FETCH = time.monotonic()
 
 
 class _FetchSignals(QObject):
@@ -36,8 +54,10 @@ class _FetchTask(QRunnable):
         self.setAutoDelete(True)
 
     def run(self) -> None:  # noqa: D401
-        # Respect Scryfall's 50–100 ms inter-request guidance
-        time.sleep(_SCRYFALL_THROTTLE_SECONDS)
+        # Disk-cache hit: skip the network throttle entirely.
+        on_disk = self.cache_dir / _image_filename(self.card_name)
+        if not on_disk.exists():
+            _network_throttle()
         path = fetch_card_image(
             self.card_name, index=self.index, cache_dir=self.cache_dir
         )
