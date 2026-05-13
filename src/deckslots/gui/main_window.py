@@ -439,6 +439,17 @@ class DeckWindow(QMainWindow):
         self._omnibar.activateWindow()
         self._omnibar.search_input.setFocus()
 
+    def on_scryfall_ready(self, index: dict) -> None:
+        """Slot: a background worker finished downloading the Scryfall index."""
+        self._scryfall_index = index
+        self._image_loader.set_index(index)
+        self._omnibar.set_index(index)
+        self.status_label.setText("Card index ready")
+
+    def on_scryfall_failed(self, message: str) -> None:
+        """Slot: a background worker failed to refresh the Scryfall index."""
+        self.status_label.setText(f"Card index unavailable: {message}")
+
     def _on_card_chosen(self, card: str, category_key: str) -> None:
         result = services.add_card(self._deck, card, category_key)
         if result.ok:

@@ -84,7 +84,7 @@ class TestScryfallFirstRun:
 
         def fake_download(dest):
             dest.write_text(
-                '{"data":[{"name":"Sol Ring","legalities":{"commander":"legal"}}]}'
+                '[{"name":"Sol Ring","legalities":{"commander":"legal"}}]'
             )
 
         cache = tmp_path / "oracle_cards.json"
