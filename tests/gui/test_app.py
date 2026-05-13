@@ -9,25 +9,34 @@ pytest.importorskip("PySide6")
 from deckslots.gui import app as gui_app  # noqa: E402
 
 
-class TestPickRepository:
-    def test_plaintext_default(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-        repo = gui_app._pick_repository()
-        from deckslots.storage import PlaintextRepository
+class TestGuiAlwaysUsesSqlite:
+    def test_sqlite_used_even_when_config_says_plaintext(
+        self, tmp_path, monkeypatch
+    ):
+        """The GUI ignores config.storage_backend and always uses SqliteRepository.
 
-        assert isinstance(repo, PlaintextRepository)
-
-    def test_sqlite_when_config_says_so(self, tmp_path, monkeypatch):
+        The deck-library panel only makes sense with a multi-deck backend.
+        """
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
         cfg_dir = tmp_path / "deckslots"
         cfg_dir.mkdir()
-        (cfg_dir / "config.json").write_text('{"storage_backend": "sqlite"}')
+        (cfg_dir / "config.json").write_text('{"storage_backend": "plaintext"}')
+
+        called = []
+
+        def fake_get_backend() -> str:
+            called.append("get_storage_backend")
+            return "plaintext"
+
+        monkeypatch.setattr(gui_app, "get_storage_backend", fake_get_backend)
+
         repo = gui_app._pick_repository()
         from deckslots.storage import SqliteRepository
 
         assert isinstance(repo, SqliteRepository)
+        assert called == []  # config not consulted
 
 
 class TestLoadInitialDeck:
