@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
-import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -18,9 +18,16 @@ from deckslots.models import (
     Decklist,
     UncappedCategory,
 )
-from deckslots.storage import (
+
+# Re-exported for backward compatibility with existing tests and repl.py imports.
+from deckslots.storage import (  # noqa: F401
+    _CARD_LINE_RE,
     DecklistRepository,
+    DecklistSummary,
     PlaintextRepository,
+    _format_save_file,
+    _get_save_path,
+    _parse_save_file,
 )
 from deckslots.templates import (
     Template,
@@ -44,11 +51,9 @@ class DispatchedHandler(Protocol):
 class Session:
     decklist: Decklist | None = None
     scryfall_index: dict | None = None
-    repository: DecklistRepository = field(default_factory=PlaintextRepository)
-
-
-_CARD_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
-_SAVE_CAT_RE = re.compile(r"^(.+) \[(\d+) slots\]$")
+    repository: DecklistRepository = dataclasses.field(
+        default_factory=PlaintextRepository
+    )
 
 
 @dataclass
@@ -439,16 +444,20 @@ def handle_decklist_export(session: Session, cmd: ParsedCommand) -> str:
 
 
 def handle_decklist_load(session: Session, cmd: ParsedCommand) -> str:
+    summaries = session.repository.list()
+    if not summaries:
+        logger.warning("Repository is empty: no decks to load.")
+        return "No saved decklist found."
     try:
-        deck = session.repository.load()
-    except (DecklistError, OSError) as e:
+        deck = session.repository.load(summaries[0].id)
+    except (DecklistError, OSError, KeyError) as e:
         logger.warning("Handler error: %s", e)
         return f"Error loading save file: {e}"
     if deck is None:
         logger.warning("Save file not found")
         return "No saved decklist found."
     session.decklist = deck
-    logger.debug("Deck loaded: %s", deck.name)
+    logger.debug("Deck loaded via %s", type(session.repository).__name__)
     return f"Loaded '{deck.name}'."
 
 
@@ -456,8 +465,52 @@ def handle_decklist_save(session: Session, cmd: ParsedCommand) -> str:
     if session.decklist is None:
         return NO_ACTIVE_DECK
     session.repository.save(session.decklist)
-    logger.debug("Deck saved: %s", session.decklist.name)
+    logger.debug("Deck saved via %s", type(session.repository).__name__)
     return f"Saved '{session.decklist.name}'."
+
+
+def handle_decklist_list(session: Session, cmd: ParsedCommand) -> str:
+    summaries = session.repository.list()
+    if not summaries:
+        return "No decks saved."
+    lines = ["Saved decks:"]
+    for s in summaries:
+        # updated_at is ISO 8601; show the date portion for readability.
+        date = s.updated_at[:10] if s.updated_at else "?"
+        lines.append(f"  {s.id}. {s.name} — {s.total_filled} cards ({date})")
+    return "\n".join(lines)
+
+
+def handle_decklist_switch(session: Session, cmd: ParsedCommand) -> str:
+    if not cmd.args:
+        return "Usage: decklist switch <name>"
+    name = " ".join(cmd.args)
+    deck = session.repository.load_by_name(name)
+    if deck is None:
+        return f"Deck '{name}' not found."
+    session.decklist = deck
+    return f"Switched to '{name}'."
+
+
+def handle_decklist_delete(session: Session, cmd: ParsedCommand) -> str:
+    import click
+
+    if not cmd.args:
+        return "Usage: decklist delete <name>"
+    name = " ".join(cmd.args)
+    target = None
+    for s in session.repository.list():
+        if s.name == name:
+            target = s
+            break
+    if target is None:
+        return f"Deck '{name}' not found."
+    if not click.confirm(f"Delete '{name}'? This cannot be undone.", default=False):
+        return "Aborted."
+    session.repository.delete(target.id)
+    if session.decklist is not None and session.decklist.name == name:
+        session.decklist = None
+    return f"Deleted '{name}'."
 
 
 def validate_decklist_rename(session: Session) -> str | None:
@@ -586,6 +639,9 @@ def handle_help() -> str:
             "  decklist export <file>        Export the active decklist to a text file",
             "  decklist save                 Save the active decklist",
             "  decklist load                 Load the last saved decklist",
+            "  decklist list                 List all saved decks",
+            "  decklist switch <name>        Switch the active deck to a saved one",
+            "  decklist delete <name>        Remove a saved deck (prompts to confirm)",
             "  decklist rename               Rename the active decklist",
             "  decklist apply-template <n>   Apply a template to the active decklist",
             "  decklist enable-partners      Allow two commanders (partner mechanic)",
@@ -636,6 +692,9 @@ def register_all_handlers(
         ("decklist", "export"): lambda cmd: handle_decklist_export(session, cmd),
         ("decklist", "save"): lambda cmd: handle_decklist_save(session, cmd),
         ("decklist", "load"): lambda cmd: handle_decklist_load(session, cmd),
+        ("decklist", "list"): lambda cmd: handle_decklist_list(session, cmd),
+        ("decklist", "switch"): lambda cmd: handle_decklist_switch(session, cmd),
+        ("decklist", "delete"): lambda cmd: handle_decklist_delete(session, cmd),
         ("decklist", "enable-partners"): lambda cmd: handle_decklist_enable_partners(
             session, cmd
         ),

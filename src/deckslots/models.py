@@ -138,9 +138,7 @@ class Decklist:
                 if isinstance(other, CappedCategory) and card in other.cards:
                     raise CardError(f"'{card}' is already in the decklist.")
         if cat.is_full:
-            raise SlotError(
-                f"Category '{category_name}' is full (no available slots)."
-            )
+            raise SlotError(f"Category '{category_name}' is full (no available slots).")
         cat.cards.append(card)
 
     def find_card(self, card: str) -> str | None:

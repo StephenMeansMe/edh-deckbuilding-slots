@@ -17,9 +17,7 @@ def setup_logging(level: str | None = None) -> None:
     logger.addHandler(sh)
     log_dir = Path.home() / ".local" / "share" / "deckslots"
     log_dir.mkdir(parents=True, exist_ok=True)
-    fh = RotatingFileHandler(
-        log_dir / "debug.log", maxBytes=1_000_000, backupCount=3
-    )
+    fh = RotatingFileHandler(log_dir / "debug.log", maxBytes=1_000_000, backupCount=3)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(
         logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")

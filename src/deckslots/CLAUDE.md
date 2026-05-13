@@ -80,21 +80,24 @@ class CommandResult:
 
 Functions: `add_card`, `move_card`, `can_drop` (preflight predicate, returns `bool`), `remove_card`, `delete_card`, `create_category`, `resize_category`, `delete_category`, `rename_category`, `rename_decklist`, `enable_partners`, `disable_partners`, `enable_background`, `disable_background`, `enable_companion`, `disable_companion`, `apply_template`.
 
-## storage.py (Phase 0+)
+## storage.py (Phase 1+)
 
-Repository abstraction for deck persistence.
+Persistence layer that owns the storage seam.
 
-- `DecklistRepository` — `Protocol` with `save(deck)`, `load() -> Decklist | None`, `delete()`
-- `PlaintextRepository(path=None)` — wraps the custom plain-text save format; `path` defaults to `_get_save_path()` (XDG state home). Pass an explicit `path` in tests for isolation.
-- `_get_save_path()` — returns `$XDG_STATE_HOME/deckslots/decklist.bak` (falls back to `~/.local/state/`)
-- `_format_save_file(deck)` / `_parse_save_file(path)` — custom plain-text round-trip format (moved from `commands.py` in Phase 0)
+- `DecklistRepository` (Protocol) — 5 methods: `save(deck) -> int`, `load(deck_id) -> Decklist`, `load_by_name(name) -> Decklist | None`, `list() -> list[DecklistSummary]`, `delete(deck_id) -> None`
+- `DecklistSummary` — frozen dataclass `(id: int, name: str, total_filled: int, updated_at: str)` returned by `list()`
+- `PlaintextRepository(path=None)` — single-file backend at `$XDG_STATE_HOME/deckslots/decklist.bak`. Implements the protocol with a synthetic ID of 1; `list()` returns one summary if the file exists (tolerating parse errors so the REPL can detect corruption via `load()`).
+- `SqliteRepository(path=None)` — multi-deck backend at `$XDG_DATA_HOME/deckslots/library.db` (stdlib `sqlite3`, `PRAGMA foreign_keys = ON`). Schema migrations in `_migrate(conn)`; currently `schema_version = 1`. `save()` upserts by deck name; `_maybe_import_legacy()` seeds an empty db from any existing `decklist.bak`.
+- `_format_save_file(decklist)` / `_parse_save_file(path)` / `_get_save_path()` — plain-text format helpers (private; used by both repository implementations)
 
 ## cli/commands.py
 
-- `Session` holds REPL state: `decklist: Decklist | None`, `scryfall_index: dict | None`, `repository: DecklistRepository` (defaults to `PlaintextRepository()`)
+- `Session` holds REPL state: `decklist: Decklist | None`, `scryfall_index: dict | None`, `repository: DecklistRepository` (default-constructed `PlaintextRepository`)
 - Handler functions (e.g., `handle_decklist_create`) return strings; domain handlers are thin adapters that call `services.*` and format the result
-- File I/O helpers (private, in `cli/commands.py`):
-  - `_format_export_file(decklist)` / `_parse_import_file(path)` — Moxfield/Archidekt-compatible format
+- I/O helpers:
+  - Storage round-trip (`_format_save_file`, `_parse_save_file`, `_get_save_path`) lives in `storage.py` and is re-exported from `commands.py` for backward compatibility
+  - `_format_export_file(decklist)` / `_parse_import_file(path)` — Moxfield/Archidekt-compatible format (interop, stays in `commands.py`)
+- Multi-deck handlers route through `session.repository` (`handle_decklist_save/load/list/switch/delete`); `decklist delete` prompts via `click.confirm`
 - `_resolve_category_and_card(args, categories)` — greedy longest-prefix match for `<category> <card>` args (used by `card add`)
 - `_resolve_card_and_category_suffix(args, categories)` — greedy longest-suffix match for `<card> <category>` args (used by `card move`)
 - `register_all_handlers(session)` — builds `dict[tuple[str, str], Callable]` dispatch registry covering decklist, category, card, and template handlers
@@ -137,6 +140,17 @@ Repository abstraction for deck persistence.
 
 - `get_config_path()` → XDG-compliant path (`$XDG_CONFIG_HOME/deckslots/config.json`)
 - `is_validation_enabled()` → bool — reads `config.json`; defaults to True if absent
+- `get_storage_backend()` → `"plaintext"` (default) or `"sqlite"`; reads `config.json`; falls back to `"plaintext"` on missing/malformed config or unknown value
+
+## storage.py
+
+Persistence layer that owns the storage seam.
+
+- `DecklistRepository` (Protocol) — 5 methods: `save(deck) -> int`, `load(deck_id) -> Decklist`, `load_by_name(name) -> Decklist | None`, `list() -> list[DecklistSummary]`, `delete(deck_id) -> None`
+- `DecklistSummary` — frozen dataclass `(id: int, name: str, total_filled: int, updated_at: str)` returned by `list()`
+- `PlaintextRepository(path=None)` — single-file backend at `$XDG_STATE_HOME/deckslots/decklist.bak`. Implements the protocol with a synthetic ID of 1; `load()` ignores `deck_id` and `delete()` removes the file. `list()` returns one summary if the file exists (or `[]` otherwise), tolerating parse errors so the REPL can detect corruption via `load()`.
+- `SqliteRepository(path=None)` — multi-deck backend at `$XDG_DATA_HOME/deckslots/library.db` (stdlib `sqlite3`, `PRAGMA foreign_keys = ON`). Schema migrations are hand-rolled in `_migrate(conn)` — currently `schema_version = 1` with `decks`, `categories`, `allowed_cards`, `cards` tables (cards table has a `cards_by_category` index on `(category_id, position)`). `save()` upserts by deck name; `_maybe_import_legacy()` runs once on the first open of an empty db to seed it from any existing `decklist.bak` (the plaintext file is preserved as a read-only fallback).
+- `_format_save_file(decklist)` / `_parse_save_file(path)` / `_get_save_path()` — plain-text format helpers (private; used by both `PlaintextRepository` and the legacy import path)
 
 ## exceptions.py
 
@@ -172,6 +186,9 @@ All commands follow `<object> <verb> [arguments...]`.
 | `decklist export <filename>` | Export to Moxfield/Archidekt-compatible plain text file (Commander, optional Companion, Maindeck sections) |
 | `decklist save <filename>` | Save decklist structure to a file (categories, slots, cards) |
 | `decklist load <filename>` | Load decklist structure from a file |
+| `decklist list` | List all decks in the library (id, name, card count, last-updated date) |
+| `decklist switch <name>` | Replace the active deck with a saved deck by name |
+| `decklist delete <name>` | Remove a saved deck from the library (prompts to confirm) |
 | `decklist import <filename>` | Import a plain-text decklist (Commander/Companion/Maindeck headings); routes cards to Commander slot, Basic Lands, and Uncategorized |
 | `decklist enable-partner` | Expand Commander slot to 2 for the partner mechanic |
 | `decklist disable-partner` | Revert Commander to 1 slot; all Commander cards move to Uncategorized |
@@ -324,4 +341,5 @@ class Decklist:
 9. **Export format**: up to three sections — `Commander`, `Companion` (only when a companion card is assigned), and `Maindeck` — compatible with Moxfield, Archidekt, and the `decklist import` command. Category structure is discarded. All non-commander, non-companion cards are merged into `Maindeck`, sorted alphabetically by card name.
 10. **Companion does not expand Commander**: Partner and Background both expand `Commander.total_slots`. Companion is a wholly separate `CappedCategory`; it does not affect Commander slot count or the `commander_overcrowded` check.
 11. **`cards` is a `list[str]`** (not a `set`): preserves insertion order and allows `UncappedCategory` to hold multiple copies of the same basic land. `CappedCategory` enforces singleton exclusivity at `add_card`/`move_card` time.
-12. **Save I/O in `storage.py`, export I/O in `cli/commands.py`**: `_format_save_file` and `_parse_save_file` were moved to `storage.py` (Phase 0) and are used by `PlaintextRepository`. `_format_export_file` and `_parse_import_file` remain in `cli/commands.py` (Moxfield/Archidekt-compatible format, not part of the repository abstraction).
+12. **I/O is split by purpose**: persistent storage lives in `storage.py` (`PlaintextRepository`, `SqliteRepository`, plus the plain-text format helpers `_format_save_file` / `_parse_save_file` that they share). External interop — `_format_export_file` and `_parse_import_file` (Moxfield/Archidekt) — stays in `commands.py` because it is user-facing format conversion, not deck-library state. `commands.py` re-exports the storage helpers for backward compatibility.
+13. **Storage backend is opt-in**: the default is `PlaintextRepository` (single `decklist.bak`); users opt into `SqliteRepository` by setting `{"storage_backend": "sqlite"}` in `config.json`. Multi-deck commands (`decklist list/switch/delete`) work with either backend — Plaintext just sees a one-element library.

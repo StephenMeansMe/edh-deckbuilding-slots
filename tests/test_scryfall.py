@@ -141,9 +141,7 @@ class TestValidateCard:
         assert result.commander_legal is True
 
     def test_dfc_full_name_found(self):
-        result = validate_card(
-            "Delver of Secrets // Insectile Aberration", self.index
-        )
+        result = validate_card("Delver of Secrets // Insectile Aberration", self.index)
         assert result.found is True
 
     def test_result_carries_original_card_name(self):
@@ -274,3 +272,31 @@ class TestConfig:
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         assert get_config_path() == tmp_path / "deckslots" / "config.json"
+
+    def test_storage_backend_defaults_to_plaintext(self, tmp_path, monkeypatch):
+        from deckslots.config import get_storage_backend
+
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        assert get_storage_backend() == "plaintext"
+
+    def test_storage_backend_reads_sqlite_from_config(self, tmp_path, monkeypatch):
+        from deckslots.config import get_storage_backend
+
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_dir = tmp_path / "deckslots"
+        config_dir.mkdir()
+        (config_dir / "config.json").write_text(
+            json.dumps({"storage_backend": "sqlite"})
+        )
+        assert get_storage_backend() == "sqlite"
+
+    def test_storage_backend_falls_back_on_malformed_config(
+        self, tmp_path, monkeypatch
+    ):
+        from deckslots.config import get_storage_backend
+
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_dir = tmp_path / "deckslots"
+        config_dir.mkdir()
+        (config_dir / "config.json").write_text("not json")
+        assert get_storage_backend() == "plaintext"

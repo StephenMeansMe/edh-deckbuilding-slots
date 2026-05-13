@@ -38,6 +38,7 @@ def _run(
     state_home: Path,
     data_home: Path | None = None,
     cache_home: Path | None = None,
+    config_home: Path | None = None,
 ) -> str:
     """Invoke the deckslots REPL in-process and return captured stdout."""
     env: dict[str, str] = {"XDG_STATE_HOME": str(state_home)}
@@ -45,6 +46,8 @@ def _run(
         env["XDG_DATA_HOME"] = str(data_home)
     if cache_home is not None:
         env["XDG_CACHE_HOME"] = str(cache_home)
+    if config_home is not None:
+        env["XDG_CONFIG_HOME"] = str(config_home)
     runner = CliRunner(env=env)
     result = runner.invoke(main, input=commands)
     return result.output
@@ -383,9 +386,7 @@ class TestUncategorized:
     def test_warning_appears_on_every_response_while_uncategorized_has_cards(
         self, tmp_path
     ):
-        out = _run(
-            f"decklist import {DECK_TXT}\ncategory list\nquit\n", tmp_path
-        )
+        out = _run(f"decklist import {DECK_TXT}\ncategory list\nquit\n", tmp_path)
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Warning: 1 card(s) in Uncategorized. "
@@ -403,9 +404,7 @@ class TestUncategorized:
         )
 
     def test_no_warning_when_decklist_has_no_uncategorized_category(self, tmp_path):
-        out = _run(
-            "decklist create TestDeck\ncategory list\nquit\n", tmp_path
-        )
+        out = _run("decklist create TestDeck\ncategory list\nquit\n", tmp_path)
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
@@ -691,9 +690,7 @@ class TestRename:
         )
 
     def test_category_rename_without_args_shows_usage(self, tmp_path):
-        out = _run(
-            "decklist create TestDeck\ncategory rename\nquit\n", tmp_path
-        )
+        out = _run("decklist create TestDeck\ncategory rename\nquit\n", tmp_path)
         assert out == (
             "deckslots> Welcome to deckslots.\n"
             "deckslots> Created decklist 'TestDeck'.\n"
@@ -865,9 +862,7 @@ class TestBackground:
             "deckslots> Goodbye.\n"
         )
 
-    def test_overcrowded_warning_fires_after_loading_save_with_no_mode(
-        self, tmp_path
-    ):
+    def test_overcrowded_warning_fires_after_loading_save_with_no_mode(self, tmp_path):
         state_home = tmp_path / "state"
         _run(
             "decklist create BgDeck\ndecklist enable-background\n"
@@ -966,9 +961,7 @@ class TestCompanion:
             f"decklist export {export_path}\nquit\n",
             state1,
         )
-        out2 = _run(
-            f"decklist import {export_path}\ndecklist show\nquit\n", state2
-        )
+        out2 = _run(f"decklist import {export_path}\ndecklist show\nquit\n", state2)
         assert "Companion: 1/1 slots filled" in out2
 
 
@@ -995,7 +988,10 @@ class TestTemplates:
             tmp_path,
             data_home=tmp_path / "data",
         )
-        assert "Created decklist 'Aristocrats' with template 'Goldfish Fundamentals'." in out  # noqa: E501
+        assert (
+            "Created decklist 'Aristocrats' with template 'Goldfish Fundamentals'."
+            in out
+        )  # noqa: E501
         assert "Ramp: 0/10 slots filled" in out
         assert "Card Advantage: 0/10 slots filled" in out
 
@@ -1008,9 +1004,7 @@ class TestTemplates:
         assert "Template 'NoSuchTemplate' not found." in out
         assert "No active decklist." in out
 
-    def test_decklist_apply_template_applies_categories_and_moves_cards(
-        self, tmp_path
-    ):
+    def test_decklist_apply_template_applies_categories_and_moves_cards(self, tmp_path):
         out = _run(
             "decklist create TestDeck\ncategory create Old 5\ncard add Old Sol Ring\n"
             "decklist apply-template Goldfish Fundamentals\nquit\n",
@@ -1095,9 +1089,9 @@ class TestTemplates:
         data_home = tmp_path / "data"
         out = _run(
             "decklist create TestDeck\ncategory create Ramp 10\n"
-            "template save MyTemplate\n"   # first save — no prompt
-            "template save MyTemplate\n"   # second save — overwrite prompt fires
-            "yes\n"                        # full word; current code rejects this
+            "template save MyTemplate\n"  # first save — no prompt
+            "template save MyTemplate\n"  # second save — overwrite prompt fires
+            "yes\n"  # full word; current code rejects this
             "quit\n",
             tmp_path,
             data_home=data_home,
@@ -1168,7 +1162,9 @@ class TestValidation:
             tmp_path,
             cache_home=cache_home,
         )
-        assert "Warning: 'Oko, Thief of Crowns' is not legal in Commander format." in out  # noqa: E501
+        assert (
+            "Warning: 'Oko, Thief of Crowns' is not legal in Commander format." in out
+        )  # noqa: E501
         assert "Added 'Oko, Thief of Crowns' to 'PW'." in out
 
     def test_basic_lands_skip_validation(self, tmp_path):
@@ -1206,3 +1202,63 @@ class TestValidation:
             "Test (1/11)\n"
             "deckslots> Goodbye.\n"
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 1.5 — storage_backend config opt-in
+# ---------------------------------------------------------------------------
+
+
+class TestStorageBackendSelection:
+    """REPL selects PlaintextRepository or SqliteRepository from config.json."""
+
+    def _write_config(self, config_home: Path, backend: str) -> None:
+        d = config_home / "deckslots"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "config.json").write_text(json.dumps({"storage_backend": backend}))
+
+    def test_default_backend_writes_decklist_bak(self, tmp_path):
+        state = tmp_path / "state"
+        data = tmp_path / "data"
+        out = _run(
+            "decklist create Test\ndecklist save\nquit\n",
+            state_home=state,
+            data_home=data,
+        )
+        assert "Saved 'Test'." in out
+        assert (state / "deckslots" / "decklist.bak").exists()
+        assert not (data / "deckslots" / "library.db").exists()
+
+    def test_sqlite_backend_writes_library_db(self, tmp_path):
+        state = tmp_path / "state"
+        data = tmp_path / "data"
+        config = tmp_path / "config"
+        self._write_config(config, "sqlite")
+        out = _run(
+            "decklist create Test\ndecklist save\nquit\n",
+            state_home=state,
+            data_home=data,
+            config_home=config,
+        )
+        assert "Saved 'Test'." in out
+        assert (data / "deckslots" / "library.db").exists()
+        assert not (state / "deckslots" / "decklist.bak").exists()
+
+    def test_sqlite_backend_resumes_saved_deck_across_runs(self, tmp_path):
+        state = tmp_path / "state"
+        data = tmp_path / "data"
+        config = tmp_path / "config"
+        self._write_config(config, "sqlite")
+        _run(
+            "decklist create Resumed\ndecklist save\nquit\n",
+            state_home=state,
+            data_home=data,
+            config_home=config,
+        )
+        out2 = _run(
+            "quit\n",
+            state_home=state,
+            data_home=data,
+            config_home=config,
+        )
+        assert "Resumed 'Resumed'." in out2

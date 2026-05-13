@@ -16,8 +16,9 @@ from deckslots.cli.commands import (
 )
 from deckslots.cli.parser import parse_command
 from deckslots.cli.status import render_status_line
-from deckslots.config import is_validation_enabled
+from deckslots.config import get_storage_backend, is_validation_enabled
 from deckslots.logging_config import setup_logging
+from deckslots.storage import PlaintextRepository, SqliteRepository
 from deckslots.templates import user_template_exists
 
 _logger = logging.getLogger("deckslots.cli.repl")
@@ -76,39 +77,46 @@ def _load_scryfall_index(session: Session) -> None:
         click.echo(f"Download failed: {exc}")
 
 
+def _build_repository():
+    backend = get_storage_backend()
+    if backend == "sqlite":
+        return SqliteRepository()
+    return PlaintextRepository()
+
+
 def run_repl() -> None:
     """Start the deckslots interactive REPL."""
     setup_logging()
-    session = Session()
+    session = Session(repository=_build_repository())
     registry = register_all_handlers(session)
 
-    try:
-        deck = session.repository.load()
-    except (OSError, ValueError) as e:
-        deck = None
-        _logger.warning("Save file load failed, entering recovery: %s", e)
-        click.echo(f"Warning: could not load save file: {e}.")
-        click.echo("Options:")
-        click.echo("  discard — delete the save file and start fresh")
-        click.echo("  exit    — quit so you can inspect the file manually")
-        while True:
-            click.echo("deckslots(recovery)> ", nl=False)
-            try:
-                choice = input().strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                click.echo("Goodbye.")
-                return
-            if choice == "discard":
-                session.repository.delete()
-                click.echo("Save file deleted. Starting fresh.")
-                break
-            elif choice == "exit":
-                click.echo("Goodbye.")
-                return
-    if deck is not None:
-        session.decklist = deck
-        click.echo(f"Resumed '{session.decklist.name}'.")
-        click.echo(render_status_line(session, is_validation_enabled()))
+    summaries = session.repository.list()
+    if summaries:
+        latest = summaries[0]
+        try:
+            session.decklist = session.repository.load(latest.id)
+            click.echo(f"Resumed '{session.decklist.name}'.")
+            click.echo(render_status_line(session, is_validation_enabled()))
+        except (OSError, ValueError, KeyError) as e:
+            _logger.warning("Save file load failed, entering recovery: %s", e)
+            click.echo(f"Warning: could not load save file: {e}.")
+            click.echo("Options:")
+            click.echo("  discard — delete the save file and start fresh")
+            click.echo("  exit    — quit so you can inspect the file manually")
+            while True:
+                click.echo("deckslots(recovery)> ", nl=False)
+                try:
+                    choice = input().strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    click.echo("Goodbye.")
+                    return
+                if choice == "discard":
+                    session.repository.delete(latest.id)
+                    click.echo("Save file deleted. Starting fresh.")
+                    break
+                elif choice == "exit":
+                    click.echo("Goodbye.")
+                    return
 
     _load_scryfall_index(session)
 
