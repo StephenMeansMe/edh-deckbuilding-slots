@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 import time
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -74,8 +76,6 @@ def load_index_from_cache(path: Path) -> dict[str, dict] | None:
 
 def fetch_bulk_data_url() -> str:
     """Fetch the current download URI for the oracle_cards bulk file from Scryfall."""
-    import urllib.request
-
     api_url = "https://api.scryfall.com/bulk-data/oracle-cards"
     with urllib.request.urlopen(api_url) as resp:  # noqa: S310
         data = json.loads(resp.read().decode())
@@ -84,9 +84,78 @@ def fetch_bulk_data_url() -> str:
 
 def download_oracle_cards(dest: Path) -> None:
     """Download the Scryfall oracle_cards bulk file and save it to *dest*."""
-    import urllib.request
-
     url = fetch_bulk_data_url()
     dest.parent.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(url) as resp:  # noqa: S310
         dest.write_bytes(resp.read())
+
+
+# ---------------------------------------------------------------------------
+# Image pipeline (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+def get_image_cache_dir() -> Path:
+    """Return the directory where Scryfall card images are cached."""
+    import os
+
+    xdg = os.environ.get("XDG_CACHE_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".cache"
+    return base / "deckslots" / "card_images"
+
+
+_FILENAME_SCRUB = re.compile(r"[^a-z0-9]+")
+
+
+def _image_filename(card_name: str) -> str:
+    """Return the on-disk filename for *card_name*'s cached image."""
+    slug = _FILENAME_SCRUB.sub("_", card_name.lower()).strip("_")
+    return f"{slug}.jpg"
+
+
+def _image_url_from_index(card_name: str, index: dict) -> str | None:
+    """Look up an `image_uris.normal` URL for *card_name* in *index*.
+
+    Returns the front-face URL for double-faced/split cards.
+    """
+    entry = index.get(card_name.lower())
+    if entry is None:
+        return None
+    image_uris = entry.get("image_uris")
+    if isinstance(image_uris, dict) and "normal" in image_uris:
+        return image_uris["normal"]
+    for face in entry.get("card_faces", []):
+        face_uris = face.get("image_uris")
+        if isinstance(face_uris, dict) and "normal" in face_uris:
+            return face_uris["normal"]
+    return None
+
+
+def fetch_card_image(
+    card_name: str,
+    index: dict | None = None,
+    cache_dir: Path | None = None,
+) -> Path | None:
+    """Return a local path to the cached image of *card_name*, fetching if needed.
+
+    Returns None if no image URL can be resolved or the download fails.
+    Network errors are swallowed — callers fall back to a placeholder.
+    """
+    cache_dir = cache_dir or get_image_cache_dir()
+    dest = cache_dir / _image_filename(card_name)
+    if dest.exists():
+        return dest
+
+    url: str | None = None
+    if index is not None:
+        url = _image_url_from_index(card_name, index)
+    if url is None:
+        return None
+
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(url) as resp:  # noqa: S310
+            dest.write_bytes(resp.read())
+    except OSError:
+        return None
+    return dest

@@ -12,16 +12,26 @@ CLI-facing modules live in the `cli/` subpackage; the top of `deckslots/` holds 
 src/deckslots/
 ├── cli/                # CLI/REPL layer
 │   ├── __init__.py     # re-exports ParsedCommand, parse_command, main
-│   ├── parser.py       # ParsedCommand + parse_command + main (entry point)
+│   ├── parser.py       # ParsedCommand + parse_command + main (click group)
 │   ├── commands.py     # Session, handlers, dispatch registry
 │   ├── repl.py         # run_repl loop
 │   └── status.py       # render_status_line
+├── gui/                # PySide6 GUI (Phase 2, optional [gui] extra)
+│   ├── __init__.py
+│   ├── app.py          # run_app() — QApplication + repo picker + DeckWindow
+│   ├── main_window.py  # DeckWindow QMainWindow (menus, toolbar, status bar)
+│   ├── board_widget.py # BoardWidget + UncatSidebar (pinned row + masonry)
+│   ├── category_tile.py# CatTile QFrame (header + QListView + drag/drop)
+│   ├── card_model.py   # CardListModel(QAbstractListModel)
+│   ├── card_inspector.py# CardInspector (180×280 preview pane)
+│   ├── image_loader.py # ImageLoader (async QThreadPool + in-memory cache)
+│   └── styles.py       # Design tokens → Qt stylesheets (light/dark themes)
 ├── models.py           # Decklist, Category, BASIC_LAND_NAMES
 ├── services.py         # Pure domain functions → CommandResult
 ├── events.py           # DomainEvent ADT
-├── storage.py          # DecklistRepository + PlaintextRepository
+├── storage.py          # DecklistRepository + PlaintextRepository + SqliteRepository
 ├── templates.py        # Template, load/save/import/export
-├── scryfall.py         # Card-name validation index
+├── scryfall.py         # Card-name validation index + image pipeline
 ├── config.py           # config.json reader
 ├── logging_config.py   # File logging setup
 └── exceptions.py       # DecklistError hierarchy
@@ -35,7 +45,7 @@ src/deckslots/
 - `ParsedCommand` fields: `kind` (`builtin`, `object_verb`, `unknown`, `empty`), `obj`, `verb`, `args`, `raw`, `builtin`
 - Known objects: `decklist`, `category`, `card`, `template`
 - Builtins: `quit`, `exit`, `help`
-- `main()` — console-script entry point (sets up logging, calls `run_repl`)
+- `main()` — console-script entry point. A `click.group(invoke_without_command=True)`; running `deckslots` with no subcommand launches the REPL (backward compatible). `deckslots gui` lazily imports `deckslots.gui.app.run_app` (Phase 2).
 
 ## models.py
 
@@ -125,6 +135,27 @@ Persistence layer that owns the storage seam.
 - `load_index_from_cache(path)` → index dict or None
 - `fetch_bulk_data_url()` — queries Scryfall API for the oracle_cards bulk download URI
 - `download_oracle_cards(dest)` — fetches and writes bulk data to cache
+- **Image pipeline (Phase 2)**:
+  - `get_image_cache_dir()` → `$XDG_CACHE_HOME/deckslots/card_images/`
+  - `fetch_card_image(name, index=None, cache_dir=None)` — resolves `image_uris.normal` from the oracle_cards index (or the first DFC face), downloads, caches on disk, returns the path. Swallows `OSError`; callers fall back to a placeholder card face.
+
+## gui/ (Phase 2)
+
+PySide6 desktop GUI. Loaded only when the optional `[gui]` extra is installed (`pip install deckslots[gui]`). Launched via `deckslots gui`.
+
+- `app.run_app(exec_loop=True)` — bootstraps `QApplication`, picks `SqliteRepository` or `PlaintextRepository` from `config.get_storage_backend()`, loads the first deck in the library (or creates `"New Deck"`), applies the light theme, and shows `DeckWindow`. Tests use `exec_loop=False`.
+- `main_window.DeckWindow(deck, repository, scryfall_index=None)` — top-level `QMainWindow`. Owns the active deck + repository; persists via `repository.save(deck)` on every `BoardWidget.deck_mutated` signal. Menu bar: File · Deck · Category · Card · View · Help. Status bar renders `Slots: filled/total` plus warnings for uncategorized cards, commander overcrowding, and empty companion slots.
+- `board_widget.BoardWidget` — three regions:
+  - **Pinned row**: Commander tile (180px fixed) + Basic Lands tile (flex) + `CardInspector` (180×280)
+  - **Masonry**: user categories distributed round-robin across 3 `QVBoxLayout` columns inside a `QScrollArea` (closest Qt equivalent to CSS `columns: 3`)
+  - **Uncategorized sidebar**: `UncatSidebar` (220px, dashed amber border) — accepts drops as a soft-remove (`services.remove_card`)
+- `category_tile.CatTile(category, deck)` — header (name + lock icon for fixed + count badge) and `QListView` backed by `CardListModel`. Drop events go through `services.can_drop` for validation and `services.move_card` for commit. Visual feedback via Qt dynamic properties (`dragOk`, `dragReject`). Emits `card_selected` and `card_moved`.
+- `card_model.CardListModel(category)` — read-only `QAbstractListModel` over `Category.cards`. Drag MIME type `application/x-deckslots-card` carries `"<from_category>\t<card>"`.
+- `card_inspector.CardInspector` — fixed-size (180×280) `QFrame` with a `QStackedWidget` showing either a hand-drawn placeholder card face or the Scryfall image. `set_image(name, pixmap)` discards results whose `name` no longer matches `current_card` (guards against late async loads).
+- `image_loader.ImageLoader(index, cache_dir)` — async fetcher built on `QThreadPool`. Cache hit emits `image_ready(card_name, pixmap)` synchronously; cache miss schedules a `_FetchTask` that sleeps 100 ms (Scryfall rate limit) then calls `scryfall.fetch_card_image`. In-memory FIFO cache (max 200 entries).
+- `styles.py` — `LIGHT_TOKENS` / `DARK_TOKENS` design-token dicts (mirroring `docs/design/design-handoff.md`) and `build_stylesheet(tokens)` → Qt Style Sheet. `apply_theme(app, theme)` sets the stylesheet and applies the DM Sans font (with `system-ui` fallback).
+
+The GUI never touches `Decklist` mutation directly; every change routes through `deckslots.services` so domain invariants (capacity, allowed_cards, singleton exclusivity) are enforced identically to the REPL.
 
 ## templates.py
 

@@ -7,6 +7,11 @@ dependencies = [
     "click>=8.3.1",
 ]
 
+[project.optional-dependencies]
+gui = [
+    "PySide6>=6.6",
+]
+
 [project.scripts]
 deckslots = "deckslots.cli:main"
 
@@ -30,6 +35,7 @@ select = ["E", "F", "I", "W"]
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "pytest-qt>=4.4.0",
     "ruff>=0.15.1",
     "ty>=0.0.20",
 ]

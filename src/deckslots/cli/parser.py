@@ -34,14 +34,36 @@ def parse_command(line: str) -> ParsedCommand:
     return ParsedCommand(kind="unknown", raw=stripped)
 
 
-@click.command()
-def main() -> None:
-    """CLI entrypoint for deckslots."""
-    from deckslots.cli.repl import run_repl
-    from deckslots.logging_config import setup_logging
+@click.group(invoke_without_command=True)
+@click.pass_context
+def main(ctx: click.Context) -> None:
+    """CLI entrypoint for deckslots.
 
-    setup_logging()
-    run_repl()
+    Running ``deckslots`` with no subcommand launches the interactive REPL,
+    preserving backward compatibility. Use ``deckslots gui`` to launch the
+    desktop application (requires the optional ``[gui]`` extra).
+    """
+    if ctx.invoked_subcommand is None:
+        from deckslots.cli.repl import run_repl
+        from deckslots.logging_config import setup_logging
+
+        setup_logging()
+        run_repl()
+
+
+@main.command()
+def gui() -> None:
+    """Launch the deckslots GUI."""
+    try:
+        from deckslots.gui.app import run_app
+    except ImportError as exc:
+        click.echo(
+            "GUI dependencies not installed. "
+            "Install with: pip install 'deckslots[gui]'"
+        )
+        click.echo(f"  ({exc})")
+        raise SystemExit(1) from exc
+    run_app()
 
 
 if __name__ == "__main__":
