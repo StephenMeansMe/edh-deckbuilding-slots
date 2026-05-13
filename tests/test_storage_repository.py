@@ -317,7 +317,9 @@ class TestSqliteSchemaMigration:
         db_path = tmp_path / "library.db"
         SqliteRepository(path=db_path)
         with sqlite3.connect(str(db_path)) as conn:
-            (max_v,) = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
+            (max_v,) = conn.execute(
+                "SELECT MAX(version) FROM schema_version"
+            ).fetchone()
         assert max_v == CURRENT_SCHEMA_VERSION
 
     def test_future_schema_version_raises(self, tmp_path):
@@ -356,7 +358,9 @@ class TestSqliteSchemaMigration:
         # Reopening should reapply the v1→current upgrades.
         SqliteRepository(path=db_path)
         with sqlite3.connect(str(db_path)) as conn:
-            (max_v,) = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
+            (max_v,) = conn.execute(
+                "SELECT MAX(version) FROM schema_version"
+            ).fetchone()
         assert max_v == CURRENT_SCHEMA_VERSION
         # And the events table is back.
         with sqlite3.connect(str(db_path)) as conn:

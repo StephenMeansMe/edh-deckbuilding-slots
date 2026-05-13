@@ -12,13 +12,12 @@ not storage.
 from __future__ import annotations
 
 import datetime as _dt
-import os
 import re
 import sqlite3
+import typing as _t
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-import typing as _t
 from typing import Protocol
 
 from deckslots.exceptions import ParseError

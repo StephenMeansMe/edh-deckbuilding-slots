@@ -18,11 +18,9 @@ investigate any regression with a perf flamegraph before merging.
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 import tempfile
 import time
-from pathlib import Path
 
 
 def _make_full_deck(name: str = "Bench Deck"):
@@ -93,8 +91,10 @@ def main() -> int:
     print()
     cold_ok = cold < 2.0
     warm_ok = warm < 0.5
-    print(f"  Targets: cold < 2.000 s  warm < 0.500 s")
-    print(f"  Result:  cold {'OK' if cold_ok else 'FAIL'}   warm {'OK' if warm_ok else 'FAIL'}")
+    print("  Targets: cold < 2.000 s  warm < 0.500 s")
+    cold_tag = "OK" if cold_ok else "FAIL"
+    warm_tag = "OK" if warm_ok else "FAIL"
+    print(f"  Result:  cold {cold_tag}   warm {warm_tag}")
     return 0 if (cold_ok and warm_ok) else 1
 
 
