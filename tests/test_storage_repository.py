@@ -308,6 +308,63 @@ class TestSqliteSchemaMigration:
             (count,) = conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count == initial_count
 
+    def test_current_schema_version_constant_matches_applied(self, tmp_path):
+        """CURRENT_SCHEMA_VERSION reflects the highest migration applied."""
+        import sqlite3
+
+        from deckslots.storage import CURRENT_SCHEMA_VERSION
+
+        db_path = tmp_path / "library.db"
+        SqliteRepository(path=db_path)
+        with sqlite3.connect(str(db_path)) as conn:
+            (max_v,) = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
+        assert max_v == CURRENT_SCHEMA_VERSION
+
+    def test_future_schema_version_raises(self, tmp_path):
+        """Opening a DB stamped with a future schema_version is a clear error."""
+        import sqlite3
+
+        from deckslots.storage import CURRENT_SCHEMA_VERSION
+
+        db_path = tmp_path / "library.db"
+        # First create a valid DB, then stamp a future version on it.
+        SqliteRepository(path=db_path)
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+                (CURRENT_SCHEMA_VERSION + 10, "2099-01-01T00:00:00"),
+            )
+            conn.commit()
+
+        with pytest.raises(RuntimeError, match="newer than this app supports"):
+            SqliteRepository(path=db_path)
+
+    def test_upgrade_from_v1_to_current(self, tmp_path):
+        """A DB stamped only at v1 receives subsequent upgrades on open."""
+        import sqlite3
+
+        from deckslots.storage import CURRENT_SCHEMA_VERSION
+
+        db_path = tmp_path / "library.db"
+        # Manually create a v1-only schema (delete the events table that v2 adds).
+        SqliteRepository(path=db_path)
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute("DROP TABLE IF EXISTS events")
+            conn.execute("DELETE FROM schema_version WHERE version > 1")
+            conn.commit()
+
+        # Reopening should reapply the v1→current upgrades.
+        SqliteRepository(path=db_path)
+        with sqlite3.connect(str(db_path)) as conn:
+            (max_v,) = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
+        assert max_v == CURRENT_SCHEMA_VERSION
+        # And the events table is back.
+        with sqlite3.connect(str(db_path)) as conn:
+            row = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='events'"
+            ).fetchone()
+        assert row is not None
+
 
 class TestSqliteRepositoryLegacyImport:
     """First-run convenience: import an existing decklist.bak into a fresh db."""
