@@ -67,9 +67,7 @@ class TestDropValidation:
     def test_rejects_drop_when_full(self, qtbot):
         deck = Decklist.create("Test")
         deck.add_category("Ramp", 1)
-        deck.add_card("Sol Ring", "Ramp")
-        deck.add_card("Arcane Signet", "Ramp")  # Not actually — full
-        # Force full by raising to 1 and adding 1
+        deck.add_card("Sol Ring", "Ramp")  # Ramp is now full (1/1)
         tile = CatTile(deck.categories["ramp"], deck)
         qtbot.addWidget(tile)
         mime = self._mime_for("Uncategorized", "Mind Stone")
