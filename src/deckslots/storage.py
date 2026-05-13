@@ -18,6 +18,7 @@ import sqlite3
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+import typing as _t
 from typing import Protocol
 
 from deckslots.exceptions import ParseError
@@ -273,29 +274,61 @@ def _get_db_path() -> Path:
     return base / "deckslots" / "library.db"
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    cur = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
-    )
-    has_schema = cur.fetchone() is not None
-    if not has_schema:
-        conn.executescript(_SCHEMA_V1)
-        conn.execute(
-            "INSERT INTO schema_version (version, applied_at) VALUES (1, ?)",
-            (_dt.datetime.now(tz=_dt.timezone.utc).isoformat(),),
-        )
-        conn.commit()
+def _upgrade_to_v1(conn: sqlite3.Connection) -> None:
+    conn.executescript(_SCHEMA_V1)
 
-    version = (
-        conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] or 0
-    )
-    if version < 2:
-        conn.executescript(_SCHEMA_V2)
-        conn.execute(
-            "INSERT INTO schema_version (version, applied_at) VALUES (2, ?)",
-            (_dt.datetime.now(tz=_dt.timezone.utc).isoformat(),),
+
+def _upgrade_to_v2(conn: sqlite3.Connection) -> None:
+    conn.executescript(_SCHEMA_V2)
+
+
+# Ordered list of (target_version, upgrade_fn). Append a new tuple to add a
+# v3, v4, … migration. See docs/plans/2026-05-13-sqlite-migrations.md.
+_MIGRATIONS: list[tuple[int, _t.Callable[[sqlite3.Connection], None]]] = [
+    (1, _upgrade_to_v1),
+    (2, _upgrade_to_v2),
+]
+CURRENT_SCHEMA_VERSION: int = _MIGRATIONS[-1][0]
+
+
+def _current_version(conn: sqlite3.Connection) -> int:
+    """Return the highest applied schema version, or 0 if none recorded."""
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
+    ).fetchone()
+    if row is None:
+        return 0
+    row = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
+    return row[0] or 0
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Apply pending schema upgrades in version order.
+
+    Each upgrade is wrapped in a transaction (committed on success, rolled
+    back on failure). A DB whose stored version exceeds
+    ``CURRENT_SCHEMA_VERSION`` raises ``RuntimeError`` rather than risking
+    silent corruption.
+    """
+    version = _current_version(conn)
+    if version > CURRENT_SCHEMA_VERSION:
+        raise RuntimeError(
+            f"Database schema version {version} is newer than this app "
+            f"supports ({CURRENT_SCHEMA_VERSION}). Please upgrade deckslots."
         )
-        conn.commit()
+    for target, upgrade_fn in _MIGRATIONS:
+        if target <= version:
+            continue
+        try:
+            upgrade_fn(conn)
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+                (target, _dt.datetime.now(tz=_dt.timezone.utc).isoformat()),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
 
 class SqliteRepository:
