@@ -1,4 +1,6 @@
-from deckslots.cli import parse_command
+from click.testing import CliRunner
+
+from deckslots.cli import main, parse_command
 
 
 class TestParseCommand:
@@ -98,3 +100,19 @@ class TestParseCommand:
         """'template' alone (no verb) is parsed as unknown."""
         result = parse_command("template")
         assert result.kind == "unknown"
+
+
+class TestMainGroup:
+    """`main` is a click group that supports a `gui` subcommand."""
+
+    def test_help_lists_gui_subcommand(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["--help"])
+        assert result.exit_code == 0
+        assert "gui" in result.output
+
+    def test_gui_subcommand_has_its_own_help(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["gui", "--help"])
+        assert result.exit_code == 0
+        assert "Launch the deckslots GUI" in result.output
