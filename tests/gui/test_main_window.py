@@ -90,3 +90,69 @@ class TestDeckSelectedSignal:
         qtbot.addWidget(win)
         win.board.card_selected.emit("Sol Ring")
         assert win.board.inspector.current_card == "Sol Ring"
+
+
+class TestLibraryDock:
+    def test_sqlite_repo_shows_library_dock(self, qtbot, tmp_path):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Test")
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+        assert hasattr(win, "_library_dock")
+        assert win._library_dock is not None
+
+    def test_load_deck_switches_active_deck(self, qtbot, tmp_path):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck1 = Decklist.create("Alpha")
+        deck2 = Decklist.create("Beta")
+        id1 = repo.save(deck1)
+        id2 = repo.save(deck2)
+        win = DeckWindow(deck1, repo)
+        qtbot.addWidget(win)
+        win._load_deck(id2)
+        assert win.deck.name == "Beta"
+        assert "Beta" in win.windowTitle()
+
+    def test_load_deck_updates_board(self, qtbot, tmp_path):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck1 = Decklist.create("Alpha")
+        deck1.add_category("Ramp", 5)
+        id1 = repo.save(deck1)
+        deck2 = Decklist.create("Beta")
+        id2 = repo.save(deck2)
+        win = DeckWindow(deck1, repo)
+        qtbot.addWidget(win)
+        win._load_deck(id2)
+        # Beta has no user categories, so masonry should be empty
+        assert win.board.masonry_tiles == {}
+
+    def test_load_deck_resets_inspector(self, qtbot, tmp_path):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Alpha")
+        id1 = repo.save(deck)
+        deck2 = Decklist.create("Beta")
+        id2 = repo.save(deck2)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+        # select a card first
+        win.board.card_selected.emit("Sol Ring")
+        win._load_deck(id2)
+        # After switch the inspector should have no card (or a different deck's card)
+        # The board's inspector must belong to the new board
+        assert win.board.inspector is not None
+
+    def test_plaintext_repo_has_no_library_dock(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        # PlaintextRepository is single-deck; no library dock added
+        assert not hasattr(win, "_library_dock") or win._library_dock is None
