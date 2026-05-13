@@ -92,6 +92,57 @@ class TestDeckSelectedSignal:
         assert win.board.inspector.current_card == "Sol Ring"
 
 
+class TestUndoRedo:
+    def test_window_has_undo_stack(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        assert hasattr(win, "_undo_stack")
+
+    def test_undo_reverts_deck_state(self, qtbot, tmp_path):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+
+        # Capture snapshot before mutation
+        win._undo_stack.push(deck, "before delete")
+        deck.categories.pop("ramp")
+        assert "ramp" not in win._deck.categories
+
+        # Undo should restore
+        win._undo()
+        assert "ramp" in win._deck.categories
+
+    def test_redo_after_undo(self, qtbot, tmp_path):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 10)
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+
+        win._undo_stack.push(deck, "before delete")
+        deck.categories.pop("ramp")
+        win._undo()
+        assert "ramp" in win._deck.categories
+        win._redo()
+        assert "ramp" not in win._deck.categories
+
+    def test_menu_bar_has_edit_menu(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        titles = [a.text() for a in win.menuBar().actions()]
+        assert "Edit" in titles
+
+
 class TestLibraryDock:
     def test_sqlite_repo_shows_library_dock(self, qtbot, tmp_path):
         from deckslots.storage import SqliteRepository
