@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from deckslots.models import Decklist
-
-
 # UndoStack is a plain Python class (no Qt), so no importorskip needed.
 from deckslots.gui.undo_stack import UndoStack  # noqa: E402
+from deckslots.models import Decklist
 
 
 @pytest.fixture

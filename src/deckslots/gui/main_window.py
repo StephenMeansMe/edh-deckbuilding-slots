@@ -16,12 +16,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from deckslots import services
 from deckslots.gui.board_widget import BoardWidget
 from deckslots.gui.deck_library import DeckLibraryPanel
 from deckslots.gui.image_loader import ImageLoader
+from deckslots.gui.mana_panel import ManaPanel
 from deckslots.gui.omnibar import Omnibar
 from deckslots.gui.undo_stack import UndoStack
-from deckslots import services
 from deckslots.models import Decklist
 from deckslots.storage import DecklistRepository, SqliteRepository
 
@@ -50,6 +51,8 @@ class DeckWindow(QMainWindow):
         self._current_deck_id: int | None = None
         self._library_dock: QDockWidget | None = None
         self._deck_library: DeckLibraryPanel | None = None
+        self._mana_dock: QDockWidget | None = None
+        self._mana_panel: ManaPanel | None = None
         self._undo_stack = UndoStack()
 
         self._setWindowTitle()
@@ -75,6 +78,9 @@ class DeckWindow(QMainWindow):
         # Library sidebar — only for multi-deck SQLite backend
         if isinstance(repository, SqliteRepository):
             self._setup_library_dock()
+
+        # Mana-curve panel (bottom dock)
+        self._setup_mana_dock()
 
     # ---------------------------------------------------------------
     # Setup
@@ -193,10 +199,34 @@ class DeckWindow(QMainWindow):
         self._view_menu.addSeparator()
         self._view_menu.addAction(toggle)
 
+    def _setup_mana_dock(self) -> None:
+        """Create the mana-curve QDockWidget at the bottom."""
+        self._mana_panel = ManaPanel(self._deck, index=self._scryfall_index)
+
+        dock = QDockWidget("Mana Curve", self)
+        dock.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea
+            | Qt.DockWidgetArea.TopDockWidgetArea
+        )
+        dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+        )
+        dock.setWidget(self._mana_panel)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+        self._mana_dock = dock
+
+        toggle = dock.toggleViewAction()
+        toggle.setText("Mana Curve")
+        self._view_menu.addSeparator()
+        self._view_menu.addAction(toggle)
+
     def _wire_board(self) -> None:
         """Connect board signals to window slots."""
         self.board.card_selected.connect(self._on_card_selected)
         self.board.deck_mutated.connect(self._on_deck_mutated)
+        if self._mana_panel is not None:
+            self.board.deck_mutated.connect(self._mana_panel.refresh)
 
     # ---------------------------------------------------------------
     # Deck switching
@@ -266,6 +296,9 @@ class DeckWindow(QMainWindow):
         if self._deck_library is not None:
             self._deck_library.refresh(current_deck_id=deck_id)
         self._omnibar.update_deck(new_deck)
+        if self._mana_panel is not None:
+            self._mana_panel.set_deck(new_deck)
+            self._mana_panel.refresh()
 
     # ---------------------------------------------------------------
     # Deck management actions

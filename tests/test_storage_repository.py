@@ -300,7 +300,9 @@ class TestSqliteSchemaMigration:
         SqliteRepository(path=db_path)
         initial_count = None
         with sqlite3.connect(str(db_path)) as conn:
-            (initial_count,) = conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()
+            (initial_count,) = conn.execute(
+                "SELECT COUNT(*) FROM schema_version"
+            ).fetchone()
         SqliteRepository(path=db_path)  # second open
         with sqlite3.connect(str(db_path)) as conn:
             (count,) = conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()
@@ -369,7 +371,7 @@ class TestSchemaV2Migration:
     def test_events_table_created_on_fresh_db(self, tmp_path):
         import sqlite3
 
-        repo = SqliteRepository(tmp_path / "lib.db")
+        SqliteRepository(tmp_path / "lib.db")
         conn = sqlite3.connect(str(tmp_path / "lib.db"))
         tables = {
             r[0]
@@ -468,7 +470,10 @@ class TestEventPersistence:
         deck_id = repo.save(deck)
 
         repo.append_event(deck_id, CardAdded(card="Sol Ring", category="Ramp"))
-        repo.append_event(deck_id, CardMoved(card="Sol Ring", from_category="Ramp", to_category="Draw"))
+        repo.append_event(
+            deck_id,
+            CardMoved(card="Sol Ring", from_category="Ramp", to_category="Draw"),
+        )
 
         events = repo.load_events(deck_id)
         assert len(events) == 2

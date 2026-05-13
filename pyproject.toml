@@ -9,7 +9,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gui = [
-    "PySide6>=6.6",
+    "pyside6>=6.6",
 ]
 
 [project.scripts]

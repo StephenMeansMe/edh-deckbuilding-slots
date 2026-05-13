@@ -6,7 +6,6 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import Qt  # noqa: E402
 
 from deckslots.gui.deck_library import DeckLibraryPanel  # noqa: E402
 from deckslots.models import Decklist  # noqa: E402

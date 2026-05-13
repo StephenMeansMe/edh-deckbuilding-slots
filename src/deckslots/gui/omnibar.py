@@ -13,12 +13,11 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListView,
     QPushButton,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
-from deckslots.gui.card_model import CARD_MIME_TYPE, SEARCH_MIME_TYPE
+from deckslots.gui.card_model import SEARCH_MIME_TYPE
 from deckslots.models import Decklist
 
 _MAX_RESULTS = 50
@@ -72,7 +71,9 @@ class SearchResultModel:
 class _ResultListView(QListView):
     """QListView subclass wired to SearchResultModel via a simple adapter."""
 
-    def __init__(self, result_model: SearchResultModel, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, result_model: SearchResultModel, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self._result_model = result_model
         from PySide6.QtCore import QAbstractListModel, QModelIndex
@@ -241,7 +242,9 @@ class Omnibar(QDialog):
         if obj is self.search_input and isinstance(event, QKeyEvent):
             key = event.key()
             if key == Qt.Key.Key_Down:
-                self._active_row = min(self._active_row + 1, self.result_model.rowCount() - 1)
+                self._active_row = min(
+                    self._active_row + 1, self.result_model.rowCount() - 1
+                )
                 return True
             elif key == Qt.Key.Key_Up:
                 self._active_row = max(self._active_row - 1, 0)

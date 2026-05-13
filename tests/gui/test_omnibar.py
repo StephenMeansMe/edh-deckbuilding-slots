@@ -6,8 +6,11 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from deckslots.gui.omnibar import SEARCH_MIME_TYPE, Omnibar, SearchResultModel  # noqa: E402
-from deckslots.gui.card_model import CARD_MIME_TYPE  # noqa: E402
+from deckslots.gui.omnibar import (  # noqa: E402
+    SEARCH_MIME_TYPE,
+    Omnibar,
+    SearchResultModel,
+)
 from deckslots.models import Decklist  # noqa: E402
 
 
@@ -21,7 +24,9 @@ class TestSearchResultModel:
         assert model.rowCount() == 0
 
     def test_query_filters_by_substring(self, qtbot):
-        model = SearchResultModel(_index("Sol Ring", "Swords to Plowshares", "Sunken Ruins"))
+        model = SearchResultModel(
+            _index("Sol Ring", "Swords to Plowshares", "Sunken Ruins")
+        )
         model.set_filter("s")
         assert model.rowCount() == 3
 

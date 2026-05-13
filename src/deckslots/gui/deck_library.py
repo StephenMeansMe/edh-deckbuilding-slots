@@ -36,7 +36,9 @@ class _DeckRow(QWidget):
         layout.setSpacing(8)
 
         name_label = QLabel(summary.name)
-        name_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        name_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
         if active:
             name_label.setStyleSheet("font-weight: 700;")
 
