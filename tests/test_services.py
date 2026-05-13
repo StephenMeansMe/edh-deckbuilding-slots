@@ -546,3 +546,53 @@ class TestApplyTemplate:
         result = apply_template(deck, "nonexistent-template-xyz")
         assert not result.ok
         assert result.events == []
+
+
+# ---------------------------------------------------------------------------
+# can_add (Phase 3.2)
+# ---------------------------------------------------------------------------
+
+
+class TestCanAdd:
+    def test_returns_true_for_valid_add(self):
+        from deckslots.services import can_add
+
+        deck = Decklist.create("D")
+        deck.add_category("Ramp", 10)
+        assert can_add(deck, "Sol Ring", "ramp") is True
+
+    def test_returns_false_for_unknown_category(self):
+        from deckslots.services import can_add
+
+        deck = Decklist.create("D")
+        assert can_add(deck, "Sol Ring", "nonexistent") is False
+
+    def test_returns_false_when_category_full(self):
+        from deckslots.services import can_add
+
+        deck = Decklist.create("D")
+        deck.add_category("Ramp", 1)
+        deck.add_card("Sol Ring", "Ramp")
+        assert can_add(deck, "Lightning Bolt", "ramp") is False
+
+    def test_returns_false_if_card_already_in_deck(self):
+        from deckslots.services import can_add
+
+        deck = Decklist.create("D")
+        deck.add_category("Ramp", 10)
+        deck.add_card("Sol Ring", "Ramp")
+        # Sol Ring already in a CappedCategory — exclusivity check fails
+        assert can_add(deck, "Sol Ring", "ramp") is False
+
+    def test_returns_false_for_disallowed_card(self):
+        from deckslots.services import can_add
+
+        deck = Decklist.create("D")
+        # Basic Lands only allows basic land names
+        assert can_add(deck, "Sol Ring", "basic lands") is False
+
+    def test_returns_true_for_basic_land_in_basic_lands(self):
+        from deckslots.services import can_add
+
+        deck = Decklist.create("D")
+        assert can_add(deck, "Forest", "basic lands") is True
