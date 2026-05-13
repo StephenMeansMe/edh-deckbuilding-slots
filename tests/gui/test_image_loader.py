@@ -15,7 +15,7 @@ def _make_jpeg_bytes() -> bytes:
     """Return a tiny valid JPEG file body."""
     pix = QPixmap(2, 2)
     pix.fill()
-    from PySide6.QtCore import QBuffer, QByteArray, QIODeviceBase
+    from PySide6.QtCore import QBuffer, QIODeviceBase
 
     buf = QBuffer()
     buf.open(QIODeviceBase.OpenModeFlag.WriteOnly)
