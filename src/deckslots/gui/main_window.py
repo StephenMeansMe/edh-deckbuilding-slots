@@ -59,6 +59,7 @@ class DeckWindow(QMainWindow):
         self._mana_dock: QDockWidget | None = None
         self._mana_panel: ManaPanel | None = None
         self._undo_stack = UndoStack()
+        self._last_selected_card: str | None = None
 
         self._setWindowTitle()
         self._setup_menus()
@@ -144,6 +145,10 @@ class DeckWindow(QMainWindow):
         act_search.setShortcut(QKeySequence("Ctrl+K"))
         act_search.triggered.connect(self._open_omnibar)
         card_menu.addAction(act_search)
+        act_move = QAction("Move Card... (Shift+M)", self)
+        act_move.setShortcut(QKeySequence("Shift+M"))
+        act_move.triggered.connect(self._on_keyboard_move_card)
+        card_menu.addAction(act_move)
 
         self._view_menu = menubar.addMenu("View")
         self._view_menu.addAction(QAction("Light Theme", self))
@@ -176,6 +181,10 @@ class DeckWindow(QMainWindow):
         bar.setSizeGripEnabled(False)
         self.status_label = QLabel()
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.status_label.setAccessibleName("Deck status")
+        self.status_label.setAccessibleDescription(
+            "Total slot counts and warnings for the active deck."
+        )
         bar.addPermanentWidget(self.status_label, 1)
 
     def _setup_library_dock(self) -> None:
@@ -419,6 +428,7 @@ class DeckWindow(QMainWindow):
         self.status_label.setText(" | ".join(parts))
 
     def _on_card_selected(self, card_name: str) -> None:
+        self._last_selected_card = card_name
         self.board.inspector.set_card(card_name)
         self._image_loader.request(card_name)
 
@@ -451,10 +461,46 @@ class DeckWindow(QMainWindow):
         self.status_label.setText(f"Card index unavailable: {message}")
 
     def _on_card_chosen(self, card: str, category_key: str) -> None:
-        result = services.add_card(self._deck, card, category_key)
+        result = services.add_card(
+            self._deck, card, category_key, scryfall_index=self._scryfall_index
+        )
         if result.ok:
             self.board.refresh_tile(category_key)
             self._on_deck_mutated()
+            # Surface any Scryfall warnings (legality, not-found) in the status bar
+            if result.warnings:
+                self.status_label.setText(" | ".join(result.warnings))
+
+    def _on_keyboard_move_card(self) -> None:
+        """Move the most-recently-selected card to a chosen category via keyboard."""
+        card = self._last_selected_card
+        if card is None or self._deck.find_card(card) is None:
+            QMessageBox.information(
+                self,
+                "Move Card",
+                "Select a card first (click it, or focus it), then press Shift+M.",
+            )
+            return
+        choices = [
+            cat.name
+            for cat in self._deck.categories.values()
+            if cat.user_addable and not cat.fixed
+        ]
+        if not choices:
+            QMessageBox.information(
+                self, "Move Card", "There are no movable destination categories."
+            )
+            return
+        target = _prompt_move_destination(self, choices, card)
+        if target is None:
+            return
+        result = services.move_card(self._deck, card, target.lower())
+        if not result.ok:
+            QMessageBox.warning(self, "Move Card", result.message)
+            return
+        self._on_deck_mutated()
+        # Rebuild board so the source and target tiles both refresh.
+        self._rebuild_after_history_change()
 
     # ---------------------------------------------------------------
     # Accessors
@@ -620,3 +666,27 @@ def _prompt_import_path(parent: QWidget | None) -> str | None:
         parent, "Import Deck", "", "Text files (*.txt);;All files (*)"
     )
     return path or None
+
+
+def _prompt_move_destination(
+    parent: QWidget | None, choices: list[str], card: str
+) -> str | None:
+    """Ask the user which category to move *card* into.
+
+    Tests monkeypatch this; in production it shows a ``QInputDialog.getItem``
+    so screen-reader and keyboard-only users can complete a card move without
+    touching the mouse.
+    """
+    from PySide6.QtWidgets import QInputDialog
+
+    target, ok = QInputDialog.getItem(
+        parent,
+        "Move Card",
+        f"Move '{card}' to category:",
+        choices,
+        0,
+        False,
+    )
+    if not ok:
+        return None
+    return target

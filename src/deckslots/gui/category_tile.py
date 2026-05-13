@@ -78,6 +78,11 @@ class CatTile(QFrame):
         self.is_fixed = category.fixed
         self.setProperty("fixedCat", "true" if self.is_fixed else "false")
         self.setAcceptDrops(True)
+        self.setAccessibleName(f"Category: {category.name}")
+        self.setAccessibleDescription(
+            f"{'Fixed' if self.is_fixed else 'User'} category '{category.name}'. "
+            "Drag cards in or out, or use the keyboard Move Card command."
+        )
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(8, 6, 8, 6)
