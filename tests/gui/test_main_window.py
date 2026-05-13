@@ -200,14 +200,21 @@ class TestAddCategoryDialog:
         qtbot.addWidget(win)
         from deckslots.gui import main_window as mw
 
-        # Service-layer rejection: duplicate name
+        warnings: list[tuple[str, str]] = []
+        monkeypatch.setattr(
+            mw.QMessageBox,
+            "warning",
+            lambda parent, title, msg: warnings.append((title, msg)),
+        )
+        # Service-layer rejection: duplicate name (dialog returns a duplicate
+        # because the user could bypass pre-validation via the monkeypatch)
         monkeypatch.setattr(
             mw, "_prompt_new_category", lambda parent, existing: ("Ramp", 5)
         )
-        # Should not raise; service returns ok=False, window shows warning
         win._on_add_category()
         # Slots unchanged from original
         assert win._deck.categories["ramp"].total_slots == 8
+        assert warnings, "expected a QMessageBox.warning to be shown"
 
 
 class TestLibraryDock:

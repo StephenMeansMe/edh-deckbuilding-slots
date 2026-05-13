@@ -5,14 +5,20 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QDockWidget,
+    QFormLayout,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMenuBar,
     QMessageBox,
+    QSpinBox,
     QStatusBar,
     QToolBar,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -126,7 +132,9 @@ class DeckWindow(QMainWindow):
         deck_menu.addAction(QAction("Enable Companion", self))
 
         cat_menu = menubar.addMenu("Category")
-        cat_menu.addAction(QAction("New Category...", self))
+        act_new_cat = QAction("New Category...", self)
+        act_new_cat.triggered.connect(self._on_add_category)
+        cat_menu.addAction(act_new_cat)
 
         card_menu = menubar.addMenu("Card")
         act_search = QAction("Search... (Ctrl+K)", self)
@@ -312,6 +320,20 @@ class DeckWindow(QMainWindow):
         deck_id = self._repository.save(new_deck)
         self._load_deck(deck_id)
 
+    def _on_add_category(self) -> None:
+        """Open the Add Category dialog and create the category on accept."""
+        existing = {key for key in self._deck.categories}
+        result = _prompt_new_category(self, existing)
+        if result is None:
+            return
+        name, slots = result
+        outcome = services.create_category(self._deck, name, slots)
+        if not outcome.ok:
+            QMessageBox.warning(self, "Add Category", outcome.message)
+            return
+        # Rebuild the board to show the new tile; persist.
+        self._rebuild_after_history_change()
+
     def _on_delete_deck(self, deck_id: int) -> None:
         summaries = self._repository.list()
         summary = next((s for s in summaries if s.id == deck_id), None)
@@ -387,3 +409,73 @@ class DeckWindow(QMainWindow):
     @property
     def repository(self) -> DecklistRepository:
         return self._repository
+
+
+class _AddCategoryDialog(QDialog):
+    """Modal dialog: prompt for a new user category's name and slot count.
+
+    OK is disabled while the name is empty or duplicates an existing category
+    (case-insensitive). Returns (name, slots) on accept via ``values()``.
+    """
+
+    def __init__(self, existing: set[str], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("New Category")
+        self._existing = {n.lower() for n in existing}
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self._name_edit = QLineEdit()
+        self._name_edit.setObjectName("CategoryName")
+        self._slots_spin = QSpinBox()
+        self._slots_spin.setRange(1, 99)
+        self._slots_spin.setValue(8)
+        form.addRow("Name:", self._name_edit)
+        form.addRow("Slots:", self._slots_spin)
+        layout.addLayout(form)
+
+        self._error = QLabel()
+        self._error.setStyleSheet("color: #c03010;")
+        layout.addWidget(self._error)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._ok_button.setEnabled(False)
+
+        self._name_edit.textChanged.connect(self._revalidate)
+
+    def _revalidate(self, text: str) -> None:
+        name = text.strip()
+        if not name:
+            self._error.setText("")
+            self._ok_button.setEnabled(False)
+            return
+        if name.lower() in self._existing:
+            self._error.setText(f"A category named '{name}' already exists.")
+            self._ok_button.setEnabled(False)
+            return
+        self._error.setText("")
+        self._ok_button.setEnabled(True)
+
+    def values(self) -> tuple[str, int]:
+        return self._name_edit.text().strip(), self._slots_spin.value()
+
+
+def _prompt_new_category(
+    parent: QWidget | None, existing: set[str]
+) -> tuple[str, int] | None:
+    """Show the Add Category dialog; return (name, slots) or None on cancel.
+
+    Tests monkeypatch this module-level function to avoid actually showing
+    a Qt dialog.
+    """
+    dlg = _AddCategoryDialog(existing, parent=parent)
+    if dlg.exec() != QDialog.DialogCode.Accepted:
+        return None
+    return dlg.values()
