@@ -143,6 +143,73 @@ class TestUndoRedo:
         assert "Edit" in titles
 
 
+class TestAddCategoryDialog:
+    """4.0.2 — wiring the Category menu's New Category... action."""
+
+    def test_category_menu_has_new_category_action(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        cat_menu = None
+        for a in win.menuBar().actions():
+            if a.text() == "Category":
+                cat_menu = a.menu()
+                break
+        assert cat_menu is not None
+        action_texts = [a.text() for a in cat_menu.actions()]
+        assert any(
+            "New Category" in t for t in action_texts
+        ), f"Category menu missing New Category... action; have: {action_texts}"
+
+    def test_add_category_creates_user_category(self, qtbot, tmp_path, monkeypatch):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+
+        # Stub the dialog to return ("Ramp", 8)
+        from deckslots.gui import main_window as mw
+
+        monkeypatch.setattr(
+            mw, "_prompt_new_category", lambda parent, existing: ("Ramp", 8)
+        )
+        win._on_add_category()
+        assert "ramp" in win._deck.categories
+        from deckslots.models import CappedCategory
+
+        ramp = win._deck.categories["ramp"]
+        assert isinstance(ramp, CappedCategory)
+        assert ramp.total_slots == 8
+
+    def test_add_category_cancel_is_noop(self, qtbot, tmp_path, monkeypatch):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        from deckslots.gui import main_window as mw
+
+        before = set(win._deck.categories)
+        monkeypatch.setattr(
+            mw, "_prompt_new_category", lambda parent, existing: None
+        )
+        win._on_add_category()
+        assert set(win._deck.categories) == before
+
+    def test_add_category_duplicate_rejected(self, qtbot, tmp_path, monkeypatch):
+        deck = Decklist.create("Test")
+        deck.add_category("Ramp", 8)
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        from deckslots.gui import main_window as mw
+
+        # Service-layer rejection: duplicate name
+        monkeypatch.setattr(
+            mw, "_prompt_new_category", lambda parent, existing: ("Ramp", 5)
+        )
+        # Should not raise; service returns ok=False, window shows warning
+        win._on_add_category()
+        # Slots unchanged from original
+        assert win._deck.categories["ramp"].total_slots == 8
+
+
 class TestLibraryDock:
     def test_sqlite_repo_shows_library_dock(self, qtbot, tmp_path):
         from deckslots.storage import SqliteRepository
