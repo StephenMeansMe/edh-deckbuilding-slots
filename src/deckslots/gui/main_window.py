@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDockWidget,
     QFormLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -313,10 +312,11 @@ class DeckWindow(QMainWindow):
     # ---------------------------------------------------------------
 
     def _on_create_deck(self) -> None:
-        name, ok = QInputDialog.getText(self, "New Deck", "Deck name:")
-        if not ok or not name.strip():
+        taken = {s.name for s in self._repository.list()}
+        name = _prompt_new_deck_name(self, taken)
+        if name is None:
             return
-        new_deck = Decklist.create(name.strip())
+        new_deck = Decklist.create(name)
         deck_id = self._repository.save(new_deck)
         self._load_deck(deck_id)
 
@@ -479,3 +479,66 @@ def _prompt_new_category(
     if dlg.exec() != QDialog.DialogCode.Accepted:
         return None
     return dlg.values()
+
+
+class _NewDeckDialog(QDialog):
+    """Modal dialog: prompt for a new deck's name.
+
+    OK is disabled while the name is empty or duplicates an existing deck
+    in the library (case-insensitive).
+    """
+
+    def __init__(self, taken: set[str], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("New Deck")
+        self._taken = {n.lower() for n in taken}
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self._name_edit = QLineEdit()
+        self._name_edit.setObjectName("DeckName")
+        form.addRow("Name:", self._name_edit)
+        layout.addLayout(form)
+
+        self._error = QLabel()
+        self._error.setStyleSheet("color: #c03010;")
+        layout.addWidget(self._error)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._ok_button.setEnabled(False)
+
+        self._name_edit.textChanged.connect(self._revalidate)
+
+    def _revalidate(self, text: str) -> None:
+        name = text.strip()
+        if not name:
+            self._error.setText("")
+            self._ok_button.setEnabled(False)
+            return
+        if name.lower() in self._taken:
+            self._error.setText(f"A deck named '{name}' already exists.")
+            self._ok_button.setEnabled(False)
+            return
+        self._error.setText("")
+        self._ok_button.setEnabled(True)
+
+    def value(self) -> str:
+        return self._name_edit.text().strip()
+
+
+def _prompt_new_deck_name(parent: QWidget | None, taken: set[str]) -> str | None:
+    """Show the New Deck dialog; return the trimmed name or None on cancel.
+
+    Tests monkeypatch this module-level function.
+    """
+    dlg = _NewDeckDialog(taken, parent=parent)
+    if dlg.exec() != QDialog.DialogCode.Accepted:
+        return None
+    return dlg.value()
