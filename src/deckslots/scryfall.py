@@ -42,14 +42,9 @@ def validate_card(card_name: str, index: dict[str, dict]) -> ValidationResult:
 
 def get_cache_path() -> Path:
     """Return the path to the local Scryfall oracle_cards cache file."""
-    import os
+    from platformdirs import user_cache_dir
 
-    xdg = os.environ.get("XDG_CACHE_HOME")
-    if xdg:
-        base = Path(xdg)
-    else:
-        base = Path.home() / ".cache"
-    return base / "deckslots" / "oracle_cards.json"
+    return Path(user_cache_dir("deckslots", appauthor=False)) / "oracle_cards.json"
 
 
 def is_cache_stale(path: Path, max_age_days: int = 7) -> bool:
@@ -97,11 +92,9 @@ def download_oracle_cards(dest: Path) -> None:
 
 def get_image_cache_dir() -> Path:
     """Return the directory where Scryfall card images are cached."""
-    import os
+    from platformdirs import user_cache_dir
 
-    xdg = os.environ.get("XDG_CACHE_HOME")
-    base = Path(xdg) if xdg else Path.home() / ".cache"
-    return base / "deckslots" / "card_images"
+    return Path(user_cache_dir("deckslots", appauthor=False)) / "card_images"
 
 
 _FILENAME_SCRUB = re.compile(r"[^a-z0-9]+")

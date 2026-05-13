@@ -36,9 +36,9 @@ _PLAINTEXT_DECK_ID = 1
 
 
 def _get_save_path() -> Path:
-    state_home = os.environ.get("XDG_STATE_HOME", "")
-    base = Path(state_home) if state_home else Path.home() / ".local" / "state"
-    return base / "deckslots" / "decklist.bak"
+    from platformdirs import user_state_dir
+
+    return Path(user_state_dir("deckslots", appauthor=False)) / "decklist.bak"
 
 
 def _format_save_file(decklist: Decklist) -> str:
@@ -269,9 +269,9 @@ CREATE INDEX events_by_deck ON events (deck_id, id);
 
 
 def _get_db_path() -> Path:
-    data_home = os.environ.get("XDG_DATA_HOME", "")
-    base = Path(data_home) if data_home else Path.home() / ".local" / "share"
-    return base / "deckslots" / "library.db"
+    from platformdirs import user_data_dir
+
+    return Path(user_data_dir("deckslots", appauthor=False)) / "library.db"
 
 
 def _upgrade_to_v1(conn: sqlite3.Connection) -> None:
