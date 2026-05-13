@@ -295,17 +295,13 @@ def handle_category_show(session: Session, cmd: ParsedCommand) -> str:
     return "\n".join(lines)
 
 
-def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
-    if not cmd.args:
-        return "Usage: decklist import <filepath>"
-    path = cmd.args[0]
-    try:
-        parsed = _parse_import_file(path)
-    except FileNotFoundError as e:
-        return str(e)
-    except (OSError, ValueError) as e:
-        return str(e)
+def import_deck_from_file(path: str) -> Decklist:
+    """Parse an external decklist file and build a Decklist.
 
+    Raises FileNotFoundError, OSError, or ValueError on parse failures.
+    The deck's name is taken from the file's stem.
+    """
+    parsed = _parse_import_file(path)
     name = os.path.splitext(os.path.basename(path))[0]
     deck = Decklist.create(name)
 
@@ -332,16 +328,41 @@ def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
     for card in parsed.uncategorized:
         deck.add_card(card, "Uncategorized")
 
+    return deck
+
+
+def handle_decklist_import(session: Session, cmd: ParsedCommand) -> str:
+    if not cmd.args:
+        return "Usage: decklist import <filepath>"
+    path = cmd.args[0]
+    try:
+        deck = import_deck_from_file(path)
+    except FileNotFoundError as e:
+        return str(e)
+    except (OSError, ValueError) as e:
+        return str(e)
+
     session.decklist = deck
     logger.debug("Imported deck from %s", path)
 
-    commander_count = 1 if parsed.commander is not None else 0
-    summary = (
-        f"Imported '{name}': {commander_count} commander, "
-        f"{len(parsed.basic_lands)} basic lands, "
-        f"{len(parsed.uncategorized)} uncategorized cards."
+    parsed_commander = (
+        deck.categories["commander"].cards[0]
+        if deck.categories["commander"].cards
+        else None
     )
-    if parsed.commander is None:
+    basic_lands = deck.categories["basic lands"].cards
+    uncategorized = (
+        deck.categories["uncategorized"].cards
+        if "uncategorized" in deck.categories
+        else []
+    )
+    commander_count = 1 if parsed_commander is not None else 0
+    summary = (
+        f"Imported '{deck.name}': {commander_count} commander, "
+        f"{len(basic_lands)} basic lands, "
+        f"{len(uncategorized)} uncategorized cards."
+    )
+    if parsed_commander is None:
         summary += "\nWarning: no commander found in file."
     return summary
 

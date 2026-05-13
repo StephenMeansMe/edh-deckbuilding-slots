@@ -123,8 +123,12 @@ class DeckWindow(QMainWindow):
 
         deck_menu = menubar.addMenu("Deck")
         deck_menu.addAction(QAction("Rename...", self))
-        deck_menu.addAction(QAction("Import...", self))
-        deck_menu.addAction(QAction("Export...", self))
+        act_import = QAction("Import...", self)
+        act_import.triggered.connect(self._on_import_deck)
+        act_export = QAction("Export...", self)
+        act_export.triggered.connect(self._on_export_deck)
+        deck_menu.addAction(act_import)
+        deck_menu.addAction(act_export)
         deck_menu.addSeparator()
         deck_menu.addAction(QAction("Enable Partner", self))
         deck_menu.addAction(QAction("Enable Background", self))
@@ -319,6 +323,49 @@ class DeckWindow(QMainWindow):
         new_deck = Decklist.create(name)
         deck_id = self._repository.save(new_deck)
         self._load_deck(deck_id)
+
+    def _on_export_deck(self) -> None:
+        """Export the active deck to a user-chosen file."""
+        from deckslots.cli.commands import _format_export_file
+
+        default = f"{self._deck.name}.txt"
+        path = _prompt_export_path(self, default)
+        if path is None:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(_format_export_file(self._deck))
+        except OSError as exc:
+            QMessageBox.warning(self, "Export Failed", str(exc))
+            return
+        self.status_label.setText(f"Exported to {path}")
+
+    def _on_import_deck(self) -> None:
+        """Replace the active deck with one parsed from a user-chosen file."""
+        from deckslots.cli.commands import import_deck_from_file
+
+        path = _prompt_import_path(self)
+        if path is None:
+            return
+        try:
+            new_deck = import_deck_from_file(path)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Import Failed", str(exc))
+            return
+        # Save the imported deck via the repository and switch to it.
+        try:
+            deck_id = self._repository.save(new_deck)
+        except OSError as exc:
+            QMessageBox.warning(self, "Import Failed", str(exc))
+            return
+        if isinstance(deck_id, int) and deck_id > 0:
+            self._load_deck(deck_id)
+        else:
+            # Plaintext repo: synthetic id is fine
+            self._deck = new_deck
+            self._rebuild_after_history_change()
+            self._setWindowTitle()
+            self._deck_name_label.setText(new_deck.name)
 
     def _on_add_category(self) -> None:
         """Open the Add Category dialog and create the category on accept."""
@@ -542,3 +589,23 @@ def _prompt_new_deck_name(parent: QWidget | None, taken: set[str]) -> str | None
     if dlg.exec() != QDialog.DialogCode.Accepted:
         return None
     return dlg.value()
+
+
+def _prompt_export_path(parent: QWidget | None, default_name: str) -> str | None:
+    """Open a Save As file dialog and return the chosen path, or None."""
+    from PySide6.QtWidgets import QFileDialog
+
+    path, _ = QFileDialog.getSaveFileName(
+        parent, "Export Deck", default_name, "Text files (*.txt);;All files (*)"
+    )
+    return path or None
+
+
+def _prompt_import_path(parent: QWidget | None) -> str | None:
+    """Open an Open file dialog and return the chosen path, or None."""
+    from PySide6.QtWidgets import QFileDialog
+
+    path, _ = QFileDialog.getOpenFileName(
+        parent, "Import Deck", "", "Text files (*.txt);;All files (*)"
+    )
+    return path or None
