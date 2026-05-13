@@ -49,20 +49,34 @@ class UndoStack:
         self._history.append(_Snapshot(copy.deepcopy(deck), description))
         self._future.clear()
 
-    def undo(self) -> Decklist | None:
-        """Return the most recent pre-mutation snapshot, or None if nothing to undo."""
+    def undo(self, current_deck: Decklist | None = None) -> Decklist | None:
+        """Return the most recent pre-mutation snapshot, or None if nothing to undo.
+
+        Pass *current_deck* (the post-mutation state) so that redo can restore it.
+        When omitted the history snapshot itself is stored in the future queue.
+        """
         if not self._history:
             return None
         snap = self._history.pop()
-        self._future.appendleft(snap)
+        future_copy = (
+            copy.deepcopy(current_deck) if current_deck is not None else snap.deck_copy
+        )
+        self._future.appendleft(_Snapshot(future_copy, snap.description))
         return snap.deck_copy
 
-    def redo(self) -> Decklist | None:
-        """Return the next redo snapshot, or None if nothing to redo."""
+    def redo(self, current_deck: Decklist | None = None) -> Decklist | None:
+        """Return the next redo snapshot, or None if nothing to redo.
+
+        Pass *current_deck* so the current state is saved to history for a
+        subsequent undo.
+        """
         if not self._future:
             return None
         snap = self._future.popleft()
-        self._history.append(snap)
+        history_copy = (
+            copy.deepcopy(current_deck) if current_deck is not None else snap.deck_copy
+        )
+        self._history.append(_Snapshot(history_copy, snap.description))
         return snap.deck_copy
 
     def reset(self) -> None:

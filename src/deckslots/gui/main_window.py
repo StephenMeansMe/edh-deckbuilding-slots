@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QDockWidget,
     QInputDialog,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from deckslots.gui.board_widget import BoardWidget
 from deckslots.gui.deck_library import DeckLibraryPanel
 from deckslots.gui.image_loader import ImageLoader
+from deckslots.gui.undo_stack import UndoStack
 from deckslots.models import Decklist
 from deckslots.storage import DecklistRepository, SqliteRepository
 
@@ -47,6 +48,7 @@ class DeckWindow(QMainWindow):
         self._current_deck_id: int | None = None
         self._library_dock: QDockWidget | None = None
         self._deck_library: DeckLibraryPanel | None = None
+        self._undo_stack = UndoStack()
 
         self._setWindowTitle()
         self._setup_menus()
@@ -88,6 +90,18 @@ class DeckWindow(QMainWindow):
             file_menu.addAction(a)
         file_menu.addSeparator()
         file_menu.addAction(act_quit)
+
+        edit_menu = menubar.addMenu("Edit")
+        self._act_undo = QAction("Undo", self)
+        self._act_undo.setShortcut(QKeySequence.StandardKey.Undo)
+        self._act_undo.setEnabled(False)
+        self._act_undo.triggered.connect(self._undo)
+        self._act_redo = QAction("Redo", self)
+        self._act_redo.setShortcut(QKeySequence.StandardKey.Redo)
+        self._act_redo.setEnabled(False)
+        self._act_redo.triggered.connect(self._redo)
+        edit_menu.addAction(self._act_undo)
+        edit_menu.addAction(self._act_redo)
 
         deck_menu = menubar.addMenu("Deck")
         deck_menu.addAction(QAction("Rename...", self))
@@ -178,6 +192,41 @@ class DeckWindow(QMainWindow):
     # Deck switching
     # ---------------------------------------------------------------
 
+    # ---------------------------------------------------------------
+    # Undo / redo
+    # ---------------------------------------------------------------
+
+    def _undo(self) -> None:
+        snapshot = self._undo_stack.undo(self._deck)
+        if snapshot is None:
+            return
+        self._deck = snapshot
+        self._rebuild_after_history_change()
+
+    def _redo(self) -> None:
+        snapshot = self._undo_stack.redo(self._deck)
+        if snapshot is None:
+            return
+        self._deck = snapshot
+        self._rebuild_after_history_change()
+
+    def _rebuild_after_history_change(self) -> None:
+        """Rebuild the board and persist after an undo/redo."""
+        old_board = self.board
+        self.board = BoardWidget(self._deck)
+        self.setCentralWidget(self.board)
+        self._wire_board()
+        self._image_loader.image_ready.disconnect()
+        self._image_loader.image_ready.connect(self.board.inspector.set_image)
+        old_board.deleteLater()
+        self.refresh_status_bar()
+        self._act_undo.setEnabled(self._undo_stack.can_undo)
+        self._act_redo.setEnabled(self._undo_stack.can_redo)
+        try:
+            self._repository.save(self._deck)
+        except OSError:
+            pass
+
     def _load_deck(self, deck_id: int) -> None:
         """Replace the active deck and rebuild the board."""
         try:
@@ -186,6 +235,9 @@ class DeckWindow(QMainWindow):
             return
         self._current_deck_id = deck_id
         self._deck = new_deck
+        self._undo_stack.reset()
+        self._act_undo.setEnabled(False)
+        self._act_redo.setEnabled(False)
 
         # Tear down old board and create a fresh one
         old_board = self.board

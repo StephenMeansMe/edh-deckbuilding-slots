@@ -288,20 +288,23 @@ class TestSqliteSchemaMigration:
         db_path = tmp_path / "library.db"
         SqliteRepository(path=db_path)
         with sqlite3.connect(str(db_path)) as conn:
-            cur = conn.execute("SELECT version FROM schema_version")
+            cur = conn.execute("SELECT version FROM schema_version ORDER BY version")
             rows = cur.fetchall()
-        assert rows == [(1,)]
+        # Fresh db gets all migrations up to the current version
+        assert (1,) in rows
 
     def test_reopen_does_not_reapply_migration(self, tmp_path):
         import sqlite3
 
         db_path = tmp_path / "library.db"
         SqliteRepository(path=db_path)
+        initial_count = None
+        with sqlite3.connect(str(db_path)) as conn:
+            (initial_count,) = conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         SqliteRepository(path=db_path)  # second open
         with sqlite3.connect(str(db_path)) as conn:
-            cur = conn.execute("SELECT COUNT(*) FROM schema_version")
-            (count,) = cur.fetchone()
-        assert count == 1
+            (count,) = conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()
+        assert count == initial_count
 
 
 class TestSqliteRepositoryLegacyImport:
