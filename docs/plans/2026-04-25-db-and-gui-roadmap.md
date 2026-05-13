@@ -56,11 +56,22 @@ existing invariants.
   table.
 - **3.4** Mana-curve / color-identity panel (cheap once cards are in SQL).
 
-### Phase 4 — Hardening
+### Phase 4 — Hardening ✅
 
-- PyInstaller / AppImage packaging.
-- Perf pass for large basic-land sets and many categories.
-- Accessibility: keyboard-only drag alternative, screen-reader labels.
+Detailed plan: [2026-05-13-phase4-hardening-plan.md](2026-05-13-phase4-hardening-plan.md).
+
+- **4.0** ✅ GUI shipping completeness — SQLite-always backend, Add Category /
+  New Deck / Import / Export dialogs, Scryfall first-run background worker.
+- **4.1** ✅ Ordered SQLite migrations with forward-version safety (US-022).
+- **4.2** ✅ PyInstaller spec, AppImage script, font-bundling loader,
+  platformdirs cross-platform paths, GitHub Actions release workflow.
+- **4.3** ✅ Performance pass — disk-hit throttle skip, shared network
+  throttle, `bench_cold_open.py` harness (US-021). Local 100-card cold open
+  measured at 80 ms; warm at 43 ms (targets < 2 s / < 500 ms).
+- **4.4** ✅ Accessibility — Shift+M keyboard-only Move Card, accessible
+  names on tiles / inspector / status bar, Commander legality warnings
+  surfaced in the status bar (US-019).
+- **4.5** ✅ Architecture docs synced with Phase 3 modules (US-020).
 
 ## Decisions to confirm before Phase 1
 

@@ -142,6 +142,11 @@ class Omnibar(QDialog):
         self._deck = deck
         self._rebuild_category_chips()
 
+    def set_index(self, index: dict | None) -> None:
+        """Swap in a new Scryfall index (e.g. after a first-run download)."""
+        self._index = index or {}
+        self.result_model = SearchResultModel(self._index)
+
     def set_target_category(self, key: str) -> None:
         self._target_category = key.lower()
 

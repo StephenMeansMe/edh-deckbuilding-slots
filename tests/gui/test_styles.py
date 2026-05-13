@@ -34,3 +34,34 @@ class TestBuildStylesheet:
 
     def test_dark_differs_from_light(self):
         assert build_stylesheet(LIGHT_TOKENS) != build_stylesheet(DARK_TOKENS)
+
+
+class TestBundledFontLoader:
+    """4.2.1 — DM Sans bundling and graceful fallback."""
+
+    def test_apply_theme_does_not_raise_when_no_font_bundled(self, qtbot):
+        """If the fonts directory has no .ttf files, apply_theme is a no-op
+        for the font (existing system-ui fallback still applies)."""
+        from PySide6.QtWidgets import QApplication
+
+        from deckslots.gui import styles
+
+        # Reset module flag so the loader runs and exercises the empty-dir path.
+        styles._BUNDLED_FONT_LOADED = False
+
+        app = QApplication.instance() or QApplication([])
+        # Should not raise even when no TTFs are present.
+        styles.apply_theme(app, "light")
+
+    def test_loader_is_idempotent(self, qtbot):
+        from PySide6.QtWidgets import QApplication
+
+        from deckslots.gui import styles
+
+        styles._BUNDLED_FONT_LOADED = False
+        app = QApplication.instance() or QApplication([])
+        styles.apply_theme(app, "light")
+        assert styles._BUNDLED_FONT_LOADED is True
+        # Second call must be a no-op (no exception, flag stays True).
+        styles.apply_theme(app, "dark")
+        assert styles._BUNDLED_FONT_LOADED is True

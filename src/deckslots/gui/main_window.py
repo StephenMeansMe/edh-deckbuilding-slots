@@ -5,14 +5,19 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QDockWidget,
-    QInputDialog,
+    QFormLayout,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMenuBar,
     QMessageBox,
+    QSpinBox,
     QStatusBar,
     QToolBar,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -54,6 +59,7 @@ class DeckWindow(QMainWindow):
         self._mana_dock: QDockWidget | None = None
         self._mana_panel: ManaPanel | None = None
         self._undo_stack = UndoStack()
+        self._last_selected_card: str | None = None
 
         self._setWindowTitle()
         self._setup_menus()
@@ -118,21 +124,31 @@ class DeckWindow(QMainWindow):
 
         deck_menu = menubar.addMenu("Deck")
         deck_menu.addAction(QAction("Rename...", self))
-        deck_menu.addAction(QAction("Import...", self))
-        deck_menu.addAction(QAction("Export...", self))
+        act_import = QAction("Import...", self)
+        act_import.triggered.connect(self._on_import_deck)
+        act_export = QAction("Export...", self)
+        act_export.triggered.connect(self._on_export_deck)
+        deck_menu.addAction(act_import)
+        deck_menu.addAction(act_export)
         deck_menu.addSeparator()
         deck_menu.addAction(QAction("Enable Partner", self))
         deck_menu.addAction(QAction("Enable Background", self))
         deck_menu.addAction(QAction("Enable Companion", self))
 
         cat_menu = menubar.addMenu("Category")
-        cat_menu.addAction(QAction("New Category...", self))
+        act_new_cat = QAction("New Category...", self)
+        act_new_cat.triggered.connect(self._on_add_category)
+        cat_menu.addAction(act_new_cat)
 
         card_menu = menubar.addMenu("Card")
         act_search = QAction("Search... (Ctrl+K)", self)
         act_search.setShortcut(QKeySequence("Ctrl+K"))
         act_search.triggered.connect(self._open_omnibar)
         card_menu.addAction(act_search)
+        act_move = QAction("Move Card... (Shift+M)", self)
+        act_move.setShortcut(QKeySequence("Shift+M"))
+        act_move.triggered.connect(self._on_keyboard_move_card)
+        card_menu.addAction(act_move)
 
         self._view_menu = menubar.addMenu("View")
         self._view_menu.addAction(QAction("Light Theme", self))
@@ -165,6 +181,10 @@ class DeckWindow(QMainWindow):
         bar.setSizeGripEnabled(False)
         self.status_label = QLabel()
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.status_label.setAccessibleName("Deck status")
+        self.status_label.setAccessibleDescription(
+            "Total slot counts and warnings for the active deck."
+        )
         bar.addPermanentWidget(self.status_label, 1)
 
     def _setup_library_dock(self) -> None:
@@ -305,12 +325,70 @@ class DeckWindow(QMainWindow):
     # ---------------------------------------------------------------
 
     def _on_create_deck(self) -> None:
-        name, ok = QInputDialog.getText(self, "New Deck", "Deck name:")
-        if not ok or not name.strip():
+        taken = {s.name for s in self._repository.list()}
+        name = _prompt_new_deck_name(self, taken)
+        if name is None:
             return
-        new_deck = Decklist.create(name.strip())
+        new_deck = Decklist.create(name)
         deck_id = self._repository.save(new_deck)
         self._load_deck(deck_id)
+
+    def _on_export_deck(self) -> None:
+        """Export the active deck to a user-chosen file."""
+        from deckslots.cli.commands import _format_export_file
+
+        default = f"{self._deck.name}.txt"
+        path = _prompt_export_path(self, default)
+        if path is None:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(_format_export_file(self._deck))
+        except OSError as exc:
+            QMessageBox.warning(self, "Export Failed", str(exc))
+            return
+        self.status_label.setText(f"Exported to {path}")
+
+    def _on_import_deck(self) -> None:
+        """Replace the active deck with one parsed from a user-chosen file."""
+        from deckslots.cli.commands import import_deck_from_file
+
+        path = _prompt_import_path(self)
+        if path is None:
+            return
+        try:
+            new_deck = import_deck_from_file(path)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Import Failed", str(exc))
+            return
+        # Save the imported deck via the repository and switch to it.
+        try:
+            deck_id = self._repository.save(new_deck)
+        except OSError as exc:
+            QMessageBox.warning(self, "Import Failed", str(exc))
+            return
+        if isinstance(deck_id, int) and deck_id > 0:
+            self._load_deck(deck_id)
+        else:
+            # Plaintext repo: synthetic id is fine
+            self._deck = new_deck
+            self._rebuild_after_history_change()
+            self._setWindowTitle()
+            self._deck_name_label.setText(new_deck.name)
+
+    def _on_add_category(self) -> None:
+        """Open the Add Category dialog and create the category on accept."""
+        existing = {key for key in self._deck.categories}
+        result = _prompt_new_category(self, existing)
+        if result is None:
+            return
+        name, slots = result
+        outcome = services.create_category(self._deck, name, slots)
+        if not outcome.ok:
+            QMessageBox.warning(self, "Add Category", outcome.message)
+            return
+        # Rebuild the board to show the new tile; persist.
+        self._rebuild_after_history_change()
 
     def _on_delete_deck(self, deck_id: int) -> None:
         summaries = self._repository.list()
@@ -350,6 +428,7 @@ class DeckWindow(QMainWindow):
         self.status_label.setText(" | ".join(parts))
 
     def _on_card_selected(self, card_name: str) -> None:
+        self._last_selected_card = card_name
         self.board.inspector.set_card(card_name)
         self._image_loader.request(card_name)
 
@@ -370,11 +449,58 @@ class DeckWindow(QMainWindow):
         self._omnibar.activateWindow()
         self._omnibar.search_input.setFocus()
 
+    def on_scryfall_ready(self, index: dict) -> None:
+        """Slot: a background worker finished downloading the Scryfall index."""
+        self._scryfall_index = index
+        self._image_loader.set_index(index)
+        self._omnibar.set_index(index)
+        self.status_label.setText("Card index ready")
+
+    def on_scryfall_failed(self, message: str) -> None:
+        """Slot: a background worker failed to refresh the Scryfall index."""
+        self.status_label.setText(f"Card index unavailable: {message}")
+
     def _on_card_chosen(self, card: str, category_key: str) -> None:
-        result = services.add_card(self._deck, card, category_key)
+        result = services.add_card(
+            self._deck, card, category_key, scryfall_index=self._scryfall_index
+        )
         if result.ok:
             self.board.refresh_tile(category_key)
             self._on_deck_mutated()
+            # Surface any Scryfall warnings (legality, not-found) in the status bar
+            if result.warnings:
+                self.status_label.setText(" | ".join(result.warnings))
+
+    def _on_keyboard_move_card(self) -> None:
+        """Move the most-recently-selected card to a chosen category via keyboard."""
+        card = self._last_selected_card
+        if card is None or self._deck.find_card(card) is None:
+            QMessageBox.information(
+                self,
+                "Move Card",
+                "Select a card first (click it, or focus it), then press Shift+M.",
+            )
+            return
+        choices = [
+            cat.name
+            for cat in self._deck.categories.values()
+            if cat.user_addable and not cat.fixed
+        ]
+        if not choices:
+            QMessageBox.information(
+                self, "Move Card", "There are no movable destination categories."
+            )
+            return
+        target = _prompt_move_destination(self, choices, card)
+        if target is None:
+            return
+        result = services.move_card(self._deck, card, target.lower())
+        if not result.ok:
+            QMessageBox.warning(self, "Move Card", result.message)
+            return
+        self._on_deck_mutated()
+        # Rebuild board so the source and target tiles both refresh.
+        self._rebuild_after_history_change()
 
     # ---------------------------------------------------------------
     # Accessors
@@ -387,3 +513,180 @@ class DeckWindow(QMainWindow):
     @property
     def repository(self) -> DecklistRepository:
         return self._repository
+
+
+class _AddCategoryDialog(QDialog):
+    """Modal dialog: prompt for a new user category's name and slot count.
+
+    OK is disabled while the name is empty or duplicates an existing category
+    (case-insensitive). Returns (name, slots) on accept via ``values()``.
+    """
+
+    def __init__(self, existing: set[str], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("New Category")
+        self._existing = {n.lower() for n in existing}
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self._name_edit = QLineEdit()
+        self._name_edit.setObjectName("CategoryName")
+        self._slots_spin = QSpinBox()
+        self._slots_spin.setRange(1, 99)
+        self._slots_spin.setValue(8)
+        form.addRow("Name:", self._name_edit)
+        form.addRow("Slots:", self._slots_spin)
+        layout.addLayout(form)
+
+        self._error = QLabel()
+        self._error.setStyleSheet("color: #c03010;")
+        layout.addWidget(self._error)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._ok_button.setEnabled(False)
+
+        self._name_edit.textChanged.connect(self._revalidate)
+
+    def _revalidate(self, text: str) -> None:
+        name = text.strip()
+        if not name:
+            self._error.setText("")
+            self._ok_button.setEnabled(False)
+            return
+        if name.lower() in self._existing:
+            self._error.setText(f"A category named '{name}' already exists.")
+            self._ok_button.setEnabled(False)
+            return
+        self._error.setText("")
+        self._ok_button.setEnabled(True)
+
+    def values(self) -> tuple[str, int]:
+        return self._name_edit.text().strip(), self._slots_spin.value()
+
+
+def _prompt_new_category(
+    parent: QWidget | None, existing: set[str]
+) -> tuple[str, int] | None:
+    """Show the Add Category dialog; return (name, slots) or None on cancel.
+
+    Tests monkeypatch this module-level function to avoid actually showing
+    a Qt dialog.
+    """
+    dlg = _AddCategoryDialog(existing, parent=parent)
+    if dlg.exec() != QDialog.DialogCode.Accepted:
+        return None
+    return dlg.values()
+
+
+class _NewDeckDialog(QDialog):
+    """Modal dialog: prompt for a new deck's name.
+
+    OK is disabled while the name is empty or duplicates an existing deck
+    in the library (case-insensitive).
+    """
+
+    def __init__(self, taken: set[str], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("New Deck")
+        self._taken = {n.lower() for n in taken}
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self._name_edit = QLineEdit()
+        self._name_edit.setObjectName("DeckName")
+        form.addRow("Name:", self._name_edit)
+        layout.addLayout(form)
+
+        self._error = QLabel()
+        self._error.setStyleSheet("color: #c03010;")
+        layout.addWidget(self._error)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._ok_button.setEnabled(False)
+
+        self._name_edit.textChanged.connect(self._revalidate)
+
+    def _revalidate(self, text: str) -> None:
+        name = text.strip()
+        if not name:
+            self._error.setText("")
+            self._ok_button.setEnabled(False)
+            return
+        if name.lower() in self._taken:
+            self._error.setText(f"A deck named '{name}' already exists.")
+            self._ok_button.setEnabled(False)
+            return
+        self._error.setText("")
+        self._ok_button.setEnabled(True)
+
+    def value(self) -> str:
+        return self._name_edit.text().strip()
+
+
+def _prompt_new_deck_name(parent: QWidget | None, taken: set[str]) -> str | None:
+    """Show the New Deck dialog; return the trimmed name or None on cancel.
+
+    Tests monkeypatch this module-level function.
+    """
+    dlg = _NewDeckDialog(taken, parent=parent)
+    if dlg.exec() != QDialog.DialogCode.Accepted:
+        return None
+    return dlg.value()
+
+
+def _prompt_export_path(parent: QWidget | None, default_name: str) -> str | None:
+    """Open a Save As file dialog and return the chosen path, or None."""
+    from PySide6.QtWidgets import QFileDialog
+
+    path, _ = QFileDialog.getSaveFileName(
+        parent, "Export Deck", default_name, "Text files (*.txt);;All files (*)"
+    )
+    return path or None
+
+
+def _prompt_import_path(parent: QWidget | None) -> str | None:
+    """Open an Open file dialog and return the chosen path, or None."""
+    from PySide6.QtWidgets import QFileDialog
+
+    path, _ = QFileDialog.getOpenFileName(
+        parent, "Import Deck", "", "Text files (*.txt);;All files (*)"
+    )
+    return path or None
+
+
+def _prompt_move_destination(
+    parent: QWidget | None, choices: list[str], card: str
+) -> str | None:
+    """Ask the user which category to move *card* into.
+
+    Tests monkeypatch this; in production it shows a ``QInputDialog.getItem``
+    so screen-reader and keyboard-only users can complete a card move without
+    touching the mouse.
+    """
+    from PySide6.QtWidgets import QInputDialog
+
+    target, ok = QInputDialog.getItem(
+        parent,
+        "Move Card",
+        f"Move '{card}' to category:",
+        choices,
+        0,
+        False,
+    )
+    if not ok:
+        return None
+    return target

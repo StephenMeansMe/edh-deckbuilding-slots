@@ -58,6 +58,10 @@ class CardInspector(QFrame):
         self.setObjectName("CardInspector")
         self.setMinimumSize(CARD_W, CARD_H)
         self.setMaximumWidth(CARD_W)
+        self.setAccessibleName("Card preview")
+        self.setAccessibleDescription(
+            "Preview of the currently selected card."
+        )
 
         self.current_card: str | None = None
 

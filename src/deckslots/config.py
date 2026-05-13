@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
+
+from platformdirs import user_config_dir
 
 
 def get_config_path() -> Path:
-    """Return the path to the user config file."""
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    if xdg:
-        base = Path(xdg)
-    else:
-        base = Path.home() / ".config"
-    return base / "deckslots" / "config.json"
+    """Return the path to the user config file.
+
+    Resolved via ``platformdirs`` so Windows and macOS get the native
+    locations (``%APPDATA%`` and ``~/Library/Application Support``).
+    On Linux this still honours ``$XDG_CONFIG_HOME``.
+    """
+    return Path(user_config_dir("deckslots", appauthor=False)) / "config.json"
 
 
 def is_validation_enabled() -> bool:

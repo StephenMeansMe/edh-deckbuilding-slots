@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=deckslots
+GenericName=EDH Deckbuilder
+Comment=Build Magic: The Gathering EDH decks through a slots system
+Exec=deckslots gui
+Icon=deckslots
+Terminal=false
+Categories=Game;CardGame;Utility;
+Keywords=mtg;magic;commander;edh;deckbuilder;

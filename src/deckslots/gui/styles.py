@@ -184,8 +184,45 @@ def build_stylesheet(tokens: dict[str, str]) -> str:
     return _TEMPLATE.format(font_family=FONT_FAMILY, **tokens)
 
 
+_BUNDLED_FONT_LOADED = False
+
+
+def _load_bundled_dm_sans() -> None:
+    """Register any DM Sans .ttf files bundled in ``deckslots.data.fonts``.
+
+    A binary distribution (PyInstaller / AppImage) ships the variable-axis TTF
+    so the app looks identical on systems without DM Sans installed locally.
+    The fallback when the file is absent is the existing ``system-ui`` chain.
+    """
+    global _BUNDLED_FONT_LOADED
+    if _BUNDLED_FONT_LOADED:
+        return
+    try:
+        from importlib.resources import files
+
+        from PySide6.QtCore import QByteArray
+        from PySide6.QtGui import QFontDatabase
+    except ImportError:
+        return
+    try:
+        font_dir = files("deckslots.data.fonts")
+    except (ModuleNotFoundError, FileNotFoundError):
+        return
+    for entry in font_dir.iterdir():
+        if not entry.name.lower().endswith(".ttf"):
+            continue
+        try:
+            with entry.open("rb") as fh:
+                data = fh.read()
+            QFontDatabase.addApplicationFontFromData(QByteArray(data))
+        except OSError:
+            continue
+    _BUNDLED_FONT_LOADED = True
+
+
 def apply_theme(app: QApplication, theme: str = "light") -> None:
     """Apply the named theme's stylesheet to *app*. ``theme`` is light or dark."""
+    _load_bundled_dm_sans()
     tokens = DARK_TOKENS if theme == "dark" else LIGHT_TOKENS
     app.setStyleSheet(build_stylesheet(tokens))
     font = QFont()
