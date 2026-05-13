@@ -25,7 +25,7 @@ from deckslots.models import (
 def _split_mime(mime: QMimeData) -> tuple[str, str] | None:
     if not mime.hasFormat(CARD_MIME_TYPE):
         return None
-    raw = bytes(mime.data(CARD_MIME_TYPE)).decode("utf-8")
+    raw = bytes(mime.data(CARD_MIME_TYPE).data()).decode("utf-8")
     if "\t" not in raw:
         return None
     from_cat, card = raw.split("\t", 1)

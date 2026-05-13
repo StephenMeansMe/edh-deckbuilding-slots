@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from deckslots import services
-from deckslots.events import CardMoved
+from deckslots.events import CardMoved, CardRemoved
 from deckslots.gui.card_inspector import CardInspector
 from deckslots.gui.card_model import CARD_MIME_TYPE, CardListModel
 from deckslots.gui.category_tile import CatTile, _split_mime
@@ -136,7 +136,7 @@ class UncatSidebar(QFrame):
             return
         self.refresh()
         for ev in result.events:
-            if hasattr(ev, "from_category"):
+            if isinstance(ev, CardRemoved):
                 self.card_moved.emit(
                     CardMoved(
                         card=card,

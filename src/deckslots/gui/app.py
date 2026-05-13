@@ -53,7 +53,9 @@ def run_app(exec_loop: bool = True) -> DeckWindow:
     pass ``exec_loop=False`` to construct the window and return without
     entering the event loop.
     """
-    app = QApplication.instance() or QApplication(sys.argv)
+    app = QApplication.instance()
+    if not isinstance(app, QApplication):
+        app = QApplication(sys.argv)
     apply_theme(app, "light")
 
     repository = _pick_repository()
