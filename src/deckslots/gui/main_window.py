@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
 from deckslots.gui.board_widget import BoardWidget
 from deckslots.gui.deck_library import DeckLibraryPanel
 from deckslots.gui.image_loader import ImageLoader
+from deckslots.gui.omnibar import Omnibar
 from deckslots.gui.undo_stack import UndoStack
+from deckslots import services
 from deckslots.models import Decklist
 from deckslots.storage import DecklistRepository, SqliteRepository
 
@@ -64,6 +66,11 @@ class DeckWindow(QMainWindow):
         # Async card-image loader for the inspector
         self._image_loader = ImageLoader(index=scryfall_index, parent=self)
         self._image_loader.image_ready.connect(self.board.inspector.set_image)
+
+        # Card-search omnibar (Ctrl+K)
+        self._omnibar = Omnibar(scryfall_index, deck, parent=self)
+        self._omnibar.card_chosen.connect(self._on_card_chosen)
+        QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(self._open_omnibar)
 
         # Library sidebar — only for multi-deck SQLite backend
         if isinstance(repository, SqliteRepository):
@@ -116,7 +123,10 @@ class DeckWindow(QMainWindow):
         cat_menu.addAction(QAction("New Category...", self))
 
         card_menu = menubar.addMenu("Card")
-        card_menu.addAction(QAction("Search... (Phase 3)", self))
+        act_search = QAction("Search... (Ctrl+K)", self)
+        act_search.setShortcut(QKeySequence("Ctrl+K"))
+        act_search.triggered.connect(self._open_omnibar)
+        card_menu.addAction(act_search)
 
         self._view_menu = menubar.addMenu("View")
         self._view_menu.addAction(QAction("Light Theme", self))
@@ -255,6 +265,7 @@ class DeckWindow(QMainWindow):
 
         if self._deck_library is not None:
             self._deck_library.refresh(current_deck_id=deck_id)
+        self._omnibar.update_deck(new_deck)
 
     # ---------------------------------------------------------------
     # Deck management actions
@@ -319,6 +330,18 @@ class DeckWindow(QMainWindow):
             )
         if self._deck_library is not None:
             self._deck_library.refresh(self._current_deck_id)
+
+    def _open_omnibar(self) -> None:
+        self._omnibar.show()
+        self._omnibar.raise_()
+        self._omnibar.activateWindow()
+        self._omnibar.search_input.setFocus()
+
+    def _on_card_chosen(self, card: str, category_key: str) -> None:
+        result = services.add_card(self._deck, card, category_key)
+        if result.ok:
+            self.board.refresh_tile(category_key)
+            self._on_deck_mutated()
 
     # ---------------------------------------------------------------
     # Accessors

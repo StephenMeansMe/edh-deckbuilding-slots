@@ -26,12 +26,10 @@ class TestSearchResultModel:
         assert model.rowCount() == 3
 
     def test_prefix_match_comes_before_substring(self, qtbot):
-        from PySide6.QtCore import Qt
-
         model = SearchResultModel(_index("Sol Ring", "Arcane Signet", "Signal Pest"))
         model.set_filter("si")
         # "Signal Pest" starts with "si" → should appear before "Arcane Signet"
-        first = model.data(model.index(0), Qt.ItemDataRole.DisplayRole)
+        first = model.card_at(0)
         assert first == "Signal Pest"
 
     def test_results_capped_at_fifty(self, qtbot):
@@ -41,19 +39,15 @@ class TestSearchResultModel:
         assert model.rowCount() <= 50
 
     def test_mime_data_uses_search_mime_type(self, qtbot):
-        from PySide6.QtCore import Qt
-
         model = SearchResultModel(_index("Sol Ring"))
         model.set_filter("sol")
-        mime = model.mimeData([model.index(0)])
+        mime = model.mimeData([0])
         assert SEARCH_MIME_TYPE in mime.formats()
 
     def test_mime_data_encodes_card_name(self, qtbot):
-        from PySide6.QtCore import Qt
-
         model = SearchResultModel(_index("Sol Ring"))
         model.set_filter("sol")
-        mime = model.mimeData([model.index(0)])
+        mime = model.mimeData([0])
         payload = bytes(mime.data(SEARCH_MIME_TYPE)).decode()
         assert "Sol Ring" in payload
 
