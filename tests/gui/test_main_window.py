@@ -217,6 +217,76 @@ class TestAddCategoryDialog:
         assert warnings, "expected a QMessageBox.warning to be shown"
 
 
+class TestNewDeckDialog:
+    """4.0.3 — Create a new deck from the GUI with unique-name validation."""
+
+    def test_file_menu_has_new_deck_action(self, qtbot, tmp_path):
+        deck = Decklist.create("Test")
+        win = DeckWindow(deck, _repo(tmp_path))
+        qtbot.addWidget(win)
+        file_menu = None
+        for a in win.menuBar().actions():
+            if a.text() == "File":
+                file_menu = a.menu()
+                break
+        assert file_menu is not None
+        texts = [a.text() for a in file_menu.actions()]
+        assert any("New Deck" in t for t in texts), texts
+
+    def test_create_deck_saves_to_repo_and_switches(self, qtbot, tmp_path, monkeypatch):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Alpha")
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+
+        from deckslots.gui import main_window as mw
+
+        monkeypatch.setattr(mw, "_prompt_new_deck_name", lambda parent, taken: "Beta")
+        win._on_create_deck()
+        assert win.deck.name == "Beta"
+        names = {s.name for s in repo.list()}
+        assert {"Alpha", "Beta"} <= names
+
+    def test_create_deck_cancel_is_noop(self, qtbot, tmp_path, monkeypatch):
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Alpha")
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+
+        from deckslots.gui import main_window as mw
+
+        monkeypatch.setattr(mw, "_prompt_new_deck_name", lambda parent, taken: None)
+        win._on_create_deck()
+        assert win.deck.name == "Alpha"
+
+    def test_create_deck_prompt_sees_existing_names(self, qtbot, tmp_path, monkeypatch):
+        """The prompt receives the existing deck names so it can reject duplicates."""
+        from deckslots.storage import SqliteRepository
+
+        repo = SqliteRepository(tmp_path / "lib.db")
+        deck = Decklist.create("Alpha")
+        repo.save(deck)
+        win = DeckWindow(deck, repo)
+        qtbot.addWidget(win)
+
+        seen: list[set[str]] = []
+        from deckslots.gui import main_window as mw
+
+        def prompt(parent, taken):
+            seen.append(taken)
+            return None
+
+        monkeypatch.setattr(mw, "_prompt_new_deck_name", prompt)
+        win._on_create_deck()
+        assert seen and "Alpha" in seen[0]
+
+
 class TestLibraryDock:
     def test_sqlite_repo_shows_library_dock(self, qtbot, tmp_path):
         from deckslots.storage import SqliteRepository
