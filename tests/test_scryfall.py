@@ -300,3 +300,156 @@ class TestConfig:
         config_dir.mkdir()
         (config_dir / "config.json").write_text("not json")
         assert get_storage_backend() == "plaintext"
+
+
+# ---------------------------------------------------------------------------
+# Image pipeline (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+class TestGetImageCacheDir:
+    def test_uses_xdg_cache_home_when_set(self, tmp_path, monkeypatch):
+        from deckslots.scryfall import get_image_cache_dir
+
+        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+        path = get_image_cache_dir()
+        assert path == tmp_path / "deckslots" / "card_images"
+
+    def test_defaults_to_home_cache_dir(self, monkeypatch):
+        from deckslots.scryfall import get_image_cache_dir
+
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+        path = get_image_cache_dir()
+        assert path == Path.home() / ".cache" / "deckslots" / "card_images"
+
+
+class TestFetchCardImage:
+    def test_returns_cached_path_when_already_downloaded(self, tmp_path):
+        from deckslots.scryfall import fetch_card_image
+
+        cache = tmp_path / "card_images"
+        cache.mkdir()
+        existing = cache / "sol_ring.jpg"
+        existing.write_bytes(b"fake-jpeg-bytes")
+        result = fetch_card_image("Sol Ring", cache_dir=cache)
+        assert result == existing
+
+    def test_uses_image_uris_from_index_when_provided(self, tmp_path, monkeypatch):
+        from deckslots import scryfall
+
+        captured: dict = {}
+
+        def fake_urlopen(url, *args, **kwargs):  # noqa: ARG001
+            captured["url"] = url
+
+            class _R:
+                def read(self_inner):
+                    return b"fake-image-data"
+
+                def __enter__(self_inner):
+                    return self_inner
+
+                def __exit__(self_inner, *a):
+                    return False
+
+            return _R()
+
+        monkeypatch.setattr(scryfall.urllib.request, "urlopen", fake_urlopen)
+
+        index = {
+            "sol ring": {
+                "name": "Sol Ring",
+                "image_uris": {"normal": "https://example.com/sol-ring.jpg"},
+            }
+        }
+        cache = tmp_path / "card_images"
+        result = scryfall.fetch_card_image("Sol Ring", index=index, cache_dir=cache)
+        assert result is not None
+        assert result.exists()
+        assert result.read_bytes() == b"fake-image-data"
+        assert captured["url"] == "https://example.com/sol-ring.jpg"
+
+    def test_uses_dfc_face_image_uris(self, tmp_path, monkeypatch):
+        from deckslots import scryfall
+
+        captured: dict = {}
+
+        def fake_urlopen(url, *args, **kwargs):  # noqa: ARG001
+            captured["url"] = url
+
+            class _R:
+                def read(self_inner):
+                    return b"face-bytes"
+
+                def __enter__(self_inner):
+                    return self_inner
+
+                def __exit__(self_inner, *a):
+                    return False
+
+            return _R()
+
+        monkeypatch.setattr(scryfall.urllib.request, "urlopen", fake_urlopen)
+
+        index = {
+            "delver of secrets // insectile aberration": {
+                "name": "Delver of Secrets // Insectile Aberration",
+                "card_faces": [
+                    {
+                        "name": "Delver of Secrets",
+                        "image_uris": {"normal": "https://example.com/delver.jpg"},
+                    },
+                    {
+                        "name": "Insectile Aberration",
+                        "image_uris": {"normal": "https://example.com/insectile.jpg"},
+                    },
+                ],
+            }
+        }
+        cache = tmp_path / "card_images"
+        result = scryfall.fetch_card_image(
+            "Delver of Secrets // Insectile Aberration",
+            index=index,
+            cache_dir=cache,
+        )
+        assert result is not None
+        assert captured["url"] == "https://example.com/delver.jpg"
+
+    def test_returns_none_on_network_error(self, tmp_path, monkeypatch):
+        from deckslots import scryfall
+
+        def boom(url, *args, **kwargs):  # noqa: ARG001
+            raise OSError("network down")
+
+        monkeypatch.setattr(scryfall.urllib.request, "urlopen", boom)
+
+        index = {
+            "sol ring": {
+                "name": "Sol Ring",
+                "image_uris": {"normal": "https://example.com/x.jpg"},
+            }
+        }
+        result = scryfall.fetch_card_image(
+            "Sol Ring", index=index, cache_dir=tmp_path / "c"
+        )
+        assert result is None
+
+    def test_returns_none_when_index_lacks_image_uris(self, tmp_path):
+        from deckslots import scryfall
+
+        index = {"weird card": {"name": "Weird Card"}}  # no image_uris
+        result = scryfall.fetch_card_image(
+            "Weird Card", index=index, cache_dir=tmp_path / "c"
+        )
+        assert result is None
+
+    def test_filename_is_normalized(self, tmp_path):
+        from deckslots.scryfall import _image_filename
+
+        assert _image_filename("Sol Ring") == "sol_ring.jpg"
+        assert _image_filename("Atraxa, Praetors' Voice") == (
+            "atraxa_praetors_voice.jpg"
+        )
+        assert _image_filename("Delver of Secrets // Insectile Aberration") == (
+            "delver_of_secrets_insectile_aberration.jpg"
+        )
