@@ -1,9 +1,10 @@
 from PyInstaller.utils.hooks import collect_data_files
+import os
 
 datas = collect_data_files("deckslots")  # data/templates/ and data/fonts/
 
 a = Analysis(
-    ["bin/deckslots"],
+    [os.path.join(os.path.dirname(SPECPATH), "bin", "deckslots")],
     pathex=[],
     datas=datas,
     hiddenimports=["deckslots.gui"],  # lazy import in cli/parser.py
