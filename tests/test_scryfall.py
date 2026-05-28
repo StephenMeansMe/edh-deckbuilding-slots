@@ -303,6 +303,65 @@ class TestConfig:
 
 
 # ---------------------------------------------------------------------------
+# fetch_bulk_data_url
+# ---------------------------------------------------------------------------
+
+
+class TestFetchBulkDataUrl:
+    def test_sends_accept_json_header(self, monkeypatch):
+        """Scryfall (via Cloudflare) rejects requests without Accept: application/json."""
+        from deckslots import scryfall
+
+        captured: dict = {}
+
+        def fake_urlopen(req, *args, **kwargs):  # noqa: ARG001
+            captured["req"] = req
+
+            class _R:
+                def read(self_inner):
+                    return json.dumps(
+                        {"download_uri": "https://example.com/oracle.json"}
+                    ).encode()
+
+                def __enter__(self_inner):
+                    return self_inner
+
+                def __exit__(self_inner, *a):
+                    return False
+
+            return _R()
+
+        monkeypatch.setattr(scryfall.urllib.request, "urlopen", fake_urlopen)
+        scryfall.fetch_bulk_data_url()
+
+        req = captured["req"]
+        assert hasattr(req, "get_header"), "urlopen must be called with a Request object"
+        assert req.get_header("Accept") == "application/json"
+
+    def test_returns_download_uri(self, monkeypatch):
+        from deckslots import scryfall
+
+        def fake_urlopen(req, *args, **kwargs):  # noqa: ARG001
+            class _R:
+                def read(self_inner):
+                    return json.dumps(
+                        {"download_uri": "https://example.com/oracle.json"}
+                    ).encode()
+
+                def __enter__(self_inner):
+                    return self_inner
+
+                def __exit__(self_inner, *a):
+                    return False
+
+            return _R()
+
+        monkeypatch.setattr(scryfall.urllib.request, "urlopen", fake_urlopen)
+        url = scryfall.fetch_bulk_data_url()
+        assert url == "https://example.com/oracle.json"
+
+
+# ---------------------------------------------------------------------------
 # Image pipeline (Phase 2)
 # ---------------------------------------------------------------------------
 
