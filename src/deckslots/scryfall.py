@@ -72,7 +72,8 @@ def load_index_from_cache(path: Path) -> dict[str, dict] | None:
 def fetch_bulk_data_url() -> str:
     """Fetch the current download URI for the oracle_cards bulk file from Scryfall."""
     api_url = "https://api.scryfall.com/bulk-data/oracle-cards"
-    with urllib.request.urlopen(api_url) as resp:  # noqa: S310
+    req = urllib.request.Request(api_url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(req) as resp:  # noqa: S310
         data = json.loads(resp.read().decode())
     return data["download_uri"]
 
