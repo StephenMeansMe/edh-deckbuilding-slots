@@ -59,6 +59,14 @@ SPLIT_CARD = {
     ],
 }
 
+# Scryfall oracle data contains "Sol Ring // Sol Ring" (set acmm, not_legal in Commander).
+# Its face name "Sol Ring" must not overwrite the real Sol Ring's canonical entry.
+SOL_RING_ILLEGAL_REPRINT = {
+    "name": "Sol Ring // Sol Ring",
+    "legalities": {"commander": "not_legal"},
+    "card_faces": [{"name": "Sol Ring"}, {"name": "Sol Ring"}],
+}
+
 
 # ---------------------------------------------------------------------------
 # build_name_index
@@ -99,6 +107,17 @@ class TestBuildNameIndex:
         assert "fire" in index
         assert "ice" in index
         assert "fire // ice" in index
+
+    def test_canonical_name_wins_over_face_name_collision(self):
+        # Real Sol Ring (legal) then the acmm reprint (not_legal) whose face name
+        # "Sol Ring" would overwrite the canonical entry if processed last.
+        index = build_name_index([SOL_RING, SOL_RING_ILLEGAL_REPRINT])
+        assert index["sol ring"]["legalities"]["commander"] == "legal"
+
+    def test_canonical_name_wins_regardless_of_input_order(self):
+        # Same assertion with reversed input order — reprint first, real second.
+        index = build_name_index([SOL_RING_ILLEGAL_REPRINT, SOL_RING])
+        assert index["sol ring"]["legalities"]["commander"] == "legal"
 
 
 # ---------------------------------------------------------------------------
