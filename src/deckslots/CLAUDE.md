@@ -94,16 +94,6 @@ class CommandResult:
 
 Functions: `add_card`, `move_card`, `can_drop` (preflight predicate, returns `bool`), `remove_card`, `delete_card`, `create_category`, `resize_category`, `delete_category`, `rename_category`, `rename_decklist`, `enable_partners`, `disable_partners`, `enable_background`, `disable_background`, `enable_companion`, `disable_companion`, `apply_template`.
 
-## storage.py (Phase 1+)
-
-Persistence layer that owns the storage seam.
-
-- `DecklistRepository` (Protocol) — 5 methods: `save(deck) -> int`, `load(deck_id) -> Decklist`, `load_by_name(name) -> Decklist | None`, `list() -> list[DecklistSummary]`, `delete(deck_id) -> None`
-- `DecklistSummary` — frozen dataclass `(id: int, name: str, total_filled: int, updated_at: str)` returned by `list()`
-- `PlaintextRepository(path=None)` — single-file backend at `$XDG_STATE_HOME/deckslots/decklist.bak`. Implements the protocol with a synthetic ID of 1; `list()` returns one summary if the file exists (tolerating parse errors so the REPL can detect corruption via `load()`).
-- `SqliteRepository(path=None)` — multi-deck backend at `$XDG_DATA_HOME/deckslots/library.db` (stdlib `sqlite3`, `PRAGMA foreign_keys = ON`). Schema migrations in `_migrate(conn)`; currently `schema_version = 1`. `save()` upserts by deck name; `_maybe_import_legacy()` seeds an empty db from any existing `decklist.bak`.
-- `_format_save_file(decklist)` / `_parse_save_file(path)` / `_get_save_path()` — plain-text format helpers (private; used by both repository implementations)
-
 ## cli/commands.py
 
 - `Session` holds REPL state: `decklist: Decklist | None`, `scryfall_index: dict | None`, `repository: DecklistRepository` (default-constructed `PlaintextRepository`)
