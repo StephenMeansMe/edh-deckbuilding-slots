@@ -38,8 +38,8 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 
 ## Recently Shipped
 
-- **SQLite backend** — `SqliteRepository` at `$XDG_DATA_HOME/deckslots/library.db`; opt-in for the REPL via `storage_backend = "sqlite"` in `config.json`. The GUI always uses SQLite. Multi-deck REPL commands: `decklist list`, `decklist switch`, `decklist delete`. Design: [`plans/2026-04-25-database-storage-design.md`](plans/2026-04-25-database-storage-design.md).
-- **PySide6 GUI** — `deckslots gui` launches a masonry-layout deck builder with drag-and-drop, card images, and a deck-library sidebar. Install with `pip install deckslots[gui]`. Full design spec: [`docs/design/design-handoff.md`](design/design-handoff.md). Shipped through Phases 2–4 of [`plans/2026-04-25-db-and-gui-roadmap.md`](plans/2026-04-25-db-and-gui-roadmap.md).
+- **SQLite backend** — `SqliteRepository` at `$XDG_DATA_HOME/deckslots/library.db`; opt-in for the REPL via `storage_backend = "sqlite"` in `config.json`. The GUI always uses SQLite. Multi-deck REPL commands: `decklist list`, `decklist switch`, `decklist delete`.
+- **PySide6 GUI** — `deckslots gui` launches a masonry-layout deck builder with drag-and-drop, card images, and a deck-library sidebar. Install with `pip install deckslots[gui]`. Full design spec: [`docs/design/design-handoff.md`](design/design-handoff.md).
 
 ---
 

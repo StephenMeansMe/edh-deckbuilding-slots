@@ -7,7 +7,7 @@
 ## Repository Structure
 
 - `bin/` — Standalone CLI entrypoint
-- `docs/` — ROADMAP, domain-concepts.md, plans/, design/
+- `docs/` — ROADMAP, domain-concepts.md, design/
 - `docs/design/` — GUI design handoff: hi-fi prototype (`Big Bridge Energy.html`), wireframes, screenshots, and [`design-handoff.md`](docs/design/design-handoff.md) (full spec)
 - `src/deckslots/` — Source modules + CLAUDE.md (architecture, command grammar, design decisions) + `data/templates/` (built-in template assets)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`); see [tests/CLAUDE.md](tests/CLAUDE.md)
@@ -101,8 +101,7 @@ The GUI target design lives in [`docs/design/`](docs/design/):
   gh issue list --state open                     # all open work (bugs + stories)
   gh issue view <N>                              # read a specific issue
   ```
-  New user stories must be created as GitHub Issues before implementation begins — see `.claude/skills/new-user-story.md` for the format. Do not create new files in `docs/plans/` for tracking feature status; create a GitHub Issue instead.
-- **`docs/plans/` files are historical design references**, not a status board. They document the design decisions and TDD plans that guided past implementations. Their status is reflected in the linked GitHub Issues and merged PRs, not in the files themselves. Read them for architectural context; do not treat them as a to-do list.
+  New user stories must be created as GitHub Issues before implementation begins — see `.claude/skills/new-user-story.md` for the format.
 - **TDD is mandatory.** Do not skip the Red phase. Always start by writing the failing test before implementing production code.
 - **Project skills** — project-local procedures invoked via the Skill tool or `/skill-name` in Claude Code. Available in `.claude/skills/`: `new-user-story` (GitHub Issue format), `implement-decklist-mode` (Partner/Background/Companion pattern), `add-repl-command` (handler + 01-startup.md update), `run-tests` (pytest + scrut invocations, worktree caveat), `bump-version` (all locations to update when cutting a release), `merge-pr` (squash merge + local main reset).
 - **Testing details** (test split, scrut format, naming conventions): see [`tests/CLAUDE.md`](tests/CLAUDE.md).
