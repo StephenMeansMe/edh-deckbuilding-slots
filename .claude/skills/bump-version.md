@@ -32,6 +32,8 @@ The tag prefix is `v` (e.g. `v0.3.0`). Tag after committing the CHANGELOG update
 ## Order of Operations
 
 ```
+0. Run the full test suite (must be green before tagging):
+   uv run pytest && scrut test --work-directory . tests/functional/
 1. Edit pyproject.toml   → version = "X.Y.Z"
 2. Edit CHANGELOG.md     → add ## [X.Y.Z] entry
 3. git add + git commit  → "docs: add CHANGELOG entry for vX.Y.Z"

@@ -25,6 +25,15 @@ uv run pytest tests/test_commands.py::TestDecklistEnableCompanion               
 uv run pytest tests/test_commands.py::TestDecklistEnableCompanion::test_returns_confirmation  # single test
 ```
 
+## pytest-qt (GUI tests)
+
+```bash
+QT_QPA_PLATFORM=offscreen uv run pytest tests/gui/    # headless (required in CI; works locally)
+uv run pytest tests/gui/                              # with a real display (local only)
+```
+
+GUI tests live in `tests/gui/`. Each module starts with `pytest.importorskip("PySide6")` and skips cleanly if the `[gui]` extra is not installed. Install it with `uv sync --extra gui`.
+
 ## scrut (functional / black-box REPL)
 
 ```bash
@@ -46,7 +55,17 @@ cd .worktrees/my-branch && uv run pytest
 uv run pytest
 ```
 
-The `_deckslots.pth` file at `.venv/lib/python3.12/site-packages/_deckslots.pth` must point to the **worktree's** `src/` while developing, and be restored to the main `src/` after PR creation.
+The `_deckslots.pth` file at `.venv/lib/python3.12/site-packages/_deckslots.pth` must point to the **worktree's** `src/` while developing, and be restored to the main `src/` after PR creation:
+
+```bash
+# While developing on a worktree branch, point .pth to the worktree:
+echo "$(git rev-parse --show-toplevel)/.worktrees/<branch>/src" \
+  > .venv/lib/python3.12/site-packages/_deckslots.pth
+
+# After PR merge, restore to main src/:
+echo "$(git rev-parse --show-toplevel)/src" \
+  > .venv/lib/python3.12/site-packages/_deckslots.pth
+```
 
 ## Linting and Type Checking
 
@@ -70,4 +89,5 @@ uv run ty check
 | Framework | Tests |
 |-----------|-------|
 | pytest | Unit and integration: models, handlers, parsers |
+| pytest-qt | GUI widget behavior (requires `[gui]` extra; skips if PySide6 absent) |
 | scrut | Black-box REPL scenarios: full command flows, save/load round-trips |
