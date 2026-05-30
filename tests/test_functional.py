@@ -17,7 +17,10 @@ from deckslots.cli import main
 
 def _run(commands: str, state_home: Path) -> str:
     """Invoke deckslots with piped stdin and return stdout."""
-    runner = CliRunner(env={"XDG_STATE_HOME": str(state_home)})
+    runner = CliRunner(env={
+        "XDG_STATE_HOME": str(state_home),
+        "XDG_CACHE_HOME": str(state_home / "_cache"),
+    })
     result = runner.invoke(main, input=commands)
     return result.output
 

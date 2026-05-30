@@ -7,7 +7,7 @@
 ## Repository Structure
 
 - `bin/` — Standalone CLI entrypoint
-- `docs/` — ROADMAP, domain-concepts.md, plans/, design/
+- `docs/` — ROADMAP, domain-concepts.md, design/
 - `docs/design/` — GUI design handoff: hi-fi prototype (`Big Bridge Energy.html`), wireframes, screenshots, and [`design-handoff.md`](docs/design/design-handoff.md) (full spec)
 - `src/deckslots/` — Source modules + CLAUDE.md (architecture, command grammar, design decisions) + `data/templates/` (built-in template assets)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`); see [tests/CLAUDE.md](tests/CLAUDE.md)

@@ -44,8 +44,8 @@ def _run(
     env: dict[str, str] = {"XDG_STATE_HOME": str(state_home)}
     if data_home is not None:
         env["XDG_DATA_HOME"] = str(data_home)
-    if cache_home is not None:
-        env["XDG_CACHE_HOME"] = str(cache_home)
+    isolated_cache = cache_home if cache_home is not None else state_home / "_cache"
+    env["XDG_CACHE_HOME"] = str(isolated_cache)
     if config_home is not None:
         env["XDG_CONFIG_HOME"] = str(config_home)
     runner = CliRunner(env=env)
