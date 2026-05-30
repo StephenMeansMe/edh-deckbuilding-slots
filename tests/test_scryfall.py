@@ -59,8 +59,8 @@ SPLIT_CARD = {
     ],
 }
 
-# Scryfall oracle data contains "Sol Ring // Sol Ring" (set acmm, not_legal in Commander).
-# Its face name "Sol Ring" must not overwrite the real Sol Ring's canonical entry.
+# "Sol Ring // Sol Ring" (set acmm, not_legal) — face name "Sol Ring" must not
+# overwrite the real Sol Ring's canonical entry.
 SOL_RING_ILLEGAL_REPRINT = {
     "name": "Sol Ring // Sol Ring",
     "legalities": {"commander": "not_legal"},
@@ -328,7 +328,7 @@ class TestConfig:
 
 class TestFetchBulkDataUrl:
     def test_sends_accept_json_header(self, monkeypatch):
-        """Scryfall (via Cloudflare) rejects requests without Accept: application/json."""
+        """Cloudflare rejects Scryfall requests without Accept: application/json."""
         from deckslots import scryfall
 
         captured: dict = {}
@@ -354,7 +354,7 @@ class TestFetchBulkDataUrl:
         scryfall.fetch_bulk_data_url()
 
         req = captured["req"]
-        assert hasattr(req, "get_header"), "urlopen must be called with a Request object"
+        assert hasattr(req, "get_header"), "urlopen must receive a Request object"
         assert req.get_header("Accept") == "application/json"
 
     def test_returns_download_uri(self, monkeypatch):

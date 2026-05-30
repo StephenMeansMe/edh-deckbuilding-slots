@@ -22,12 +22,15 @@ def build_name_index(cards: list[dict]) -> dict[str, dict]:
 
     Multi-face cards (DFCs, split cards) are indexed by their full combined name
     AND by each individual face name. All entries point to the same card object.
+    Canonical names always win over face names so that cards like
+    "Sol Ring // Sol Ring" (not_legal) never shadow the real Sol Ring (legal).
     """
     index: dict[str, dict] = {}
     for card in cards:
-        index[card["name"].lower()] = card
         for face in card.get("card_faces", []):
             index[face["name"].lower()] = card
+    for card in cards:
+        index[card["name"].lower()] = card
     return index
 
 
