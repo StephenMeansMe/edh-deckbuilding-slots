@@ -36,34 +36,40 @@ The MVP is a deliberately narrow slice: a working CLI tool that lets a user orga
 
 ---
 
+## Recently Shipped
+
+- **SQLite backend** — `SqliteRepository` at `$XDG_DATA_HOME/deckslots/library.db`; opt-in for the REPL via `storage_backend = "sqlite"` in `config.json`. The GUI always uses SQLite. Multi-deck REPL commands: `decklist list`, `decklist switch`, `decklist delete`. Design: [`plans/2026-04-25-database-storage-design.md`](plans/2026-04-25-database-storage-design.md).
+- **PySide6 GUI** — `deckslots gui` launches a masonry-layout deck builder with drag-and-drop, card images, and a deck-library sidebar. Install with `pip install deckslots[gui]`. Full design spec: [`docs/design/design-handoff.md`](design/design-handoff.md). Shipped through Phases 2–4 of [`plans/2026-04-25-db-and-gui-roadmap.md`](plans/2026-04-25-db-and-gui-roadmap.md).
+
+---
+
 ## Future Releases
 
-Features below are organized by theme. No specific release schedule is attached; they will be prioritized as the project matures.
+Features below are organized by theme. GitHub issue numbers are linked for implementation status (open = pending, closed = shipped).
+
+### GUI quality of life
+
+- **Card search / typeahead** ([#103](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/103)) — Omnibar (⌘K) to search cards from the local Scryfall oracle and drag results into category tiles. Phase 3.2 of the DB+GUI roadmap.
+- **Undo/redo** ([#104](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/104)) — Ctrl+Z / Ctrl+Shift+Z to reverse card moves and additions, built on the existing `DomainEvent` log. Phase 3.3.
+- **Mana-curve and color-identity panel** ([#105](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/105)) — Bar chart and color breakdown in the sidebar, derived from Scryfall oracle data. Phase 3.4.
+- **Drag to reorder categories** ([#84](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/84)) — Reorder category tiles by dragging their headers.
 
 ### Non-exclusive categories
 
-- Allow a card to appear in **multiple** category slots simultaneously (e.g., a card that is both "Ramp" and "Draw").
-- Each card must still have one **primary** category slot; additional appearances are marked as secondary.
+- Allow a card to appear in **multiple** category slots simultaneously ([#106](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/106)) — e.g., a card that is both "Ramp" and "Draw".
+- Each card retains one **primary** category slot; additional appearances are marked as secondary.
 - The app visually distinguishes primary vs. secondary placements.
 - Total slot count may exceed 100 when non-exclusive mode is active.
 
 ### Export formats
 
-- **CSV export** — Export decklists as CSV files.
+- **CSV export** ([#107](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/107)) — `decklist export --format csv` writes a CSV with card name, quantity, category, and (when Scryfall data is available) color identity and mana value.
 
 ### Scryfall integration (extended)
 
 - Pull richer card data (art, oracle text, pricing, etc.) from the [Scryfall API](https://scryfall.com/docs/api) beyond the current name/legality validation.
 
-### Storage
-
-- **Database-backed persistence** — Replace or supplement flat text files with a local database for richer querying and history. Design: [`plans/2026-04-25-database-storage-design.md`](plans/2026-04-25-database-storage-design.md) (stdlib `sqlite3` at `$XDG_DATA_HOME/deckslots/library.db`; opt-in via `config.json`).
-
 ### Platform and interface
 
-- **GUI** — PySide6 desktop app, opt-in extra (`pip install deckslots[gui]`), launched via `deckslots gui`. Design: [`plans/2026-04-25-gui-pyside6-design.md`](plans/2026-04-25-gui-pyside6-design.md).
 - **Non-Linux targets** — macOS and Windows support.
-
-### Roadmap for Database + GUI
-
-See [`plans/2026-04-25-db-and-gui-roadmap.md`](plans/2026-04-25-db-and-gui-roadmap.md) for the phased ordering (shared service-layer + repository refactor → SQLite → GUI MVP → QoL → hardening).
+- **Multi-session REPL** ([#75](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/75)) — Manage multiple open decklists in a single REPL session with `session open/switch/close/list` commands.

@@ -50,11 +50,11 @@ existing invariants.
 
 ### Phase 3 — Quality of life
 
-- **3.1** Deck-library sidebar (uses `repository.list()`).
-- **3.2** Card search/typeahead from the Scryfall index, drag-from-search.
+- **3.1** Deck-library sidebar (uses `repository.list()`). ✅ Shipped in Phase 2/4.
+- **3.2** Card search/typeahead from the Scryfall index, drag-from-search. → [#103](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/103)
 - **3.3** Undo/redo built on a `DomainEvent` log persisted in a new `events`
-  table.
-- **3.4** Mana-curve / color-identity panel (cheap once cards are in SQL).
+  table. → [#104](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/104)
+- **3.4** Mana-curve / color-identity panel (cheap once cards are in SQL). → [#105](https://github.com/StephenMeansMe/edh-deckbuilding-slots/issues/105)
 
 ### Phase 4 — Hardening ✅
 
