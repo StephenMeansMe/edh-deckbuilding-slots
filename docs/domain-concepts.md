@@ -47,6 +47,8 @@ Enabling companion mode (`decklist enable-companion`) creates the Companion cate
 
 When companion mode is enabled but the slot is empty, the REPL warns the user (`companion_slot_empty` property). The companion card appears in its own `Companion` section in both exported files and saved files, between the `Commander` section and `Maindeck`.
 
+A card in the Companion slot cannot simultaneously occupy the Commander slot — the two are distinct fixed zones.
+
 ## Basic Lands
 
 The **Basic Lands** category is fixed and uncapped. It is the only category that allows **duplicate card names**. It is restricted to the 12 valid basic land names via an `allowed_cards` whitelist (enforced by `Decklist.add_card()`):
@@ -85,3 +87,7 @@ The exclusivity rule is enforced by `Decklist.add_card()`: before adding a card 
 4. **Singleton exclusivity** — for capped categories, the card must not already exist in any other capped category.
 
 `Decklist.move_card()` is a model method that performs its own exclusivity check (it cannot call `add_card` internally, because the card is still in the source category at validation time, which would cause a spurious "already in decklist" failure). `Decklist.remove_card()` moves a card to the Uncategorized `UncappedCategory`, so exclusivity does not apply. `Decklist.delete_card()` removes permanently without any exclusivity concern.
+
+## Scryfall Validation
+
+When Scryfall validation is enabled (`is_validation_enabled()` returns `True`), the service layer checks that the card name is a recognized Magic: The Gathering card name before the model's four add_card checks run. An unrecognized name is **accepted with a non-blocking warning** (the card is still added); it is never rejected outright. This validation is opt-out — it defaults to enabled but can be disabled via `config.json`.

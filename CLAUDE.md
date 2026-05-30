@@ -7,7 +7,7 @@
 ## Repository Structure
 
 - `bin/` — Standalone CLI entrypoint
-- `docs/` — ROADMAP, domain-concepts.md, plans/, design/
+- `docs/` — ROADMAP, domain-concepts.md, design/
 - `docs/design/` — GUI design handoff: hi-fi prototype (`Big Bridge Energy.html`), wireframes, screenshots, and [`design-handoff.md`](docs/design/design-handoff.md) (full spec)
 - `src/deckslots/` — Source modules + CLAUDE.md (architecture, command grammar, design decisions) + `data/templates/` (built-in template assets)
 - `tests/` — pytest unit/integration tests + scrut functional CLI tests (`tests/functional/`); see [tests/CLAUDE.md](tests/CLAUDE.md)
@@ -42,6 +42,7 @@ Never write production code without a failing test (import errors count).
 
 ```bash
 uv sync                      # Install all dependencies (creates .venv)
+uv sync --extra gui          # Also install optional GUI dependencies (PySide6)
 uv run pytest                # Run unit/integration tests
 uv run pytest -x             # Stop on first failure (useful during Red phase)
 uv run ruff check .          # Lint
@@ -52,6 +53,8 @@ uv run deckslots             # Run the app (console script)
 
 scrut test --work-directory . tests/functional/  # Functional CLI tests
 ```
+
+> **First run:** `uv run deckslots` will prompt to download Scryfall oracle data (~70 MB, network required). The cache lives at `$XDG_CACHE_HOME/deckslots/oracle_cards.json` and is reused on subsequent runs (max age: 7 days).
 
 ## Conventions
 
@@ -92,16 +95,16 @@ The GUI target design lives in [`docs/design/`](docs/design/):
 
 ## Notes for AI Assistants
 
-- **User stories live as GitHub Issues** (label: `user-story`) on `StephenMeansMe/edh-deckbuilding-slots`. Before planning any feature, fetch the relevant stories:
+- **GitHub Issues are the authoritative source for implementation status.** Open = pending; closed = shipped. Before planning any feature, check for an existing issue:
   ```bash
-  gh issue list --label user-story --state all   # list all stories
-  gh issue view <N>                               # read a specific story
+  gh issue list --label user-story --state all   # list all user stories
+  gh issue list --state open                     # all open work (bugs + stories)
+  gh issue view <N>                              # read a specific issue
   ```
   New user stories must be created as GitHub Issues before implementation begins — see `.claude/skills/new-user-story.md` for the format.
 - **TDD is mandatory.** Do not skip the Red phase. Always start by writing the failing test before implementing production code.
-- **Project skills** in `.claude/skills/`: `new-user-story` (GitHub Issue format), `implement-decklist-mode` (Partner/Background/Companion pattern), `add-repl-command` (handler + 01-startup.md update), `run-tests` (pytest + scrut invocations, worktree caveat), `bump-version` (all locations to update when cutting a release).
+- **Project skills** — project-local procedures invoked via the Skill tool or `/skill-name` in Claude Code. Available in `.claude/skills/`: `new-user-story` (GitHub Issue format), `implement-decklist-mode` (Partner/Background/Companion pattern), `add-repl-command` (handler + 01-startup.md update), `run-tests` (pytest + scrut invocations, worktree caveat), `bump-version` (all locations to update when cutting a release), `merge-pr` (squash merge + local main reset).
 - **Testing details** (test split, scrut format, naming conventions): see [`tests/CLAUDE.md`](tests/CLAUDE.md).
 - Use `uv run` to run commands; `uv add` / `uv add --dev` to manage dependencies.
 - Keep this file and its sub-`CLAUDE.md` files updated as the project evolves.
-- **Never use `git stash` to check pre-existing errors.** Stash saves uncommitted changes and `git stash drop` permanently discards them — any edits not yet committed will be lost. To compare the current branch against main, use `git diff main -- <file>` or temporarily checkout a file with `git show main:<path>` and read it separately. If you must stash (e.g. to run a clean baseline check), always `git stash pop` before `git stash drop`, and never drop the stash if the pop fails.
-- **Commit lint/type fixes incrementally.** When fixing ruff or ty errors across a gate check, commit after each fixable batch (auto-fix, then manual fixes) so that a failed `git stash` or accidental revert cannot undo all in-progress work.
+- **Commit lint/type fixes incrementally.** When fixing ruff or ty errors across a gate check, commit after each fixable batch (auto-fix, then manual fixes) so that a failed revert cannot undo all in-progress work.

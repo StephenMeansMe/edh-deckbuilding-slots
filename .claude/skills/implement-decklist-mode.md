@@ -35,6 +35,12 @@ If none exists for this mode, use the `new-user-story` skill first.
 
 ---
 
+## Phases to Skip
+
+If this mode has **no REPL warning condition** (no persistent `@property` that triggers a warning) and **no new save-format section**, Phases 3 and 4 can be skipped. Slot-expansion modes that only grow the Commander category (future partner variants) often fit this pattern. Companion-style modes — which create a separate fixed category with their own save/export section and REPL warning — need all four phases.
+
+---
+
 ## Phase 1 — Model Layer (TDD)
 
 ### Step 1: Write failing pytest
@@ -125,7 +131,7 @@ if session.decklist is not None and session.decklist.X_property:
     click.echo("Warning: ...")
 ```
 
-### Step 10: Update save/load (`src/deckslots/commands.py`)
+### Step 10: Update save/load (`src/deckslots/storage.py`; re-exported from `commands.py`)
 
 - `_format_save_file`: emit the section heading and cards when mode is enabled
 - `_parse_save_file`: recognise the heading; restore the flag and category
@@ -173,7 +179,7 @@ feat: REPL warning, save/load, export/import, and functional tests for X mode
 | Model | `src/deckslots/models.py`, `tests/test_models.py` |
 | Handlers | `src/deckslots/commands.py`, `tests/test_commands.py` |
 | REPL warning | `src/deckslots/repl.py` |
-| Save/load | `src/deckslots/commands.py` (`_format_save_file`, `_parse_save_file`) |
+| Save/load | `src/deckslots/storage.py` (`_format_save_file`, `_parse_save_file`; re-exported from `commands.py`) |
 | Export/import | `src/deckslots/commands.py` (`_format_export_file`, `_parse_import_file`) |
 | Functional tests | `tests/functional/NN-X-mode.md`, `tests/functional/01-startup.md` |
 
