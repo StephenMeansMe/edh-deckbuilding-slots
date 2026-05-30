@@ -59,6 +59,14 @@ SPLIT_CARD = {
     ],
 }
 
+# "Sol Ring // Sol Ring" (set acmm, not_legal) — face name "Sol Ring" must not
+# overwrite the real Sol Ring's canonical entry.
+SOL_RING_ILLEGAL_REPRINT = {
+    "name": "Sol Ring // Sol Ring",
+    "legalities": {"commander": "not_legal"},
+    "card_faces": [{"name": "Sol Ring"}, {"name": "Sol Ring"}],
+}
+
 
 # ---------------------------------------------------------------------------
 # build_name_index
@@ -99,6 +107,17 @@ class TestBuildNameIndex:
         assert "fire" in index
         assert "ice" in index
         assert "fire // ice" in index
+
+    def test_canonical_name_wins_over_face_name_collision(self):
+        # Real Sol Ring (legal) then the acmm reprint (not_legal) whose face name
+        # "Sol Ring" would overwrite the canonical entry if processed last.
+        index = build_name_index([SOL_RING, SOL_RING_ILLEGAL_REPRINT])
+        assert index["sol ring"]["legalities"]["commander"] == "legal"
+
+    def test_canonical_name_wins_regardless_of_input_order(self):
+        # Same assertion with reversed input order — reprint first, real second.
+        index = build_name_index([SOL_RING_ILLEGAL_REPRINT, SOL_RING])
+        assert index["sol ring"]["legalities"]["commander"] == "legal"
 
 
 # ---------------------------------------------------------------------------
@@ -309,7 +328,7 @@ class TestConfig:
 
 class TestFetchBulkDataUrl:
     def test_sends_accept_json_header(self, monkeypatch):
-        """Scryfall (via Cloudflare) rejects requests without Accept: application/json."""
+        """Cloudflare rejects Scryfall requests without Accept: application/json."""
         from deckslots import scryfall
 
         captured: dict = {}
@@ -335,7 +354,7 @@ class TestFetchBulkDataUrl:
         scryfall.fetch_bulk_data_url()
 
         req = captured["req"]
-        assert hasattr(req, "get_header"), "urlopen must be called with a Request object"
+        assert hasattr(req, "get_header"), "urlopen must receive a Request object"
         assert req.get_header("Accept") == "application/json"
 
     def test_returns_download_uri(self, monkeypatch):
